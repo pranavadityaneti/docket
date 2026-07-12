@@ -133,6 +133,125 @@ function inr(n: number) {
   return "₹" + n.toLocaleString("en-IN");
 }
 
+// Entity-type-aware document checklist (our guided touch — Gain doesn't preview
+// docs on lead creation). Counts reflect India-lender best-practice, cross-checked
+// against Gain's blueprints + web research — see
+// docs/docket-document-checklist-comparison.html. Several items are multi-document
+// (2 yrs ITR, 12 mo statements, per-director/partner KYC), so real files are higher.
+const DOC_HINTS: Record<EntityType, string[]> = {
+  Proprietorship: [
+    "Passport photo",
+    "Proprietor PAN",
+    "Proprietor Aadhaar",
+    "Residence address proof",
+    "Office address proof",
+    "Business proof (Shop Act / Udyam)",
+    "ITR + computation (2 yrs)",
+    "Form 3CB/3CD + audited B/S (2 yrs)",
+    "Current-A/c statements (12 mo)",
+    "GST certificate",
+    "GSTR-3B (12 mo)",
+    "Udyam / MSME cert",
+    "Existing loan details",
+    "Property ownership proof",
+    "Collateral docs (if secured)",
+  ],
+  Partnership: [
+    "Firm PAN",
+    "Partnership deed",
+    "Partnership registration cert",
+    "All partners' PAN",
+    "All partners' Aadhaar",
+    "Partners' photos",
+    "Managing-partner authority letter",
+    "Office address proof",
+    "Last-2-yrs financials",
+    "ITR (2 yrs)",
+    "Bank statements — Current/CC/OD (12 mo)",
+    "GST certificate",
+    "GSTR-3B (12 mo)",
+    "Udyam cert",
+    "Property ownership proof",
+    "Existing loan details",
+    "Collateral docs (if secured)",
+  ],
+  "Private Limited": [
+    "Company PAN",
+    "Certificate of Incorporation",
+    "MOA",
+    "AOA",
+    "Board resolution",
+    "All directors' PAN",
+    "All directors' Aadhaar",
+    "Directors' photos",
+    "List of directors (DIN)",
+    "Shareholding pattern",
+    "Office address proof",
+    "Company ITR (2 yrs)",
+    "Form 3CB + audited financials (2 yrs)",
+    "Current-A/c statements (12 mo)",
+    "GST certificate",
+    "GSTR-3B (12 mo)",
+    "Udyam / MSME cert",
+    "Existing loan details",
+    "Collateral docs (if secured)",
+  ],
+  "Public Limited": [
+    "Company PAN",
+    "Certificate of Incorporation",
+    "MOA",
+    "AOA",
+    "Board resolution",
+    "All directors' PAN",
+    "All directors' Aadhaar",
+    "Directors' photos",
+    "List of directors (DIN)",
+    "Shareholding pattern",
+    "Office address proof",
+    "Company ITR (2 yrs)",
+    "Form 3CB + audited financials (2 yrs)",
+    "Current-A/c statements (12 mo)",
+    "GST certificate",
+    "GSTR-3B (12 mo)",
+    "Udyam / MSME cert",
+    "Existing loan details",
+    "Collateral docs (if secured)",
+    "Annual report / prospectus",
+    "Auditor's report + MCA filings",
+  ],
+  LLP: [
+    "LLP PAN",
+    "Certificate of Incorporation",
+    "LLP Agreement (Form 3)",
+    "All designated partners' PAN",
+    "All designated partners' Aadhaar",
+    "DPIN (designated partners)",
+    "DSC (authorized signatory)",
+    "Partners' photos",
+    "Office address proof",
+    "Rent agreement + NOC (if rented)",
+    "Last-2-yrs financials",
+    "ITR (2 yrs)",
+    "Bank statements (12 mo)",
+    "GST certificate",
+    "GSTR-3B (12 mo)",
+    "Udyam cert",
+    "Existing loan details",
+  ],
+};
+
+// Auto-format a PAN as it's typed: uppercase, strip junk, enforce AAAAA9999A structure.
+function formatPan(raw: string): string {
+  const s = raw.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10);
+  let out = "";
+  for (let i = 0; i < s.length; i++) {
+    const wantsLetter = i < 5 || i === 9;
+    if (wantsLetter ? /[A-Z]/.test(s[i]) : /[0-9]/.test(s[i])) out += s[i];
+    else break;
+  }
+  return out;
+}
+
 /* ------------------------------- Workflow selector ------------------------------- */
 
 function WorkflowSelect() {
@@ -269,9 +388,10 @@ function CreateLeadDialog({
     setErrors({});
   }
 
-  function close() {
-    reset();
-    onOpenChange(false);
+  // Reset on ANY close (✕ / Escape / backdrop / Cancel), so re-opening starts clean.
+  function handleOpenChange(next: boolean) {
+    if (!next) reset();
+    onOpenChange(next);
   }
 
   function submit() {
@@ -298,12 +418,11 @@ function CreateLeadDialog({
       owner: "Demo Admin",
       activity: "just now",
     });
-    reset();
-    onOpenChange(false);
+    handleOpenChange(false);
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="gap-0 p-0">
         <DialogHeader className="border-b pr-10">
           <DialogTitle>New lead</DialogTitle>
@@ -324,7 +443,7 @@ function CreateLeadDialog({
               <Field label="PAN" error={errors.pan}>
                 <Input
                   value={pan}
-                  onChange={(e) => setPan(e.target.value.toUpperCase())}
+                  onChange={(e) => setPan(formatPan(e.target.value))}
                   placeholder="ABCDE1234F"
                   maxLength={10}
                 />
@@ -334,6 +453,25 @@ function CreateLeadDialog({
               </Field>
             </div>
           </FormSection>
+
+          <div className="mb-5 rounded-lg border bg-muted/40 p-3">
+            <div className="flex items-center gap-1.5 text-xs font-medium text-foreground">
+              <Icon name="fact_check" size={15} className="text-primary" />
+              <span>
+                <span className="text-primary">{DOC_HINTS[entityType].length} documents</span> we&rsquo;ll collect for a {entityType}
+              </span>
+            </div>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {DOC_HINTS[entityType].map((d) => (
+                <span
+                  key={d}
+                  className="rounded-full border bg-background px-2 py-0.5 text-[11px] text-muted-foreground"
+                >
+                  {d}
+                </span>
+              ))}
+            </div>
+          </div>
 
           <FormSection title="Loan ask">
             <div className="grid grid-cols-2 gap-3">
@@ -365,7 +503,7 @@ function CreateLeadDialog({
         </div>
 
         <DialogFooter className="flex-row justify-end gap-2 border-t">
-          <Button variant="outline" onClick={close}>
+          <Button variant="outline" onClick={() => handleOpenChange(false)}>
             Cancel
           </Button>
           <Button onClick={submit} className="gap-1.5">
@@ -553,6 +691,16 @@ export default function LeadsPage() {
   const [view, setView] = React.useState<View>("All Leads");
   const [leads, setLeads] = React.useState<Lead[]>(SEED_LEADS);
   const [createOpen, setCreateOpen] = React.useState(false);
+
+  // Open the create modal when arriving from the Home's "New lead" (/leads?new=1),
+  // then tidy the URL back to /leads.
+  React.useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("new") === "1") {
+      setCreateOpen(true);
+      window.history.replaceState(null, "", "/leads");
+    }
+  }, []);
 
   return (
     <div className="mx-auto flex max-w-7xl flex-col gap-5">

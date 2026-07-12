@@ -6,8 +6,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
+import { cn } from "@/lib/utils";
+import Link from "next/link";
 
 /* ------------------------------------------------------------------ *
  * Home = guided next-best-action cockpit. The opposite of Gain's empty
@@ -72,9 +74,9 @@ export default function HomePage() {
           <Button variant="outline" className="gap-1.5">
             <Icon name="auto_awesome" size={18} /> Ask Copilot
           </Button>
-          <Button className="gap-1.5">
+          <Link href="/leads?new=1" className={cn(buttonVariants(), "gap-1.5")}>
             <Icon name="add" size={18} /> New lead
-          </Button>
+          </Link>
         </div>
       </div>
 
