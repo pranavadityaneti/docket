@@ -15,13 +15,21 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Icon } from "@/components/ui/icon";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 /* ------------------------------------------------------------------ *
  * Schema mirrors the live Gain "Business Loan" workflow (see
  * docs/gain-parity-audit.html): the exact 12 board stages, the real
  * lead fields (loan_type / entity_type / source enums), and the six
  * views. "Portal" is spelled correctly here (Gain's enum has a "Protal"
- * typo — we intentionally correct it).
+ * typo). The +Lead modal creates leads into the pipeline at Pending.
  * ------------------------------------------------------------------ */
 
 const WORKFLOWS = ["Business Loan"] as const;
@@ -76,6 +84,16 @@ type EntityType =
   | "LLP";
 type Source = "Portal" | "Whatsapp" | "Email" | "Referral" | "Website" | "Other";
 
+const LOAN_TYPES: LoanType[] = ["SME Term Loan", "LAP", "Working Capital", "Top-up"];
+const ENTITY_TYPES: EntityType[] = [
+  "Proprietorship",
+  "Partnership",
+  "Private Limited",
+  "Public Limited",
+  "LLP",
+];
+const SOURCES: Source[] = ["Portal", "Whatsapp", "Email", "Referral", "Website", "Other"];
+
 type Lead = {
   id: string;
   name: string;
@@ -90,7 +108,7 @@ type Lead = {
   activity: string;
 };
 
-const LEADS: Lead[] = [
+const SEED_LEADS: Lead[] = [
   { id: "L-1042", name: "Zoya Khan", company: "Khan Jewellers", loanType: "LAP", entityType: "Private Limited", amount: 15000000, source: "Website", monthlyTurnover: 4200000, stage: "PVT LTD Document Collection", owner: "Rahul Verma", activity: "1h ago" },
   { id: "L-1041", name: "Imran Sheikh", company: "Sheikh Motors", loanType: "Working Capital", entityType: "Proprietorship", amount: 3200000, source: "Website", monthlyTurnover: 900000, stage: "Pending", owner: "Rahul Verma", activity: "20m ago" },
   { id: "L-1040", name: "Farah Ali", company: "Ali Exports", loanType: "SME Term Loan", entityType: "Partnership", amount: 4700000, source: "Website", monthlyTurnover: 1500000, stage: "Pending", owner: "Vikram Rao", activity: "45m ago" },
@@ -122,11 +140,7 @@ function WorkflowSelect() {
   const [selected, setSelected] = React.useState<string>(WORKFLOWS[0]);
   return (
     <div className="relative">
-      <Button
-        variant="outline"
-        className="gap-2"
-        onClick={() => setOpen((o) => !o)}
-      >
+      <Button variant="outline" className="gap-2" onClick={() => setOpen((o) => !o)}>
         {selected}
         <Icon name="expand_more" size={16} className="text-muted-foreground" />
       </Button>
@@ -162,6 +176,207 @@ function WorkflowSelect() {
   );
 }
 
+/* ------------------------------- Create-lead slide-over ------------------------------- */
+
+const FIELD_CLASS =
+  "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50";
+
+function FormSection({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="mb-5">
+      <div className="mb-2.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        {title}
+      </div>
+      <div className="flex flex-col gap-3">{children}</div>
+    </div>
+  );
+}
+
+function Field({
+  label,
+  error,
+  required,
+  children,
+}: {
+  label: string;
+  error?: string;
+  required?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex min-w-0 flex-col gap-1.5">
+      <span className="text-sm font-medium">
+        {label}
+        {required ? <span className="text-red-500"> *</span> : null}
+      </span>
+      {children}
+      {error ? <span className="text-xs text-red-600">{error}</span> : null}
+    </div>
+  );
+}
+
+function SelectField({
+  value,
+  onChange,
+  options,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  options: readonly string[];
+}) {
+  return (
+    <select value={value} onChange={(e) => onChange(e.target.value)} className={FIELD_CLASS}>
+      {options.map((o) => (
+        <option key={o} value={o}>
+          {o}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+function CreateLeadDialog({
+  open,
+  onOpenChange,
+  onCreate,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  onCreate: (lead: Lead) => void;
+}) {
+  const [name, setName] = React.useState("");
+  const [company, setCompany] = React.useState("");
+  const [pan, setPan] = React.useState("");
+  const [loanType, setLoanType] = React.useState<LoanType>("SME Term Loan");
+  const [entityType, setEntityType] = React.useState<EntityType>("Proprietorship");
+  const [amount, setAmount] = React.useState("");
+  const [turnover, setTurnover] = React.useState("");
+  const [source, setSource] = React.useState<Source>("Portal");
+  const [funds, setFunds] = React.useState("");
+  const [errors, setErrors] = React.useState<Record<string, string>>({});
+  const idRef = React.useRef(1043);
+
+  function reset() {
+    setName("");
+    setCompany("");
+    setPan("");
+    setLoanType("SME Term Loan");
+    setEntityType("Proprietorship");
+    setAmount("");
+    setTurnover("");
+    setSource("Portal");
+    setFunds("");
+    setErrors({});
+  }
+
+  function close() {
+    reset();
+    onOpenChange(false);
+  }
+
+  function submit() {
+    const errs: Record<string, string> = {};
+    if (!name.trim()) errs.name = "Borrower name is required.";
+    if (!company.trim()) errs.company = "Company name is required.";
+    const amt = Number(amount);
+    if (!amount || Number.isNaN(amt) || amt <= 0) errs.amount = "Enter a valid amount.";
+    if (pan && !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(pan.trim().toUpperCase()))
+      errs.pan = "PAN must look like ABCDE1234F.";
+    setErrors(errs);
+    if (Object.keys(errs).length) return;
+
+    onCreate({
+      id: "L-" + idRef.current++,
+      name: name.trim(),
+      company: company.trim(),
+      loanType,
+      entityType,
+      amount: amt,
+      source,
+      monthlyTurnover: Number(turnover) || 0,
+      stage: "Pending",
+      owner: "Demo Admin",
+      activity: "just now",
+    });
+    reset();
+    onOpenChange(false);
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="gap-0 p-0">
+        <DialogHeader className="border-b pr-10">
+          <DialogTitle>New lead</DialogTitle>
+          <DialogDescription>
+            Business Loan workflow · lands in Pending, then the AI workforce takes over.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="min-h-0 flex-1 overflow-y-auto p-4">
+          <FormSection title="Borrower">
+            <Field label="Full name" error={errors.name} required>
+              <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Ramesh Kumar" />
+            </Field>
+            <Field label="Company name" error={errors.company} required>
+              <Input value={company} onChange={(e) => setCompany(e.target.value)} placeholder="e.g. Kumar Traders" />
+            </Field>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="PAN" error={errors.pan}>
+                <Input
+                  value={pan}
+                  onChange={(e) => setPan(e.target.value.toUpperCase())}
+                  placeholder="ABCDE1234F"
+                  maxLength={10}
+                />
+              </Field>
+              <Field label="Entity type">
+                <SelectField value={entityType} onChange={(v) => setEntityType(v as EntityType)} options={ENTITY_TYPES} />
+              </Field>
+            </div>
+          </FormSection>
+
+          <FormSection title="Loan ask">
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Loan type">
+                <SelectField value={loanType} onChange={(v) => setLoanType(v as LoanType)} options={LOAN_TYPES} />
+              </Field>
+              <Field label="Loan amount (₹)" error={errors.amount} required>
+                <Input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="4000000" />
+              </Field>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Monthly turnover (₹)">
+                <Input type="number" value={turnover} onChange={(e) => setTurnover(e.target.value)} placeholder="1200000" />
+              </Field>
+              <Field label="Source">
+                <SelectField value={source} onChange={(v) => setSource(v as Source)} options={SOURCES} />
+              </Field>
+            </div>
+            <Field label="Funds needed for">
+              <textarea
+                value={funds}
+                onChange={(e) => setFunds(e.target.value)}
+                placeholder="Short note on use of funds…"
+                rows={3}
+                className={`${FIELD_CLASS} h-auto resize-none py-2`}
+              />
+            </Field>
+          </FormSection>
+        </div>
+
+        <DialogFooter className="flex-row justify-end gap-2 border-t">
+          <Button variant="outline" onClick={close}>
+            Cancel
+          </Button>
+          <Button onClick={submit} className="gap-1.5">
+            <Icon name="add" size={16} /> Create lead
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 /* ------------------------------- Placeholder tabs ------------------------------- */
 
 function Placeholder({ title, blurb, chips }: { title: string; blurb: string; chips?: string[] }) {
@@ -189,9 +404,9 @@ function Placeholder({ title, blurb, chips }: { title: string; blurb: string; ch
 
 /* ------------------------------- All Leads (table) ------------------------------- */
 
-function AllLeadsView() {
+function AllLeadsView({ leads }: { leads: Lead[] }) {
   const [query, setQuery] = React.useState("");
-  const filtered = LEADS.filter((l) => {
+  const filtered = leads.filter((l) => {
     const q = query.trim().toLowerCase();
     if (!q) return true;
     return `${l.name} ${l.company} ${l.id}`.toLowerCase().includes(q);
@@ -276,7 +491,7 @@ function AllLeadsView() {
 
       <div className="flex items-center justify-between border-t p-3">
         <span className="text-sm text-muted-foreground">
-          Showing {filtered.length} of {LEADS.length}
+          Showing {filtered.length} of {leads.length}
         </span>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" disabled>Previous</Button>
@@ -289,12 +504,12 @@ function AllLeadsView() {
 
 /* ------------------------------- Board (12-stage kanban) ------------------------------- */
 
-function BoardView() {
+function BoardView({ leads }: { leads: Lead[] }) {
   return (
     <div className="overflow-x-auto pb-2">
       <div className="flex gap-3">
         {STAGES.map((stage) => {
-          const items = LEADS.filter((l) => l.stage === stage);
+          const items = leads.filter((l) => l.stage === stage);
           return (
             <div key={stage} className="flex w-72 shrink-0 flex-col rounded-xl border bg-card">
               <div className="flex items-center justify-between gap-2 border-b px-3 py-2.5">
@@ -336,6 +551,8 @@ function BoardView() {
 
 export default function LeadsPage() {
   const [view, setView] = React.useState<View>("All Leads");
+  const [leads, setLeads] = React.useState<Lead[]>(SEED_LEADS);
+  const [createOpen, setCreateOpen] = React.useState(false);
 
   return (
     <div className="mx-auto flex max-w-7xl flex-col gap-5">
@@ -348,7 +565,7 @@ export default function LeadsPage() {
         </div>
         <div className="flex items-center gap-2">
           <WorkflowSelect />
-          <Button className="gap-1.5">
+          <Button className="gap-1.5" onClick={() => setCreateOpen(true)}>
             <Icon name="add" size={18} /> Lead
           </Button>
           <Button variant="outline" size="icon" aria-label="More options">
@@ -374,8 +591,8 @@ export default function LeadsPage() {
         ))}
       </div>
 
-      {view === "All Leads" ? <AllLeadsView /> : null}
-      {view === "Board" ? <BoardView /> : null}
+      {view === "All Leads" ? <AllLeadsView leads={leads} /> : null}
+      {view === "Board" ? <BoardView leads={leads} /> : null}
       {view === "Action" ? (
         <Placeholder
           title="Action queues"
@@ -403,6 +620,12 @@ export default function LeadsPage() {
           chips={["pan_number", "company_name", "loan_amount", "loan_type", "entity_type", "source", "monthly_turnover", "funds_needed"]}
         />
       ) : null}
+
+      <CreateLeadDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        onCreate={(lead) => setLeads((prev) => [lead, ...prev])}
+      />
     </div>
   );
 }
