@@ -1,0 +1,14 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+
+allowBuilds:
+  sharp: set this to true or false
+  unrs-resolver: set this to true or false
+
+# Approve these native deps' postinstall build scripts (sharp powers Next image
+# optimization; unrs-resolver is Next's module resolver). Explicit allowlist so
+# pnpm stops prompting on install.
+onlyBuiltDependencies:
+  - sharp
+  - unrs-resolver
