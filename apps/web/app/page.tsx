@@ -16,20 +16,13 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Users,
-  FileCheck,
-  TriangleAlert,
-  Inbox,
-  Plus,
-  ArrowUpRight,
-} from "lucide-react";
+import { Icon } from "@/components/ui/icon";
 
 const KPIS = [
-  { label: "Leads in flight", value: "342", delta: "+8% this week", icon: Users, tone: "accent" },
-  { label: "Doc completion", value: "68%", delta: "avg across active files", icon: FileCheck, tone: "neutral" },
-  { label: "SLA breaches", value: "5", delta: "this week", icon: TriangleAlert, tone: "danger" },
-  { label: "Pending reviews", value: "3", delta: "needs attention", icon: Inbox, tone: "warn" },
+  { label: "Leads in flight", value: "342", delta: "+8% this week", icon: "group", tone: "accent" },
+  { label: "Doc completion", value: "68%", delta: "avg across active files", icon: "task_alt", tone: "neutral" },
+  { label: "SLA breaches", value: "5", delta: "this week", icon: "warning", tone: "danger" },
+  { label: "Pending reviews", value: "3", delta: "needs attention", icon: "inbox", tone: "warn" },
 ] as const;
 
 const LEADS = [
@@ -72,7 +65,7 @@ export default function DashboardPage() {
           </p>
         </div>
         <Button className="gap-1.5">
-          <Plus className="size-4" /> New lead
+          <Icon name="add" size={18} /> New lead
         </Button>
       </div>
 
@@ -83,7 +76,7 @@ export default function DashboardPage() {
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">{k.label}</span>
                 <div className={`flex size-8 items-center justify-center rounded-md ${KPI_ICON_TONE[k.tone]}`}>
-                  <k.icon className="size-4" />
+                  <Icon name={k.icon} size={18} />
                 </div>
               </div>
               <div className="mt-3 text-3xl font-semibold tracking-tight tabular-nums">{k.value}</div>
@@ -100,7 +93,7 @@ export default function DashboardPage() {
             <CardDescription>Recent leads and where each file stands.</CardDescription>
             <CardAction>
               <Button variant="ghost" size="sm" className="gap-1 text-muted-foreground">
-                View all <ArrowUpRight className="size-3.5" />
+                View all <Icon name="arrow_outward" size={16} />
               </Button>
             </CardAction>
           </CardHeader>
