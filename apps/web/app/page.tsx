@@ -6,145 +6,155 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 
-const KPIS = [
-  { label: "Leads in flight", value: "342", delta: "+8% this week", icon: "group", tone: "accent" },
-  { label: "Doc completion", value: "68%", delta: "avg across active files", icon: "task_alt", tone: "neutral" },
-  { label: "SLA breaches", value: "5", delta: "this week", icon: "warning", tone: "danger" },
-  { label: "Pending reviews", value: "3", delta: "needs attention", icon: "inbox", tone: "warn" },
-] as const;
+/* ------------------------------------------------------------------ *
+ * Home = guided next-best-action cockpit. The opposite of Gain's empty
+ * dashboard-builder: on login it tells you what needs you and shows what
+ * the AI workforce handled. Mock data uses our real stages/triggers.
+ * ------------------------------------------------------------------ */
 
-const LEADS = [
-  { name: "Ramesh Kumar", biz: "Kumar Traders", product: "Term Loan", amount: "₹40,00,000", stage: "Qualifying", tone: "teal" },
-  { name: "Priya Mehta", biz: "Mehta Textiles", product: "LAP", amount: "₹1,20,00,000", stage: "Docs pending", tone: "amber" },
-  { name: "Arjun Nair", biz: "Nair Logistics", product: "Working Capital", amount: "₹25,00,000", stage: "Complete", tone: "green" },
-  { name: "Sana Shaikh", biz: "SS Enterprises", product: "Term Loan", amount: "₹18,00,000", stage: "Qualifying", tone: "teal" },
-  { name: "Vikram Rao", biz: "Rao Foods", product: "Business Loan", amount: "₹55,00,000", stage: "Dropped", tone: "muted" },
-];
+type Urgency = "high" | "medium" | "low";
 
-const CAMPAIGNS = [
-  { name: "SME Term Loan Onboarding", lender: "HDFC Bank", leads: 156, health: "Good", tone: "green" },
-  { name: "LAP Application Drive", lender: "Axis Bank", leads: 89, health: "Delayed", tone: "amber" },
-  { name: "Top-up Outreach", lender: "Bajaj Finserv", leads: 45, health: "At risk", tone: "red" },
-];
-
-const BADGE_TONE: Record<string, string> = {
-  teal: "border-primary/20 bg-primary/10 text-primary",
-  amber: "border-amber-200 bg-amber-50 text-amber-700",
-  green: "border-emerald-200 bg-emerald-50 text-emerald-700",
-  red: "border-red-200 bg-red-50 text-red-700",
-  muted: "border-border bg-muted text-muted-foreground",
+const URGENCY_DOT: Record<Urgency, string> = {
+  high: "bg-red-500",
+  medium: "bg-amber-500",
+  low: "bg-emerald-500",
 };
 
-const KPI_ICON_TONE: Record<string, string> = {
-  accent: "bg-primary/10 text-primary",
-  danger: "bg-red-50 text-red-600",
-  warn: "bg-amber-50 text-amber-600",
-  neutral: "bg-muted text-muted-foreground",
-};
+const NBA: {
+  urgency: Urgency;
+  icon: string;
+  who: string;
+  sub?: string;
+  reason: string;
+  time: string;
+  action: string;
+  actionIcon: string;
+}[] = [
+  { urgency: "high", icon: "badge", who: "Anil Kapoor", sub: "Kapoor Motors", reason: "Missing PAN — blocks the file", time: "5h", action: "Request PAN", actionIcon: "send" },
+  { urgency: "high", icon: "call", who: "Karan Malhotra", sub: "KM Retail", reason: "Auto-Follow-Up stalled · no answer in 8h", time: "8h", action: "Call", actionIcon: "call" },
+  { urgency: "medium", icon: "description", who: "3 bank statements", reason: "Failed validation — needs a human", time: "2h", action: "Review", actionIcon: "arrow_forward" },
+  { urgency: "medium", icon: "folder_open", who: "Priya Mehta", sub: "Mehta Textiles", reason: "PVT-LTD docs 2/5 · borrower idle 5h", time: "5h", action: "Nudge", actionIcon: "chat" },
+  { urgency: "medium", icon: "support_agent", who: "Deepa Iyer", sub: "Iyer Fabrics", reason: "AI escalated — borrower asked for a human", time: "6h", action: "Take over", actionIcon: "swap_horiz" },
+  { urgency: "low", icon: "verified", who: "Rohit Sharma", sub: "Sharma Steel", reason: "Approved · awaiting e-sign 9h", time: "9h", action: "Send e-sign", actionIcon: "draw" },
+];
 
-export default function DashboardPage() {
+const PULSE: { icon: string; label: string; value: string; accent?: boolean }[] = [
+  { icon: "call", label: "Calls made", value: "42" },
+  { icon: "phone_in_talk", label: "Connected", value: "8" },
+  { icon: "description", label: "Docs collected", value: "12" },
+  { icon: "mail", label: "Emails sent", value: "19" },
+  { icon: "priority_high", label: "Escalated to you", value: "5", accent: true },
+];
+
+const KPIS: { label: string; value: string; note: string; icon: string; tone: string }[] = [
+  { label: "Leads in flight", value: "342", note: "+8% this week", icon: "group", tone: "bg-primary/10 text-primary" },
+  { label: "Docs auto-cleared", value: "68%", note: "by the engine", icon: "task_alt", tone: "bg-primary/10 text-primary" },
+  { label: "SLA breaches", value: "5", note: "needs attention", icon: "warning", tone: "bg-red-50 text-red-600" },
+  { label: "Pending reviews", value: "3", note: "exceptions only", icon: "inbox", tone: "bg-amber-50 text-amber-600" },
+];
+
+export default function HomePage() {
   return (
     <div className="mx-auto flex max-w-7xl flex-col gap-6">
+      {/* Band 1 — greeting + status */}
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Command centre</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Here&rsquo;s what needs you today</h1>
           <p className="text-sm text-muted-foreground">
-            Every active loan campaign in one view — leads, documents, SLAs, and what needs a human today.
+            <span className="font-medium text-foreground">6 items</span> need you · your AI workforce cleared{" "}
+            <span className="font-medium text-foreground">73 tasks</span> today.
           </p>
         </div>
-        <Button className="gap-1.5">
-          <Icon name="add" size={18} /> New lead
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" className="gap-1.5">
+            <Icon name="auto_awesome" size={18} /> Ask Copilot
+          </Button>
+          <Button className="gap-1.5">
+            <Icon name="add" size={18} /> New lead
+          </Button>
+        </div>
       </div>
 
+      {/* Band 2 — Needs you now (hero) */}
+      <Card className="gap-0 overflow-hidden py-0">
+        <CardHeader className="border-b py-4">
+          <CardTitle className="text-base">Needs you now</CardTitle>
+          <CardDescription>Prioritised by urgency — the next move on each, decided for you.</CardDescription>
+          <CardAction>
+            <Button variant="ghost" size="sm" className="gap-1 text-muted-foreground">
+              View all <Icon name="arrow_outward" size={15} />
+            </Button>
+          </CardAction>
+        </CardHeader>
+        <CardContent className="divide-y p-0">
+          {NBA.map((item, i) => (
+            <div key={i} className="flex items-center gap-3 px-5 py-3">
+              <span className={`size-2 shrink-0 rounded-full ${URGENCY_DOT[item.urgency]}`} />
+              <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
+                <Icon name={item.icon} size={18} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-medium">
+                  {item.who}
+                  {item.sub ? <span className="font-normal text-muted-foreground"> · {item.sub}</span> : null}
+                </div>
+                <div className="truncate text-xs text-muted-foreground">{item.reason}</div>
+              </div>
+              <span className="hidden shrink-0 text-xs text-muted-foreground sm:block">{item.time}</span>
+              <Button variant="outline" size="sm" className="shrink-0 gap-1.5">
+                <Icon name={item.actionIcon} size={16} /> {item.action}
+              </Button>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+
+      {/* Band 3 — AI workforce pulse */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Your AI workforce today</CardTitle>
+          <CardDescription>What your agents handled autonomously — and what they sent you.</CardDescription>
+          <CardAction>
+            <Button variant="ghost" size="sm" className="gap-1 text-muted-foreground">
+              Activity <Icon name="arrow_outward" size={15} />
+            </Button>
+          </CardAction>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
+            {PULSE.map((p) => (
+              <div key={p.label} className="rounded-lg border p-3">
+                <div className={`flex items-center gap-1.5 text-xs ${p.accent ? "text-primary" : "text-muted-foreground"}`}>
+                  <Icon name={p.icon} size={15} /> {p.label}
+                </div>
+                <div className={`mt-1.5 text-2xl font-semibold tabular-nums ${p.accent ? "text-primary" : ""}`}>
+                  {p.value}
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Band 4 — pipeline at a glance */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {KPIS.map((k) => (
           <Card key={k.label}>
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">{k.label}</span>
-                <div className={`flex size-8 items-center justify-center rounded-md ${KPI_ICON_TONE[k.tone]}`}>
+                <div className={`flex size-8 items-center justify-center rounded-md ${k.tone}`}>
                   <Icon name={k.icon} size={18} />
                 </div>
               </div>
               <div className="mt-3 text-3xl font-semibold tracking-tight tabular-nums">{k.value}</div>
-              <p className="mt-1 text-xs text-muted-foreground">{k.delta}</p>
+              <p className="mt-1 text-xs text-muted-foreground">{k.note}</p>
             </CardContent>
           </Card>
         ))}
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="text-base">Pipeline activity</CardTitle>
-            <CardDescription>Recent leads and where each file stands.</CardDescription>
-            <CardAction>
-              <Button variant="ghost" size="sm" className="gap-1 text-muted-foreground">
-                View all <Icon name="arrow_outward" size={16} />
-              </Button>
-            </CardAction>
-          </CardHeader>
-          <CardContent className="px-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="pl-6">Borrower</TableHead>
-                  <TableHead>Product</TableHead>
-                  <TableHead>Amount</TableHead>
-                  <TableHead className="pr-6 text-right">Stage</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {LEADS.map((l) => (
-                  <TableRow key={l.name}>
-                    <TableCell className="pl-6">
-                      <div className="font-medium">{l.name}</div>
-                      <div className="text-xs text-muted-foreground">{l.biz}</div>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">{l.product}</TableCell>
-                    <TableCell className="tabular-nums">{l.amount}</TableCell>
-                    <TableCell className="pr-6 text-right">
-                      <Badge variant="outline" className={BADGE_TONE[l.tone]}>{l.stage}</Badge>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Campaign health</CardTitle>
-            <CardDescription>Active origination campaigns.</CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-3">
-            {CAMPAIGNS.map((c) => (
-              <div key={c.name} className="flex items-center justify-between gap-3 rounded-lg border p-3">
-                <div className="min-w-0">
-                  <div className="truncate text-sm font-medium">{c.name}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {c.lender} · {c.leads} leads
-                  </div>
-                </div>
-                <Badge variant="outline" className={BADGE_TONE[c.tone]}>{c.health}</Badge>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
       </div>
     </div>
   );
