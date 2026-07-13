@@ -92,3 +92,25 @@ async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
 export function listLeads(workflow = "business-loan"): Promise<ApiLead[]> {
   return apiFetch<ApiLead[]>(`/leads?workflow=${encodeURIComponent(workflow)}`);
 }
+
+/** Fields accepted by POST /leads (mirrors apps/api CreateLeadInput). */
+export type CreateLeadInput = {
+  name: string;
+  company?: string;
+  pan?: string;
+  loanType?: string;
+  entityType?: string;
+  amount?: number;
+  monthlyTurnover?: number;
+  source?: string;
+  fundsNeeded?: string;
+  workflow?: string;
+};
+
+/** Create a lead; the API inserts it at the Pending stage and returns the row. */
+export function createLead(input: CreateLeadInput): Promise<{ id: string }> {
+  return apiFetch<{ id: string }>("/leads", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}

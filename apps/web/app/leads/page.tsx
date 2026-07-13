@@ -23,7 +23,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { listLeads, type ApiLead } from "@/lib/api";
+import { listLeads, createLead, type ApiLead, type CreateLeadInput } from "@/lib/api";
 
 /* ------------------------------------------------------------------ *
  * Schema mirrors the live Gain "Business Loan" workflow (see
@@ -384,7 +384,7 @@ function CreateLeadDialog({
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
-  onCreate: (lead: Lead) => void;
+  onCreate: (input: CreateLeadInput) => Promise<void>;
 }) {
   const [name, setName] = React.useState("");
   const [company, setCompany] = React.useState("");
@@ -396,7 +396,8 @@ function CreateLeadDialog({
   const [source, setSource] = React.useState<Source>("Portal");
   const [funds, setFunds] = React.useState("");
   const [errors, setErrors] = React.useState<Record<string, string>>({});
-  const idRef = React.useRef(1043);
+  const [submitting, setSubmitting] = React.useState(false);
+  const [submitError, setSubmitError] = React.useState<string | null>(null);
 
   function reset() {
     setName("");
@@ -409,6 +410,8 @@ function CreateLeadDialog({
     setSource("Portal");
     setFunds("");
     setErrors({});
+    setSubmitError(null);
+    setSubmitting(false);
   }
 
   // Reset on ANY close (✕ / Escape / backdrop / Cancel), so re-opening starts clean.
@@ -417,7 +420,7 @@ function CreateLeadDialog({
     onOpenChange(next);
   }
 
-  function submit() {
+  async function submit() {
     const errs: Record<string, string> = {};
     if (!name.trim()) errs.name = "Borrower name is required.";
     if (!company.trim()) errs.company = "Company name is required.";
@@ -428,20 +431,26 @@ function CreateLeadDialog({
     setErrors(errs);
     if (Object.keys(errs).length) return;
 
-    onCreate({
-      id: "L-" + idRef.current++,
-      name: name.trim(),
-      company: company.trim(),
-      loanType,
-      entityType,
-      amount: amt,
-      source,
-      monthlyTurnover: Number(turnover) || 0,
-      stage: "Pending",
-      owner: "Demo Admin",
-      activity: "just now",
-    });
-    handleOpenChange(false);
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      await onCreate({
+        name: name.trim(),
+        company: company.trim(),
+        pan: pan.trim() || undefined,
+        loanType,
+        entityType,
+        amount: amt,
+        monthlyTurnover: Number(turnover) || undefined,
+        source,
+        fundsNeeded: funds.trim() || undefined,
+      });
+      handleOpenChange(false); // resets + closes on success
+    } catch (e) {
+      setSubmitError(e instanceof Error ? e.message : "Couldn't create the lead. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -525,12 +534,26 @@ function CreateLeadDialog({
           </FormSection>
         </div>
 
+        {submitError ? (
+          <div className="flex items-center gap-1.5 border-t bg-red-50 px-4 py-2 text-sm text-red-600">
+            <Icon name="error" size={15} /> {submitError}
+          </div>
+        ) : null}
+
         <DialogFooter className="flex-row justify-end gap-2 border-t">
-          <Button variant="outline" onClick={() => handleOpenChange(false)}>
+          <Button variant="outline" onClick={() => handleOpenChange(false)} disabled={submitting}>
             Cancel
           </Button>
-          <Button onClick={submit} className="gap-1.5">
-            <Icon name="add" size={16} /> Create lead
+          <Button onClick={submit} disabled={submitting} className="gap-1.5">
+            {submitting ? (
+              <>
+                <Icon name="progress_activity" size={16} className="animate-spin" /> Creating…
+              </>
+            ) : (
+              <>
+                <Icon name="add" size={16} /> Create lead
+              </>
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -840,7 +863,10 @@ export default function LeadsPage() {
       <CreateLeadDialog
         open={createOpen}
         onOpenChange={setCreateOpen}
-        onCreate={(lead) => setLeads((prev) => [lead, ...prev])}
+        onCreate={async (input) => {
+          await createLead(input);
+          refresh();
+        }}
       />
     </div>
   );
