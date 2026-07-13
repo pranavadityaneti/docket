@@ -23,6 +23,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { listLeads, type ApiLead } from "@/lib/api";
 
 /* ------------------------------------------------------------------ *
  * Schema mirrors the live Gain "Business Loan" workflow (see
@@ -108,23 +109,45 @@ type Lead = {
   activity: string;
 };
 
-const SEED_LEADS: Lead[] = [
-  { id: "L-1042", name: "Zoya Khan", company: "Khan Jewellers", loanType: "LAP", entityType: "Private Limited", amount: 15000000, source: "Website", monthlyTurnover: 4200000, stage: "PVT LTD Document Collection", owner: "Rahul Verma", activity: "1h ago" },
-  { id: "L-1041", name: "Imran Sheikh", company: "Sheikh Motors", loanType: "Working Capital", entityType: "Proprietorship", amount: 3200000, source: "Website", monthlyTurnover: 900000, stage: "Pending", owner: "Rahul Verma", activity: "20m ago" },
-  { id: "L-1040", name: "Farah Ali", company: "Ali Exports", loanType: "SME Term Loan", entityType: "Partnership", amount: 4700000, source: "Website", monthlyTurnover: 1500000, stage: "Pending", owner: "Vikram Rao", activity: "45m ago" },
-  { id: "L-1039", name: "Ramesh Kumar", company: "Kumar Traders", loanType: "SME Term Loan", entityType: "Proprietorship", amount: 4000000, source: "Website", monthlyTurnover: 1200000, stage: "Proprietorship Documents Collection", owner: "Aisha Khan", activity: "2h ago" },
-  { id: "L-1038", name: "Sana Shaikh", company: "SS Enterprises", loanType: "SME Term Loan", entityType: "Partnership", amount: 1800000, source: "Website", monthlyTurnover: 700000, stage: "Partnership Document Collection", owner: "Vikram Rao", activity: "3h ago" },
-  { id: "L-1037", name: "Suresh Patel", company: "Patel Agro", loanType: "Working Capital", entityType: "Proprietorship", amount: 6100000, source: "Referral", monthlyTurnover: 2100000, stage: "Follow up", owner: "Rahul Verma", activity: "4h ago" },
-  { id: "L-1036", name: "Priya Mehta", company: "Mehta Textiles", loanType: "LAP", entityType: "Private Limited", amount: 12000000, source: "Whatsapp", monthlyTurnover: 3800000, stage: "PVT LTD Document Collection", owner: "Rahul Verma", activity: "5h ago" },
-  { id: "L-1035", name: "Karan Malhotra", company: "KM Retail", loanType: "LAP", entityType: "Partnership", amount: 8500000, source: "Referral", monthlyTurnover: 2600000, stage: "Auto Follow-Up", owner: "Neha Gupta", activity: "8h ago" },
-  { id: "L-1034", name: "Deepa Iyer", company: "Iyer Fabrics", loanType: "Working Capital", entityType: "Proprietorship", amount: 900000, source: "Whatsapp", monthlyTurnover: 400000, stage: "Human Escalated", owner: "Aisha Khan", activity: "6h ago" },
-  { id: "L-1033", name: "Rohit Sharma", company: "Sharma Steel", loanType: "Top-up", entityType: "Private Limited", amount: 7300000, source: "Referral", monthlyTurnover: 3100000, stage: "Completed", owner: "Neha Gupta", activity: "9h ago" },
-  { id: "L-1032", name: "Arjun Nair", company: "Nair Logistics", loanType: "Working Capital", entityType: "LLP", amount: 2500000, source: "Referral", monthlyTurnover: 1100000, stage: "Completed", owner: "Aisha Khan", activity: "1d ago" },
-  { id: "L-1031", name: "Sunita Reddy", company: "Reddy Constructions", loanType: "LAP", entityType: "Partnership", amount: 9500000, source: "Email", monthlyTurnover: 2900000, stage: "Not Picked", owner: "Aisha Khan", activity: "1d ago" },
-  { id: "L-1030", name: "Vikram Rao", company: "Rao Foods", loanType: "SME Term Loan", entityType: "Proprietorship", amount: 5500000, source: "Other", monthlyTurnover: 1800000, stage: "Not Interested", owner: "Neha Gupta", activity: "2d ago" },
-  { id: "L-1029", name: "Meera Nanda", company: "Nanda Pharma", loanType: "SME Term Loan", entityType: "Private Limited", amount: 3900000, source: "Whatsapp", monthlyTurnover: 1400000, stage: "No Answer", owner: "Vikram Rao", activity: "3d ago" },
-  { id: "L-1028", name: "Anil Kapoor", company: "Kapoor Motors", loanType: "Top-up", entityType: "Proprietorship", amount: 2200000, source: "Portal", monthlyTurnover: 800000, stage: "Missing PanCard", owner: "Rahul Verma", activity: "5h ago" },
-];
+// ---- API (ApiLead) -> UI (Lead) mapping --------------------------------------
+// The API returns contactName/contactCompany/stageName + a UUID id; the UI view
+// model uses name/company/stage. Enum-ish fields arrive as nullable strings, so
+// we clamp them to the UI unions with safe defaults. Owner isn't joined yet
+// (leads have no owner name) -> "Unassigned"; activity is derived from updatedAt.
+
+const STAGE_SET = new Set<string>(STAGES);
+
+function toStage(name: string | null): Stage {
+  return name && STAGE_SET.has(name) ? (name as Stage) : "Pending";
+}
+
+function relativeTime(iso: string): string {
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return "";
+  const s = Math.max(0, Math.floor((Date.now() - then) / 1000));
+  if (s < 60) return "just now";
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
+}
+
+function toLead(a: ApiLead): Lead {
+  return {
+    id: a.id,
+    name: a.contactName ?? "—",
+    company: a.contactCompany ?? "—",
+    loanType: (a.loanType ?? "SME Term Loan") as LoanType,
+    entityType: (a.entityType ?? "Proprietorship") as EntityType,
+    amount: a.amount ?? 0,
+    source: (a.source ?? "Other") as Source,
+    monthlyTurnover: a.monthlyTurnover ?? 0,
+    stage: toStage(a.stageName),
+    owner: "Unassigned",
+    activity: relativeTime(a.updatedAt),
+  };
+}
 
 function initials(name: string) {
   return name.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase();
@@ -542,7 +565,7 @@ function Placeholder({ title, blurb, chips }: { title: string; blurb: string; ch
 
 /* ------------------------------- All Leads (table) ------------------------------- */
 
-function AllLeadsView({ leads }: { leads: Lead[] }) {
+function AllLeadsView({ leads, onRefresh }: { leads: Lead[]; onRefresh: () => void }) {
   const [query, setQuery] = React.useState("");
   const filtered = leads.filter((l) => {
     const q = query.trim().toLowerCase();
@@ -571,7 +594,7 @@ function AllLeadsView({ leads }: { leads: Lead[] }) {
         <Button variant="outline" size="sm" className="gap-1.5">
           <Icon name="filter_list" size={16} /> Filters
         </Button>
-        <Button variant="outline" size="sm" className="gap-1.5">
+        <Button variant="outline" size="sm" className="gap-1.5" onClick={onRefresh}>
           <Icon name="refresh" size={16} /> Refresh
         </Button>
       </div>
@@ -689,8 +712,28 @@ function BoardView({ leads }: { leads: Lead[] }) {
 
 export default function LeadsPage() {
   const [view, setView] = React.useState<View>("All Leads");
-  const [leads, setLeads] = React.useState<Lead[]>(SEED_LEADS);
+  const [leads, setLeads] = React.useState<Lead[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState<string | null>(null);
   const [createOpen, setCreateOpen] = React.useState(false);
+
+  // Load leads from the live API (apps/api) — tenant-scoped server-side via RLS.
+  const refresh = React.useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const rows = await listLeads("business-loan");
+      setLeads(rows.map(toLead));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load leads.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    refresh();
+  }, [refresh]);
 
   // Open the create modal when arriving from the Home's "New lead" (/leads?new=1),
   // then tidy the URL back to /leads.
@@ -739,7 +782,30 @@ export default function LeadsPage() {
         ))}
       </div>
 
-      {view === "All Leads" ? <AllLeadsView leads={leads} /> : null}
+      {error ? (
+        <Card className="flex flex-col items-center gap-3 border-red-200 py-16 text-center">
+          <div className="flex size-11 items-center justify-center rounded-full bg-red-50 text-red-600">
+            <Icon name="error" size={22} />
+          </div>
+          <div>
+            <div className="font-medium">Couldn&rsquo;t load leads</div>
+            <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">{error}</p>
+            <p className="mx-auto mt-1 max-w-md text-xs text-muted-foreground">
+              Make sure the API is running (<code>pnpm --filter @docket/api dev</code>).
+            </p>
+          </div>
+          <Button variant="outline" onClick={refresh} className="gap-1.5">
+            <Icon name="refresh" size={16} /> Retry
+          </Button>
+        </Card>
+      ) : loading ? (
+        <Card className="flex flex-col items-center gap-3 py-16 text-center text-muted-foreground">
+          <Icon name="progress_activity" size={22} className="animate-spin" />
+          <span className="text-sm">Loading leads…</span>
+        </Card>
+      ) : (
+        <>
+      {view === "All Leads" ? <AllLeadsView leads={leads} onRefresh={refresh} /> : null}
       {view === "Board" ? <BoardView leads={leads} /> : null}
       {view === "Action" ? (
         <Placeholder
@@ -768,6 +834,8 @@ export default function LeadsPage() {
           chips={["pan_number", "company_name", "loan_amount", "loan_type", "entity_type", "source", "monthly_turnover", "funds_needed"]}
         />
       ) : null}
+        </>
+      )}
 
       <CreateLeadDialog
         open={createOpen}
