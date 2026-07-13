@@ -114,3 +114,24 @@ export function createLead(input: CreateLeadInput): Promise<{ id: string }> {
     body: JSON.stringify(input),
   });
 }
+
+/** Shape returned by GET /workflows/:slug/stages. */
+export type ApiStage = {
+  id: string;
+  name: string;
+  tone: string;
+  position: number;
+};
+
+/** All stages for a workflow, ordered by board position. */
+export function listStages(workflow = "business-loan"): Promise<ApiStage[]> {
+  return apiFetch<ApiStage[]>(`/workflows/${encodeURIComponent(workflow)}/stages`);
+}
+
+/** Move a lead to another stage (PATCH /leads/:id/stage). Validated server-side. */
+export function updateLeadStage(leadId: string, stageId: string): Promise<{ id: string }> {
+  return apiFetch<{ id: string }>(`/leads/${encodeURIComponent(leadId)}/stage`, {
+    method: "PATCH",
+    body: JSON.stringify({ stageId }),
+  });
+}

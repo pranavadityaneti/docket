@@ -23,7 +23,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { listLeads, createLead, type ApiLead, type CreateLeadInput } from "@/lib/api";
+import {
+  listLeads,
+  createLead,
+  listStages,
+  updateLeadStage,
+  type ApiLead,
+  type ApiStage,
+  type CreateLeadInput,
+} from "@/lib/api";
 
 /* ------------------------------------------------------------------ *
  * Schema mirrors the live Gain "Business Loan" workflow (see
@@ -688,7 +696,21 @@ function AllLeadsView({ leads, onRefresh }: { leads: Lead[]; onRefresh: () => vo
 
 /* ------------------------------- Board (12-stage kanban) ------------------------------- */
 
-function BoardView({ leads }: { leads: Lead[] }) {
+function BoardView({
+  leads,
+  stages,
+  onMoveStage,
+}: {
+  leads: Lead[];
+  stages: ApiStage[];
+  onMoveStage: (leadId: string, toStageId: string, toStageName: Stage) => void;
+}) {
+  const stageIdByName = React.useMemo(() => new Map(stages.map((s) => [s.name, s.id])), [stages]);
+  // Options come from the API's stages once loaded (so each name resolves to an
+  // id for the PATCH); before then, fall back to the static list so the current
+  // stage still renders while the move control is disabled.
+  const options: readonly string[] = stages.length ? stages.map((s) => s.name) : STAGES;
+
   return (
     <div className="overflow-x-auto pb-2">
       <div className="flex gap-3">
@@ -719,6 +741,26 @@ function BoardView({ leads }: { leads: Lead[] }) {
                         </Badge>
                         <span className="text-[11px] text-muted-foreground">{l.entityType}</span>
                       </div>
+                      <label className="mt-2 flex items-center gap-1.5 border-t pt-2 text-[11px] text-muted-foreground">
+                        <Icon name="swap_vert" size={14} className="shrink-0" />
+                        <select
+                          value={l.stage}
+                          disabled={!stages.length}
+                          onChange={(e) => {
+                            const name = e.target.value as Stage;
+                            const id = stageIdByName.get(name);
+                            if (id && name !== l.stage) onMoveStage(l.id, id, name);
+                          }}
+                          aria-label={`Move ${l.name} to another stage`}
+                          className="min-w-0 flex-1 rounded-md border bg-background px-1.5 py-1 text-[11px] text-foreground outline-none focus-visible:border-ring disabled:opacity-50"
+                        >
+                          {options.map((name) => (
+                            <option key={name} value={name}>
+                              {name}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
                     </div>
                   ))
                 )}
@@ -738,21 +780,45 @@ export default function LeadsPage() {
   const [leads, setLeads] = React.useState<Lead[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
+  const [stages, setStages] = React.useState<ApiStage[]>([]);
+  const [moveError, setMoveError] = React.useState<string | null>(null);
   const [createOpen, setCreateOpen] = React.useState(false);
 
-  // Load leads from the live API (apps/api) — tenant-scoped server-side via RLS.
+  // Load leads + stages from the live API (apps/api) — tenant-scoped via RLS.
   const refresh = React.useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const rows = await listLeads("business-loan");
+      const [rows, stageRows] = await Promise.all([
+        listLeads("business-loan"),
+        listStages("business-loan"),
+      ]);
       setLeads(rows.map(toLead));
+      setStages(stageRows);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load leads.");
     } finally {
       setLoading(false);
     }
   }, []);
+
+  // Move a lead to another stage — optimistic, with revert + message on failure.
+  const moveStage = React.useCallback(
+    async (leadId: string, toStageId: string, toStageName: Stage) => {
+      setMoveError(null);
+      const current = leads.find((l) => l.id === leadId)?.stage;
+      setLeads((ls) => ls.map((l) => (l.id === leadId ? { ...l, stage: toStageName } : l)));
+      try {
+        await updateLeadStage(leadId, toStageId);
+      } catch (e) {
+        if (current) {
+          setLeads((ls) => ls.map((l) => (l.id === leadId ? { ...l, stage: current } : l)));
+        }
+        setMoveError(e instanceof Error ? e.message : "Couldn't move the lead. Please try again.");
+      }
+    },
+    [leads],
+  );
 
   React.useEffect(() => {
     refresh();
@@ -805,6 +871,21 @@ export default function LeadsPage() {
         ))}
       </div>
 
+      {moveError ? (
+        <div className="flex items-center justify-between gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          <span className="flex items-center gap-1.5">
+            <Icon name="error" size={16} /> {moveError}
+          </span>
+          <button
+            onClick={() => setMoveError(null)}
+            aria-label="Dismiss"
+            className="text-red-700/70 hover:text-red-700"
+          >
+            <Icon name="close" size={16} />
+          </button>
+        </div>
+      ) : null}
+
       {error ? (
         <Card className="flex flex-col items-center gap-3 border-red-200 py-16 text-center">
           <div className="flex size-11 items-center justify-center rounded-full bg-red-50 text-red-600">
@@ -829,7 +910,7 @@ export default function LeadsPage() {
       ) : (
         <>
       {view === "All Leads" ? <AllLeadsView leads={leads} onRefresh={refresh} /> : null}
-      {view === "Board" ? <BoardView leads={leads} /> : null}
+      {view === "Board" ? <BoardView leads={leads} stages={stages} onMoveStage={moveStage} /> : null}
       {view === "Action" ? (
         <Placeholder
           title="Action queues"

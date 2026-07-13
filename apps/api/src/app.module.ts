@@ -4,6 +4,7 @@ import { DbModule } from "./db/db";
 import { AuthModule } from "./auth/auth";
 import { LeadsModule } from "./leads/leads";
 import { ContactsModule } from "./contacts/contacts";
+import { WorkflowsModule } from "./workflows/workflows";
 
 @Controller("health")
 class HealthController {
@@ -24,6 +25,7 @@ class HealthController {
     AuthModule,
     LeadsModule,
     ContactsModule,
+    WorkflowsModule,
   ],
   controllers: [HealthController],
 })
