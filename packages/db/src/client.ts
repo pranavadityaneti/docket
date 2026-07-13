@@ -10,7 +10,7 @@ export function createDb(connectionString: string) {
 }
 
 export type Db = ReturnType<typeof createDb>;
-type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
+export type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
 
 /**
  * Run `fn` inside a transaction scoped to a tenant. Sets the
@@ -26,6 +26,9 @@ export async function withTenant<T>(
   fn: (tx: Tx) => Promise<T>,
 ): Promise<T> {
   return db.transaction(async (tx) => {
+    // Switch to the non-owner app role so RLS applies even on a superuser
+    // connection (local dev), then scope the tenant for this transaction.
+    await tx.execute(sql`set local role docket_app`);
     await tx.execute(sql`select set_config('app.current_tenant', ${tenantId}, true)`);
     return fn(tx);
   });

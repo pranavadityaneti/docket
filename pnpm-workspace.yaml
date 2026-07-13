@@ -3,6 +3,8 @@ packages:
   - "packages/*"
 
 allowBuilds:
+  '@nestjs/core': set this to true or false
+  '@swc/core': set this to true or false
   esbuild: set this to true or false
   sharp: set this to true or false
   unrs-resolver: set this to true or false
@@ -11,6 +13,8 @@ allowBuilds:
 # optimization; unrs-resolver is Next's module resolver). Explicit allowlist so
 # pnpm stops prompting on install.
 onlyBuiltDependencies:
+  - "@nestjs/core"
+  - "@swc/core"
   - esbuild
   - sharp
   - unrs-resolver
