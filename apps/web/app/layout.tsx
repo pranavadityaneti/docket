@@ -1,9 +1,7 @@
 import type { Metadata } from "next";
 import { Google_Sans_Flex, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { AppSidebar } from "@/components/app-sidebar";
-import { AppHeader } from "@/components/app-header";
-import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+import { AppChrome } from "@/components/app-chrome";
 
 const googleSans = Google_Sans_Flex({
   variable: "--font-sans",
@@ -39,13 +37,7 @@ export default function RootLayout({
         />
       </head>
       <body className={`${googleSans.variable} ${geistMono.variable} antialiased`}>
-        <SidebarProvider>
-          <AppSidebar />
-          <SidebarInset>
-            <AppHeader />
-            <div className="flex-1 bg-muted/30 p-4 md:p-6">{children}</div>
-          </SidebarInset>
-        </SidebarProvider>
+        <AppChrome>{children}</AppChrome>
       </body>
     </html>
   );

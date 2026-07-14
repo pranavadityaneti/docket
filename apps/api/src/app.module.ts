@@ -14,11 +14,16 @@ class HealthController {
   }
 }
 
+const jwtSecret = process.env.JWT_SECRET;
+if (!jwtSecret) {
+  throw new Error("JWT_SECRET is not set — refusing to start with an insecure default.");
+}
+
 @Module({
   imports: [
     JwtModule.register({
       global: true,
-      secret: process.env.JWT_SECRET ?? "dev-secret-change-me",
+      secret: jwtSecret,
       signOptions: { expiresIn: "7d" },
     }),
     DbModule,

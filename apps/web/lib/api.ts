@@ -1,17 +1,21 @@
-// Dev-time client for the Docket NestJS API (apps/api).
+// API client for the Docket NestJS API (apps/api).
 //
-// ⚠️ AUTH IS A DEV STOPGAP. The API's POST /auth/login currently issues a JWT
-// from an email alone (no password) — a dev simplification — so this client
-// auto-logs-in as the seeded admin to obtain a token and caches it. Replace
-// with a real login flow (its own phase) before any non-local deployment.
+// Token storage is a client-side JWT in localStorage, sent as a Bearer header.
+// (A first hardening pass; moving to an httpOnly cookie is tracked separately.)
 //
 // Overridable via env:
-//   NEXT_PUBLIC_API_URL          (default http://localhost:3333)
-//   NEXT_PUBLIC_DEV_LOGIN_EMAIL  (default admin@finlot.ai)
+//   NEXT_PUBLIC_API_URL  (default http://localhost:3333)
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3333";
-const DEV_EMAIL = process.env.NEXT_PUBLIC_DEV_LOGIN_EMAIL ?? "admin@finlot.ai";
-const TOKEN_KEY = "docket_dev_token";
+const TOKEN_KEY = "docket_token";
+
+/** Thrown when a request has no token, or the API rejects the token as invalid/expired. */
+export class AuthRequiredError extends Error {
+  constructor() {
+    super("Not authenticated");
+    this.name = "AuthRequiredError";
+  }
+}
 
 /** Shape returned by GET /leads (see apps/api/src/leads/leads.ts list()). */
 export type ApiLead = {
@@ -31,55 +35,57 @@ export type ApiLead = {
   stageTone: string | null;
 };
 
-let tokenPromise: Promise<string> | null = null;
-
-async function login(): Promise<string> {
-  const res = await fetch(`${API_URL}/auth/login`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ email: DEV_EMAIL }),
-  });
-  if (!res.ok) throw new Error(`Login failed (${res.status})`);
-  const json = (await res.json()) as { token: string };
-  if (typeof window !== "undefined") window.localStorage.setItem(TOKEN_KEY, json.token);
-  return json.token;
-}
-
-function getToken(): Promise<string> {
-  if (typeof window !== "undefined") {
-    const cached = window.localStorage.getItem(TOKEN_KEY);
-    if (cached) return Promise.resolve(cached);
-  }
-  if (!tokenPromise) {
-    tokenPromise = login().catch((err) => {
-      tokenPromise = null; // let the next call retry a failed login
-      throw err;
-    });
-  }
-  return tokenPromise;
+function getToken(): string {
+  const token = typeof window !== "undefined" ? window.localStorage.getItem(TOKEN_KEY) : null;
+  if (!token) throw new AuthRequiredError();
+  return token;
 }
 
 function clearToken() {
-  tokenPromise = null;
   if (typeof window !== "undefined") window.localStorage.removeItem(TOKEN_KEY);
 }
 
-async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const doFetch = (token: string) =>
-    fetch(`${API_URL}${path}`, {
-      ...init,
-      headers: {
-        "content-type": "application/json",
-        ...(init.headers ?? {}),
-        authorization: `Bearer ${token}`,
-      },
-    });
+/** True if a token is cached — a cheap presence check, not a validity check (the API is authoritative). */
+export function isLoggedIn(): boolean {
+  return typeof window !== "undefined" && !!window.localStorage.getItem(TOKEN_KEY);
+}
 
-  let res = await doFetch(await getToken());
+export type LoginProfile = {
+  user: { id: string; name: string; email: string };
+  tenant: { id: string; name: string; slug: string };
+  role: string;
+};
+
+/** POST /auth/login — on success, caches the token and returns the profile (not the raw token). */
+export async function login(email: string, password: string): Promise<LoginProfile> {
+  const res = await fetch(`${API_URL}/auth/login`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+  const body = await res.json().catch(() => null);
+  if (!res.ok) throw new Error(body?.message ?? `Login failed (${res.status})`);
+  const { token, ...profile } = body as LoginProfile & { token: string };
+  window.localStorage.setItem(TOKEN_KEY, token);
+  return profile;
+}
+
+export function logout(): void {
+  clearToken();
+}
+
+async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const res = await fetch(`${API_URL}${path}`, {
+    ...init,
+    headers: {
+      "content-type": "application/json",
+      ...(init.headers ?? {}),
+      authorization: `Bearer ${getToken()}`,
+    },
+  });
   if (res.status === 401) {
-    // Token stale/invalid — drop it, log in fresh, retry once.
     clearToken();
-    res = await doFetch(await getToken());
+    throw new AuthRequiredError();
   }
   if (!res.ok) {
     const body = await res.text().catch(() => "");

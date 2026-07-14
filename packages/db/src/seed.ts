@@ -1,6 +1,7 @@
 import { createDb } from "./client";
 import * as schema from "./schema";
 import type { LeadFieldDef } from "./schema";
+import { hashPassword } from "./password";
 
 /* The Business-Loan workflow's 12 stages (mirrors the live Gain tenant). */
 const STAGES: { name: string; tone: string }[] = [
@@ -40,9 +41,14 @@ async function main() {
     .values({ name: "Finlot (Demo)", slug: "finlot", plan: "trial" })
     .returning();
 
+  const adminPassword = process.env.SEED_ADMIN_PASSWORD ?? "DocketAdmin!2026";
   const [user] = await db
     .insert(schema.users)
-    .values({ email: "admin@finlot.ai", name: "Demo Admin" })
+    .values({
+      email: "admin@finlot.ai",
+      name: "Demo Admin",
+      passwordHash: await hashPassword(adminPassword),
+    })
     .returning();
 
   await db.insert(schema.memberships).values({
@@ -75,6 +81,7 @@ async function main() {
   });
 
   console.log(`Seeded tenant "${tenant.slug}" with the Business Loan workflow (${STAGES.length} stages, ${LEAD_FIELDS.length} fields).`);
+  console.log(`Admin login: admin@finlot.ai / ${adminPassword}`);
   process.exit(0);
 }
 
