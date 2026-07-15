@@ -8,8 +8,10 @@ import {
   Module,
   Post,
   UnauthorizedException,
+  UseGuards,
 } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
+import { Throttle, ThrottlerGuard } from "@nestjs/throttler";
 import { IsEmail, IsString, MaxLength, MinLength } from "class-validator";
 import { eq } from "drizzle-orm";
 import { users, memberships, tenants, verifyPassword } from "@docket/db";
@@ -37,6 +39,29 @@ export class LoginDto {
 // attacker enumerate valid emails even though the error message is identical.
 const DUMMY_HASH =
   "$argon2id$v=19$m=19456,t=2,p=1$6I7QyPRhpNUWqg8thD0S0Q$CmdZjwGsFqTdBRlsUx6TYStwwwZFVFnSuWjooRlaUOY";
+
+/**
+ * Rate-limits login by IP *and* account, not IP alone.
+ *
+ * Lender staff typically share one office IP behind NAT. Keying on IP alone
+ * would mean one colleague mistyping their password five times locks out
+ * everyone in the building — and since the throttler counts every attempt (not
+ * just failures), a handful of people signing in at 9am would collide too.
+ * Keying on ip+email caps brute force against any single account — the actual
+ * threat — without that collateral.
+ *
+ * Guards run before pipes, so req.body here is the raw payload rather than a
+ * validated LoginDto; the email is normalised defensively so that casing or
+ * padding can't be used to get a fresh bucket per attempt.
+ */
+@Injectable()
+export class LoginThrottlerGuard extends ThrottlerGuard {
+  protected async getTracker(req: Record<string, any>): Promise<string> {
+    const raw = req?.body?.email;
+    const email = typeof raw === "string" ? raw.trim().toLowerCase() : "unknown";
+    return `${req.ip}:${email}`;
+  }
+}
 
 /** Attaches req.user = { userId, tenantId, role } from a validated Bearer JWT. */
 @Injectable()
@@ -109,10 +134,16 @@ export class AuthService {
 }
 
 @Controller("auth")
+@UseGuards(LoginThrottlerGuard)
 export class AuthController {
   constructor(private readonly auth: AuthService) {}
 
+  // Argon2 makes each guess expensive for us as well as the attacker, so the
+  // password endpoint is the one place that needs a hard cap: 5 attempts per
+  // minute per ip+account, then a 5-minute lockout. Deliberately tight — a
+  // human fat-fingering their password twice never reaches it.
   @Post("login")
+  @Throttle({ default: { limit: 5, ttl: 60_000, blockDuration: 300_000 } })
   login(@Body() body: LoginDto) {
     // email/password presence + format are enforced by the global ValidationPipe.
     return this.auth.login(body.email, body.password);

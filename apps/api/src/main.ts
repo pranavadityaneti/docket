@@ -2,10 +2,22 @@ import "reflect-metadata";
 import { env } from "./config/env";
 import { ValidationPipe } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
+import type { NestExpressApplication } from "@nestjs/platform-express";
 import { AppModule } from "./app.module";
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, { logger: ["error", "warn", "log"] });
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    logger: ["error", "warn", "log"],
+  });
+
+  // In production we sit behind a load balancer (EB/ALB), so the client's real
+  // IP arrives in X-Forwarded-For. Without trusting exactly one proxy hop,
+  // express reports the balancer's IP for every request and per-IP rate
+  // limiting silently degrades into a single shared bucket for the whole
+  // internet. Only enabled in prod: trusting XFF when not behind a proxy would
+  // let clients spoof their own IP.
+  if (env.isProd) app.set("trust proxy", 1);
+
   app.enableCors({ origin: env.corsOrigin, credentials: true });
   // Reject malformed payloads at the edge: strip unknown fields, 400 on any
   // extra field, and coerce/validate declared fields against each DTO.
