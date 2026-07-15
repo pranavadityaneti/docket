@@ -1,9 +1,11 @@
 "use client";
 
+import * as React from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Icon } from "@/components/ui/icon";
 import {
   DropdownMenu,
@@ -45,6 +47,34 @@ export function AppHeader() {
   const pathname = usePathname();
   const router = useRouter();
 
+  const [searchOpen, setSearchOpen] = React.useState(false);
+  const [query, setQuery] = React.useState("");
+  const searchInputRef = React.useRef<HTMLInputElement>(null);
+
+  // Focus once the field has been given width to expand into.
+  React.useEffect(() => {
+    if (searchOpen) searchInputRef.current?.focus();
+  }, [searchOpen]);
+
+  function closeSearch() {
+    setSearchOpen(false);
+    setQuery("");
+  }
+
+  function submitSearch() {
+    const q = query.trim();
+    if (!q) return;
+    router.push(`/leads?q=${encodeURIComponent(q)}`);
+  }
+
+  // The icon is a three-way toggle: open when closed, submit when it has a
+  // term, close when open but empty.
+  function onSearchIconClick() {
+    if (!searchOpen) return setSearchOpen(true);
+    if (query.trim()) return submitSearch();
+    closeSearch();
+  }
+
   function handleLogout() {
     logout();
     router.push("/login");
@@ -59,7 +89,39 @@ export function AppHeader() {
       />
       <span className="text-sm font-medium">{titleForPath(pathname)}</span>
       <div className="ml-auto flex items-center gap-1">
-        <Button variant="ghost" size="icon" aria-label="Search">
+        {/* Expands leftwards out of the search icon. Width+opacity are
+            transitioned rather than mounting/unmounting, so it animates both
+            ways and the input keeps its focus/value while open. */}
+        <div
+          className={`overflow-hidden transition-[width,opacity] duration-300 ease-out ${
+            searchOpen ? "w-56 opacity-100 md:w-72" : "w-0 opacity-0"
+          }`}
+        >
+          <Input
+            ref={searchInputRef}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") closeSearch();
+              if (e.key === "Enter") {
+                e.preventDefault();
+                submitSearch();
+              }
+            }}
+            placeholder="Search leads…"
+            aria-label="Search leads"
+            aria-hidden={!searchOpen}
+            tabIndex={searchOpen ? 0 : -1}
+            className="h-8 bg-muted/50"
+          />
+        </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label="Search"
+          aria-expanded={searchOpen}
+          onClick={onSearchIconClick}
+        >
           <Icon name="search" size={20} />
         </Button>
         <Button variant="ghost" size="icon" aria-label="Notifications">

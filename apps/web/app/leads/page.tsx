@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import {
   Table,
@@ -600,7 +600,13 @@ function Placeholder({ title, blurb, chips }: { title: string; blurb: string; ch
 /* ------------------------------- All Leads (table) ------------------------------- */
 
 function AllLeadsView({ leads, onRefresh }: { leads: Lead[]; onRefresh: () => void }) {
-  const [query, setQuery] = React.useState("");
+  // Seed from ?q= (set by the header search) and re-sync when it changes —
+  // searching again from the header while already on /leads doesn't remount
+  // this component, so without the effect the filter would go stale.
+  const searchParams = useSearchParams();
+  const urlQuery = searchParams.get("q") ?? "";
+  const [query, setQuery] = React.useState(urlQuery);
+  React.useEffect(() => setQuery(urlQuery), [urlQuery]);
   const filtered = leads.filter((l) => {
     const q = query.trim().toLowerCase();
     if (!q) return true;
@@ -648,7 +654,19 @@ function AllLeadsView({ leads, onRefresh }: { leads: Lead[]; onRefresh: () => vo
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filtered.map((l) => (
+            {filtered.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={8} className="py-12 text-center">
+                  <div className="text-sm font-medium">No leads match your search</div>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {query.trim()
+                      ? `Nothing found for “${query.trim()}”. Try a name, company or lead ID.`
+                      : "There are no leads in this workflow yet."}
+                  </p>
+                </TableCell>
+              </TableRow>
+            ) : (
+              filtered.map((l) => (
               <TableRow key={l.id}>
                 <TableCell className="pl-4">
                   <div className="font-medium">{l.name}</div>
@@ -679,7 +697,8 @@ function AllLeadsView({ leads, onRefresh }: { leads: Lead[]; onRefresh: () => vo
                   </Button>
                 </TableCell>
               </TableRow>
-            ))}
+              ))
+            )}
           </TableBody>
         </Table>
       </div>
@@ -923,7 +942,12 @@ export default function LeadsPage() {
         </Card>
       ) : (
         <>
-      {view === "All Leads" ? <AllLeadsView leads={leads} onRefresh={refresh} /> : null}
+      {/* Suspense: AllLeadsView reads useSearchParams (?q= from the header search). */}
+      {view === "All Leads" ? (
+        <React.Suspense>
+          <AllLeadsView leads={leads} onRefresh={refresh} />
+        </React.Suspense>
+      ) : null}
       {view === "Board" ? <BoardView leads={leads} stages={stages} onMoveStage={moveStage} /> : null}
       {view === "Action" ? (
         <Placeholder
