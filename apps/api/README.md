@@ -1,0 +1,74 @@
+# @docket/api
+
+NestJS API for Docket. Multi-tenant: every request is authenticated, and tenant
+data is scoped by Postgres Row-Level Security (see `packages/db`).
+
+## Environment
+
+Validated at boot by `src/config/env.ts` — the process **refuses to start** if
+anything required is missing, rather than coming up misconfigured.
+
+| Var | Required | Notes |
+| --- | --- | --- |
+| `DATABASE_URL` | always | Postgres connection string |
+| `JWT_SECRET` | always | No default. Boot fails without it. |
+| `WEB_ORIGIN` | **production only** | Comma-separated CORS allow-list. Unset in dev = reflect any origin (local convenience). |
+| `API_PORT` | no | Defaults to `3333` |
+| `NODE_ENV` | no | `production` enables the `WEB_ORIGIN` requirement and `trust proxy` |
+
+## Dev
+
+```bash
+pnpm --filter @docket/api dev      # watch mode
+```
+
+Runs TypeScript directly via `@swc-node/register` — SWC rather than esbuild
+because esbuild silently strips `emitDecoratorMetadata`, which NestJS needs for
+constructor injection (symptom: every injected dependency is `undefined`, with
+no error at boot).
+
+The `--conditions development` flag makes `@docket/db` resolve to its **source**
+(`packages/db/src`), so changes there are picked up without a rebuild.
+
+## Production build
+
+```bash
+pnpm --filter @docket/db  build    # @docket/db must be built first
+pnpm --filter @docket/api build
+node dist/main.js
+```
+
+Compiles to **CommonJS** in `dist/`:
+
+- **Why compiled:** prod shouldn't depend on `@swc-node/register`, which uses
+  Node's deprecated `module.register()` (DEP0205) — a future Node release
+  removing it would break boot. The compiled build is plain `node`.
+- **Why CommonJS:** our source uses extensionless relative imports. Node's ESM
+  loader rejects those at runtime and SWC doesn't rewrite them; CJS resolves
+  them fine.
+- Both packages are `"type": "module"`, so `scripts/mark-cjs.mjs` writes a
+  `dist/package.json` with `{"type":"commonjs"}` to scope the output back to CJS.
+
+Without `--conditions development`, `@docket/db` resolves to its compiled
+`dist/` — so the prod build carries no TypeScript runtime.
+
+## Deployable artifact (Elastic Beanstalk)
+
+```bash
+pnpm --filter @docket/db  build
+pnpm --filter @docket/api build
+pnpm deploy --filter=@docket/api --prod --legacy ./.artifact/api
+```
+
+`pnpm deploy` is required: in a pnpm workspace `@docket/db` is a symlink, which
+a plain zip of this directory would not carry. It produces a self-contained
+directory (internal, relative symlinks only) that runs with no workspace
+present. `Procfile` tells EB to start it with `node dist/main.js`.
+
+Verified: the artifact boots, authenticates and serves `/leads` standalone.
+
+### Known gap
+
+Throttler storage is in-memory, so rate-limit buckets are per-instance. Fine on
+a single EB instance; scaling out needs shared storage (Redis) or the effective
+limit multiplies and a blocked client can hop instances.
