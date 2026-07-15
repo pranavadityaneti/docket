@@ -7,28 +7,89 @@ import {
   Module,
   NotFoundException,
   Param,
+  ParseUUIDPipe,
   Patch,
   Post,
   Query,
   UseGuards,
 } from "@nestjs/common";
+import {
+  IsInt,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Max,
+  MaxLength,
+  Min,
+  MinLength,
+} from "class-validator";
 import { and, desc, eq } from "drizzle-orm";
 import { contacts, leads, workflows, workflowStages } from "@docket/db";
 import { DbService } from "../db/db";
 import { CurrentUser, JwtAuthGuard, type AuthUser } from "../auth/auth";
 
-export type CreateLeadInput = {
-  name: string;
+// bigint upper bound for money fields (₹): generous enough for any real loan,
+// low enough to reject overflow/garbage. ~₹1 lakh crore.
+const MAX_AMOUNT = 1_000_000_000_000;
+
+export class CreateLeadDto {
+  @IsString()
+  @MinLength(1)
+  @MaxLength(200)
+  name!: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
   company?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
   pan?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
   loanType?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
   entityType?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(MAX_AMOUNT)
   amount?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(MAX_AMOUNT)
   monthlyTurnover?: number;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
   source?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
   fundsNeeded?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
   workflow?: string;
-};
+}
+
+export class UpdateStageDto {
+  @IsUUID()
+  stageId!: string;
+}
 
 @Injectable()
 export class LeadsService {
@@ -63,7 +124,7 @@ export class LeadsService {
     });
   }
 
-  create(tenantId: string, input: CreateLeadInput) {
+  create(tenantId: string, input: CreateLeadDto) {
     const workflowSlug = input.workflow ?? "business-loan";
     return this.db.withTenant(tenantId, async (tx) => {
       const [wf] = await tx.select().from(workflows).where(eq(workflows.slug, workflowSlug)).limit(1);
@@ -144,15 +205,15 @@ export class LeadsController {
   }
 
   @Post()
-  create(@CurrentUser() u: AuthUser, @Body() body: CreateLeadInput) {
+  create(@CurrentUser() u: AuthUser, @Body() body: CreateLeadDto) {
     return this.leads.create(u.tenantId, body);
   }
 
   @Patch(":id/stage")
   updateStage(
     @CurrentUser() u: AuthUser,
-    @Param("id") id: string,
-    @Body() body: { stageId: string },
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body() body: UpdateStageDto,
   ) {
     return this.leads.updateStage(u.tenantId, id, body.stageId);
   }

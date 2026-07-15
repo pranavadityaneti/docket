@@ -10,11 +10,23 @@ import {
   UnauthorizedException,
 } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
+import { IsEmail, IsString, MaxLength, MinLength } from "class-validator";
 import { eq } from "drizzle-orm";
 import { users, memberships, tenants, verifyPassword } from "@docket/db";
 import { DbService } from "../db/db";
 
 export type AuthUser = { userId: string; tenantId: string; role: string };
+
+export class LoginDto {
+  @IsEmail()
+  @MaxLength(320)
+  email!: string;
+
+  @IsString()
+  @MinLength(1)
+  @MaxLength(200)
+  password!: string;
+}
 
 // Hash of an arbitrary, never-used string — not a real credential. Verified
 // against on every login where the real user/hash lookup misses, so argon2's
@@ -101,10 +113,8 @@ export class AuthController {
   constructor(private readonly auth: AuthService) {}
 
   @Post("login")
-  login(@Body() body: { email?: string; password?: string }) {
-    if (!body?.email || !body?.password) {
-      throw new UnauthorizedException("Email and password are required");
-    }
+  login(@Body() body: LoginDto) {
+    // email/password presence + format are enforced by the global ValidationPipe.
     return this.auth.login(body.email, body.password);
   }
 }

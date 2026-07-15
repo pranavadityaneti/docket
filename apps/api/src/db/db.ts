@@ -1,14 +1,13 @@
 import { Global, Injectable, Module } from "@nestjs/common";
 import { createDb, withTenant, type Db, type Tx } from "@docket/db";
+import { env } from "../config/env";
 
 @Injectable()
 export class DbService {
   private readonly _db: Db;
 
   constructor() {
-    const url = process.env.DATABASE_URL;
-    if (!url) throw new Error("DATABASE_URL is not set");
-    this._db = createDb(url);
+    this._db = createDb(env.databaseUrl);
   }
 
   /** Connection-role access (bypasses tenant RLS) — auth / user & membership lookups only. */
