@@ -48,73 +48,80 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/* Docket palette: wine #9b0008 (brand) + beige #fff2e9 (canvas).
+   Everything else — borders, muted surfaces, hover states — is derived from
+   those two so the whole UI reads as one warm system. */
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: #0d9488;
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
+  --background: #fff2e9;
+  --foreground: #2b0a0c;
+  --card: #ffffff;
+  --card-foreground: #2b0a0c;
+  --popover: #ffffff;
+  --popover-foreground: #2b0a0c;
+  --primary: #9b0008;
+  --primary-foreground: #fff2e9;
+  --secondary: #f8e6da;
+  --secondary-foreground: #7a0509;
+  --muted: #f8e9de;
+  --muted-foreground: #8a6055;
+  --accent: #f8e6da;
+  --accent-foreground: #9b0008;
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: #30d5c8;
-  --chart-1: #30d5c8;
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
+  --border: #efdbcb;
+  --input: #efdbcb;
+  --ring: #9b0008;
+  --chart-1: #9b0008;
+  --chart-2: #c2373d;
+  --chart-3: #d97b7e;
+  --chart-4: #e9aeaf;
+  --chart-5: #f5d6d6;
   --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: #0d9488;
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: #30d5c8;
+  --sidebar: #fffaf4;
+  --sidebar-foreground: #2b0a0c;
+  --sidebar-primary: #9b0008;
+  --sidebar-primary-foreground: #fff2e9;
+  --sidebar-accent: #f8e6da;
+  --sidebar-accent-foreground: #9b0008;
+  --sidebar-border: #efdbcb;
+  --sidebar-ring: #9b0008;
 }
 
+/* Dark: same wine/beige identity inverted. Wine #9b0008 is too dark to sit on
+   a dark canvas, so the brand lifts to a brighter wine while beige becomes the
+   text colour. (Dark mode isn't switched on in the app yet — kept coherent so
+   it's correct whenever it is.) */
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: #30d5c8;
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
+  --background: #1a0a0b;
+  --foreground: #fff2e9;
+  --card: #241012;
+  --card-foreground: #fff2e9;
+  --popover: #241012;
+  --popover-foreground: #fff2e9;
+  --primary: #e0555c;
+  --primary-foreground: #2b0a0c;
+  --secondary: #341a1c;
+  --secondary-foreground: #fff2e9;
+  --muted: #341a1c;
+  --muted-foreground: #c4a49c;
+  --accent: #341a1c;
+  --accent-foreground: #fff2e9;
   --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: #30d5c8;
-  --chart-1: #30d5c8;
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: #0d9488;
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: #30d5c8;
+  --border: oklch(1 0 0 / 12%);
+  --input: oklch(1 0 0 / 16%);
+  --ring: #e0555c;
+  --chart-1: #e0555c;
+  --chart-2: #c2373d;
+  --chart-3: #9b0008;
+  --chart-4: #6f0206;
+  --chart-5: #451013;
+  --sidebar: #241012;
+  --sidebar-foreground: #fff2e9;
+  --sidebar-primary: #e0555c;
+  --sidebar-primary-foreground: #2b0a0c;
+  --sidebar-accent: #341a1c;
+  --sidebar-accent-foreground: #fff2e9;
+  --sidebar-border: oklch(1 0 0 / 12%);
+  --sidebar-ring: #e0555c;
 }
 
 @layer base {
