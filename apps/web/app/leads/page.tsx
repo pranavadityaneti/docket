@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import {
   Table,
@@ -29,7 +29,6 @@ import {
   createLead,
   listStages,
   updateLeadStage,
-  isLoggedIn,
   AuthRequiredError,
   type ApiLead,
   type ApiStage,
@@ -798,7 +797,6 @@ function BoardView({
 /* ------------------------------- Page ------------------------------- */
 
 export default function LeadsPage() {
-  const router = useRouter();
   const [view, setView] = React.useState<View>("All Leads");
   const [leads, setLeads] = React.useState<Lead[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -807,11 +805,10 @@ export default function LeadsPage() {
   const [moveError, setMoveError] = React.useState<string | null>(null);
   const [createOpen, setCreateOpen] = React.useState(false);
 
-  // Auth failures (no token, or the API rejected it) send the user to /login
-  // instead of surfacing "Not authenticated" as if it were a data error.
-  const redirectToLogin = React.useCallback(() => {
-    router.push(`/login?next=${encodeURIComponent("/leads")}`);
-  }, [router]);
+  // No auth checks here by design: AppChrome won't render this page without a
+  // session, and it redirects centrally if the API rejects the token. These
+  // handlers only swallow AuthRequiredError so a redirect-in-flight doesn't
+  // also flash an error card.
 
   // Load leads + stages from the live API (apps/api) — tenant-scoped via RLS.
   const refresh = React.useCallback(async () => {
@@ -825,12 +822,12 @@ export default function LeadsPage() {
       setLeads(rows.map(toLead));
       setStages(stageRows);
     } catch (e) {
-      if (e instanceof AuthRequiredError) return redirectToLogin();
+      if (e instanceof AuthRequiredError) return;
       setError(e instanceof Error ? e.message : "Failed to load leads.");
     } finally {
       setLoading(false);
     }
-  }, [redirectToLogin]);
+  }, []);
 
   // Move a lead to another stage — optimistic, with revert + message on failure.
   const moveStage = React.useCallback(
@@ -844,18 +841,16 @@ export default function LeadsPage() {
         if (current) {
           setLeads((ls) => ls.map((l) => (l.id === leadId ? { ...l, stage: current } : l)));
         }
-        if (e instanceof AuthRequiredError) return redirectToLogin();
+        if (e instanceof AuthRequiredError) return;
         setMoveError(e instanceof Error ? e.message : "Couldn't move the lead. Please try again.");
       }
     },
-    [leads, redirectToLogin],
+    [leads],
   );
 
   React.useEffect(() => {
-    // Skip the doomed-to-401 round trip when we already know there's no token.
-    if (!isLoggedIn()) return redirectToLogin();
     refresh();
-  }, [refresh, redirectToLogin]);
+  }, [refresh]);
 
   // Open the create modal when arriving from the Home's "New lead" (/leads?new=1),
   // then tidy the URL back to /leads.
@@ -987,7 +982,7 @@ export default function LeadsPage() {
             await createLead(input);
             refresh();
           } catch (e) {
-            if (e instanceof AuthRequiredError) return redirectToLogin();
+            if (e instanceof AuthRequiredError) return; // AppChrome redirects
             throw e; // let the dialog show its own inline error
           }
         }}

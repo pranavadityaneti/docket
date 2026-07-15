@@ -17,6 +17,13 @@ export class AuthRequiredError extends Error {
   }
 }
 
+/**
+ * Dispatched on `window` when the API rejects our token (expired/revoked).
+ * AppChrome listens and redirects, so no individual page has to implement its
+ * own 401 handling. An event keeps this module free of React/router imports.
+ */
+export const AUTH_REQUIRED_EVENT = "docket:auth-required";
+
 /** Shape returned by GET /leads (see apps/api/src/leads/leads.ts list()). */
 export type ApiLead = {
   id: string;
@@ -85,6 +92,9 @@ async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
   });
   if (res.status === 401) {
     clearToken();
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event(AUTH_REQUIRED_EVENT));
+    }
     throw new AuthRequiredError();
   }
   if (!res.ok) {
