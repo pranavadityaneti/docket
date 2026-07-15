@@ -2,12 +2,11 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 
 import {
   Sidebar,
   SidebarContent,
-  SidebarFooter,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
@@ -17,18 +16,7 @@ import {
   SidebarMenuSubItem,
   SidebarRail,
 } from "@/components/ui/sidebar";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Icon } from "@/components/ui/icon";
-import { logout } from "@/lib/api";
 
 type NavLeaf = { title: string; symbol: string; href?: string };
 type NavNode = { title: string; symbol: string; href?: string; items?: NavLeaf[] };
@@ -114,13 +102,7 @@ function leafActive(pathname: string, href?: string) {
 
 export function AppSidebar() {
   const pathname = usePathname();
-  const router = useRouter();
   const [open, setOpen] = React.useState<Record<string, boolean>>({});
-
-  function handleLogout() {
-    logout();
-    router.push("/login");
-  }
 
   const groupHasActive = (node: NavNode) =>
     !!node.items?.some((leaf) => leafActive(pathname, leaf.href));
@@ -230,48 +212,6 @@ export function AppSidebar() {
           })}
         </SidebarMenu>
       </SidebarContent>
-
-      <SidebarFooter className="p-3">
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <DropdownMenu>
-              <DropdownMenuTrigger render={<SidebarMenuButton size="lg" className="gap-3" />}>
-                <Avatar className="size-8 rounded-md">
-                  <AvatarFallback className="rounded-md bg-secondary text-xs">
-                    DA
-                  </AvatarFallback>
-                </Avatar>
-                <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-medium">Demo Admin</span>
-                  <span className="truncate text-xs text-muted-foreground">
-                    admin@finlot.ai
-                  </span>
-                </div>
-                <Icon
-                  name="unfold_more"
-                  size={18}
-                  className="ml-auto text-muted-foreground"
-                />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" side="top" className="w-(--anchor-width) min-w-56">
-                <DropdownMenuGroup>
-                  <DropdownMenuLabel className="py-1.5">
-                    <div className="grid leading-tight">
-                      <span className="text-sm font-medium text-foreground">Demo Admin</span>
-                      <span className="text-xs font-normal text-muted-foreground">admin@finlot.ai</span>
-                    </div>
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem variant="destructive" onClick={handleLogout}>
-                    <Icon name="logout" size={16} />
-                    Log out
-                  </DropdownMenuItem>
-                </DropdownMenuGroup>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarFooter>
 
       <SidebarRail />
     </Sidebar>
