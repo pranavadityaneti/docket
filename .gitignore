@@ -11,6 +11,10 @@ dist
 *.tsbuildinfo
 next-env.d.ts
 
+# Deployable EB artifact (see apps/api/README.md) — ~70MB of vendored
+# node_modules, rebuilt by `pnpm deploy` on every release.
+.artifact
+
 # env
 .env
 .env.*
