@@ -47,6 +47,11 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
   React.useEffect(() => {
     if (isPublic) return;
     const ok = isLoggedIn();
+    // Can't be derived during render or seeded into useState: localStorage is
+    // unreadable during SSR, and the first render must stay indeterminate on
+    // both server and client or hydration mismatches. Resolving it on mount is
+    // the correct shape here, not a shortcut.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setAuthed(ok);
     if (!ok) toLogin();
   }, [isPublic, pathname, toLogin]);

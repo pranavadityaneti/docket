@@ -39,7 +39,9 @@ function LoginForm() {
             <Icon name="lock" size={20} />
           </div>
           <h1 className="text-lg font-semibold">Sign in to Docket</h1>
-          <p className="text-sm text-muted-foreground">Finlot's AI workforce for loan origination.</p>
+          <p className="text-sm text-muted-foreground">
+            Finlot&rsquo;s AI workforce for loan origination.
+          </p>
         </div>
 
         <form onSubmit={submit} className="flex flex-col gap-4 p-6">

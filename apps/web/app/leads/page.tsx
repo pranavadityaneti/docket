@@ -599,13 +599,24 @@ function Placeholder({ title, blurb, chips }: { title: string; blurb: string; ch
 /* ------------------------------- All Leads (table) ------------------------------- */
 
 function AllLeadsView({ leads, onRefresh }: { leads: Lead[]; onRefresh: () => void }) {
-  // Seed from ?q= (set by the header search) and re-sync when it changes —
-  // searching again from the header while already on /leads doesn't remount
-  // this component, so without the effect the filter would go stale.
   const searchParams = useSearchParams();
   const urlQuery = searchParams.get("q") ?? "";
+
+  // Seed the filter from ?q= (set by the header search) and re-seed whenever it
+  // changes — searching again from the header while already on /leads doesn't
+  // remount this component, so the filter would otherwise go stale.
+  //
+  // Adjusted during render rather than in an effect: React re-runs the
+  // component immediately without committing the stale pass, whereas an effect
+  // would paint the previous filter first and then correct it — a visible flash
+  // and a wasted render. Typing still updates `query` freely; only a *change*
+  // in ?q= re-seeds it. See react.dev "You Might Not Need an Effect".
   const [query, setQuery] = React.useState(urlQuery);
-  React.useEffect(() => setQuery(urlQuery), [urlQuery]);
+  const [seededFrom, setSeededFrom] = React.useState(urlQuery);
+  if (urlQuery !== seededFrom) {
+    setSeededFrom(urlQuery);
+    setQuery(urlQuery);
+  }
   const filtered = leads.filter((l) => {
     const q = query.trim().toLowerCase();
     if (!q) return true;
@@ -849,14 +860,23 @@ export default function LeadsPage() {
   );
 
   React.useEffect(() => {
+    // Fetching on mount is what an effect is for — synchronising with an
+    // external system. refresh() sets loading/error, which the rule flags, but
+    // on mount those already equal their initial values so React bails out
+    // rather than cascading. Removing the warning properly would mean moving to
+    // a data library/route loader — a bigger change than this screen needs.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     refresh();
   }, [refresh]);
 
   // Open the create modal when arriving from the Home's "New lead" (/leads?new=1),
-  // then tidy the URL back to /leads.
+  // then tidy the URL back to /leads. This must be an effect: it reads
+  // window.location (unavailable during SSR, so it can't seed useState without a
+  // hydration mismatch) and rewrites the URL — an external system.
   React.useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get("new") === "1") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setCreateOpen(true);
       window.history.replaceState(null, "", "/leads");
     }
