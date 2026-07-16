@@ -20,3 +20,33 @@ allowBuilds:
   esbuild: true
   sharp: true
   unrs-resolver: true
+
+# Fetch native binaries for the Elastic Beanstalk target as well as this machine.
+#
+# @node-rs/argon2 ships one prebuilt binary per platform as optional deps, and
+# pnpm installs only the one matching the installing machine. Building the API
+# artifact on a Mac therefore shipped darwin-arm64 to a linux-x64 instance and
+# the API crash-looped on boot:
+#   Error: Cannot find module './argon2.linux-x64-gnu.node'
+# It can neither hash nor verify a password without that binary, so login is
+# dead — and nothing catches it locally, where the darwin binary is the right one.
+#
+# linux/x64 is the EB target (Amazon Linux 2023, glibc 2.34 -> gnu, not musl);
+# darwin/arm64 keeps this machine working.
+#
+# NOTE: like allowBuilds above, this belongs here. pnpm 11 does NOT read
+# `pnpm.supportedArchitectures` from package.json — it is silently ignored there.
+# `pnpm config list` shows what pnpm actually reads.
+#
+# Changing this needs a clean install (`rm -rf node_modules && pnpm install`).
+# node_modules/.modules.yaml does not record architectures, so pnpm sees nothing
+# to do: both `pnpm install` and `pnpm install --force` report "Already up to
+# date" and fetch no new binaries. Verify with the ls below, not the exit code.
+#   ls node_modules/.pnpm | grep argon2   # must list linux-x64-gnu, not just darwin
+supportedArchitectures:
+  os:
+    - darwin
+    - linux
+  cpu:
+    - arm64
+    - x64
