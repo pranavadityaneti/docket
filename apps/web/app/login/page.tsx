@@ -8,10 +8,33 @@ import { Input } from "@/components/ui/input";
 import { Icon } from "@/components/ui/icon";
 import { login } from "@/lib/api";
 
+const DEFAULT_NEXT = "/leads";
+
+/**
+ * Where to send the user after sign-in, from ?next=.
+ *
+ * `next` is attacker-controllable — anyone can craft a link to our real login
+ * page — so it must never be handed to the router unchecked. Without this,
+ * /login?next=https://evil.example sends a user who just authenticated on the
+ * genuine site straight to someone else's: a credible phishing hand-off, and a
+ * nasty one for a lender, where the next screen plausibly asks for bank details.
+ *
+ * Only same-origin, absolute-path targets are allowed. Rejected:
+ *   https://evil.example  — absolute URL, leaves the site
+ *   //evil.example        — protocol-relative, also leaves the site
+ *   javascript:alert(1)   — not a path at all
+ * Anything suspicious falls back to the default rather than failing loudly;
+ * there's no legitimate reason for a real link to carry one.
+ */
+function safeNext(raw: string | null): string {
+  if (!raw || !raw.startsWith("/") || raw.startsWith("//")) return DEFAULT_NEXT;
+  return raw;
+}
+
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const next = searchParams.get("next") || "/leads";
+  const next = safeNext(searchParams.get("next"));
 
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");

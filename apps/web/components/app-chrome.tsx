@@ -39,7 +39,16 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
   const [authed, setAuthed] = React.useState<boolean | null>(null);
 
   const toLogin = React.useCallback(() => {
-    router.replace(`/login?next=${encodeURIComponent(pathname)}`);
+    // Keep the query string, not just the path: usePathname() drops it, so a
+    // deep link like /leads?q=acme would come back from sign-in as bare /leads
+    // with the filter silently gone. Read from window rather than
+    // useSearchParams — this only ever runs client-side, and useSearchParams
+    // here in the root layout would opt the entire app out of static rendering.
+    const here =
+      typeof window !== "undefined"
+        ? window.location.pathname + window.location.search
+        : pathname;
+    router.replace(`/login?next=${encodeURIComponent(here)}`);
   }, [router, pathname]);
 
   // Every non-public route is gated in this one place, so a newly added page is
