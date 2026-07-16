@@ -67,6 +67,13 @@ present. `Procfile` tells EB to start it with `node dist/main.js`.
 
 Verified: the artifact boots, authenticates and serves `/leads` standalone.
 
+> **Run `pnpm install` afterwards.** `pnpm deploy --prod` leaves the *workspace*
+> flagged production-only. Every subsequent `pnpm run <script>` then fails — its
+> dependency check tries `pnpm install --production`, which wants to purge dev
+> dependencies and aborts without a TTY
+> (`ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY`). A plain `pnpm install` restores
+> it. Reproduced: script exits 0 → deploy → same script exits 1 → install → 0.
+
 ### Known gap
 
 Throttler storage is in-memory, so rate-limit buckets are per-instance. Fine on

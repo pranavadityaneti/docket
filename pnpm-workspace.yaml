@@ -2,19 +2,21 @@ packages:
   - "apps/*"
   - "packages/*"
 
+# Approve these dependencies' postinstall build scripts. pnpm blocks them by
+# default and, until each is answered, every `pnpm install` exits non-zero with
+# ERR_PNPM_IGNORED_BUILDS — which also fails the dependency check that `pnpm run`
+# performs, so scripts can't run at all.
+#
+# NOTE: this is `allowBuilds` (pnpm 11), NOT `onlyBuiltDependencies` (pnpm 10).
+# The old key is silently ignored by pnpm 11 — an allowlist written there looks
+# correct and does nothing.
+#
+# esbuild / sharp / unrs-resolver fetch or build a native binary. @swc/core gets
+# its binary from an optional platform package, and @nestjs/core's script is only
+# a funding notice, but both must still be answered to clear the gate.
 allowBuilds:
-  '@nestjs/core': set this to true or false
-  '@swc/core': set this to true or false
-  esbuild: set this to true or false
-  sharp: set this to true or false
-  unrs-resolver: set this to true or false
-
-# Approve these native deps' postinstall build scripts (sharp powers Next image
-# optimization; unrs-resolver is Next's module resolver). Explicit allowlist so
-# pnpm stops prompting on install.
-onlyBuiltDependencies:
-  - "@nestjs/core"
-  - "@swc/core"
-  - esbuild
-  - sharp
-  - unrs-resolver
+  '@nestjs/core': true
+  '@swc/core': true
+  esbuild: true
+  sharp: true
+  unrs-resolver: true
