@@ -22,6 +22,7 @@
     "generate": "drizzle-kit generate",
     "migrate": "drizzle-kit migrate",
     "migrate:prod": "node dist/migrate.js",
+    "bootstrap:prod": "node dist/bootstrap.js",
     "push": "drizzle-kit push",
     "studio": "drizzle-kit studio",
     "seed": "tsx src/seed.ts",
