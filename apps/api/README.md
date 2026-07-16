@@ -58,14 +58,32 @@ Without `--conditions development`, `@docket/db` resolves to its compiled
 pnpm --filter @docket/db  build
 pnpm --filter @docket/api build
 pnpm deploy --filter=@docket/api --prod --legacy ./.artifact/api
+node scripts/prune-escaping-symlinks.mjs ./.artifact/api   # required — see below
+zip -ry docket-api.zip . -x "*.DS_Store"                   # -y: store symlinks, don't follow
 ```
 
 `pnpm deploy` is required: in a pnpm workspace `@docket/db` is a symlink, which
-a plain zip of this directory would not carry. It produces a self-contained
-directory (internal, relative symlinks only) that runs with no workspace
-present. `Procfile` tells EB to start it with `node dist/main.js`.
+a plain zip of this directory would not carry. It produces a directory that runs
+with no workspace present. `Procfile` tells EB to start it with
+`node dist/main.js`.
 
-Verified: the artifact boots, authenticates and serves `/leads` standalone.
+**The prune step is not optional.** `pnpm deploy` leaves one link in the virtual
+store pointing back at the workspace source
+(`node_modules/.pnpm/node_modules/@docket/api -> ../../../../../../apps/api`).
+It resolves on the build machine, so the artifact looks fine and runs fine
+there — but EB recursively chowns the staged bundle, and off the build machine
+that link dangles:
+
+```
+[ERROR] StageApplication ... chown /var/app/staging/node_modules/.pnpm/node_modules/@docket/api:
+        no such file or directory
+```
+
+The deploy aborts and rolls back. Test for escapes by resolving link targets,
+not by checking existence — on the build machine the target does exist.
+
+Verified: the artifact boots, authenticates and serves `/leads` standalone —
+and, after pruning, unzips and boots in a directory with no workspace above it.
 
 > **Run `pnpm install` afterwards.** `pnpm deploy --prod` leaves the *workspace*
 > flagged production-only. Every subsequent `pnpm run <script>` then fails — its
