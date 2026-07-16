@@ -29,6 +29,13 @@
       "when": 1783931940217,
       "tag": "0003_add_user_password_hash",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1784215092850,
+      "tag": "0004_app_role_set_grant",
+      "breakpoints": true
     }
   ]
 }

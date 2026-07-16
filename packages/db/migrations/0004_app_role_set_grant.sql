@@ -1,0 +1,14 @@
+-- Lets the connection role become docket_app, which withTenant() does per query.
+--
+-- Creating a role does NOT confer this. Since PG16, a CREATEROLE non-superuser
+-- that creates a role is auto-granted ADMIN OPTION on it but not SET, because
+-- createrole_self_grant defaults to empty — so 0002 leaves docket_owner able to
+-- administer docket_app yet unable to SET ROLE to it. A dev superuser can SET
+-- ROLE to anything, so this only ever surfaces off a superuser (i.e. on RDS).
+--
+-- CURRENT_USER is the migration runner, which is also the role the API connects
+-- as (both read DATABASE_URL): docket_owner on prod, the dev user locally.
+--
+-- INHERIT FALSE is explicit: SET alone would leave INHERIT defaulting to the
+-- member's rolinherit, silently also granting privileges we don't need here.
+GRANT docket_app TO CURRENT_USER WITH SET TRUE, INHERIT FALSE;
