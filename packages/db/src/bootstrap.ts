@@ -14,7 +14,7 @@ import { and, eq } from "drizzle-orm";
 import { createDb } from "./client";
 import * as schema from "./schema";
 import { hashPassword } from "./password";
-import { LEAD_FIELDS, STAGES } from "./business-loan-config";
+import { LEAD_FIELDS, STAGES, WORKFLOW } from "./business-loan-config";
 
 function required(name: string): string {
   const value = process.env[name];
@@ -31,7 +31,7 @@ async function main() {
   const tenantName = process.env.TENANT_NAME ?? "Finlot";
   const tenantSlug = process.env.TENANT_SLUG ?? "finlot";
   const tenantPlan = process.env.TENANT_PLAN ?? "internal";
-  const workflowSlug = "business-loan";
+  const workflowSlug = WORKFLOW.slug;
 
   // Hash before opening the transaction — argon2 is deliberately slow and there
   // is no reason to hold the transaction open while it runs.
@@ -94,7 +94,13 @@ async function main() {
     /* ---- workflow ---- */
     const [insertedWorkflow] = await tx
       .insert(schema.workflows)
-      .values({ tenantId: tenant.id, name: "Business Loan", slug: workflowSlug })
+      .values({
+        tenantId: tenant.id,
+        name: WORKFLOW.name,
+        slug: workflowSlug,
+        subjectLabel: WORKFLOW.subjectLabel,
+        caseLabel: WORKFLOW.caseLabel,
+      })
       .onConflictDoNothing({
         target: [schema.workflows.tenantId, schema.workflows.slug],
       })
@@ -117,8 +123,8 @@ async function main() {
           .limit(1)
       )[0];
 
-    /* ---- stages & lead config ----
-     * workflow_stages and lead_configs have no unique constraint, so there is
+    /* ---- stages & field config ----
+     * workflow_stages and field_configs have no unique constraint, so there is
      * no conflict target to lean on — a blind re-insert would silently
      * duplicate all 12 stages. Guard on what is already there instead. */
     const existingStages = await tx
@@ -141,16 +147,16 @@ async function main() {
     }
 
     const existingConfigs = await tx
-      .select({ id: schema.leadConfigs.id })
-      .from(schema.leadConfigs)
-      .where(eq(schema.leadConfigs.workflowId, workflow.id))
+      .select({ id: schema.fieldConfigs.id })
+      .from(schema.fieldConfigs)
+      .where(eq(schema.fieldConfigs.workflowId, workflow.id))
       .limit(1);
     let configInserted = false;
     if (existingConfigs.length === 0) {
-      await tx.insert(schema.leadConfigs).values({
+      await tx.insert(schema.fieldConfigs).values({
         tenantId: tenant.id,
         workflowId: workflow.id,
-        name: "Business Loan Lead",
+        name: WORKFLOW.name,
         fields: LEAD_FIELDS,
         visibleRoles: [],
       });
@@ -173,7 +179,7 @@ async function main() {
     `Admin ${adminEmail} ${report.user}; password ${report.passwordSet ? "set" : "left unchanged"}.`,
   );
   console.log(
-    `Workflow "${workflowSlug}" ${report.workflow}; ${report.stagesInserted} stages inserted; lead config ${report.configInserted ? "inserted" : "already present"}.`,
+    `Workflow "${workflowSlug}" ${report.workflow}; ${report.stagesInserted} stages inserted; field config ${report.configInserted ? "inserted" : "already present"}.`,
   );
   process.exit(0);
 }

@@ -3,7 +3,17 @@
 // runs main() on import — importing its constants would run the seed — and
 // because a second copy would drift from this one the first time a stage or
 // field changes.
-import type { LeadFieldDef } from "./schema";
+import type { FieldDef } from "./schema";
+
+/* Vocabulary for this workflow. Docket itself is industry-agnostic — these
+ * nouns are what make this particular workflow a lending one. A college's
+ * workflow would carry Student/Admission, a CA firm's Client/Engagement. */
+export const WORKFLOW = {
+  name: "Business Loan",
+  slug: "business-loan",
+  subjectLabel: "Borrower",
+  caseLabel: "Application",
+} as const;
 
 /* The Business-Loan workflow's 12 stages (mirrors the live Gain tenant). */
 export const STAGES: { name: string; tone: string }[] = [
@@ -22,7 +32,7 @@ export const STAGES: { name: string; tone: string }[] = [
 ];
 
 /* The 8-field Business-Loan lead config ("Portal" corrects Gain's "Protal" typo). */
-export const LEAD_FIELDS: LeadFieldDef[] = [
+export const LEAD_FIELDS: FieldDef[] = [
   { field_key: "pan_number", label: "PAN Number", field_type: "string", input_type: "text", required: false, validation: { regex: "^[A-Z]{5}[0-9]{4}[A-Z]{1}$", minimum: "10", maximum: "10" }, placeholder: "Enter PAN number", order: 0 },
   { field_key: "company_name", label: "Company Name", field_type: "string", input_type: "text", required: false, validation: { minimum: "1", maximum: "100" }, placeholder: "Enter company name", order: 1 },
   { field_key: "loan_amount", label: "Loan Amount (₹)", field_type: "integer", input_type: "number", required: false, validation: { minimum: "1" }, placeholder: "Enter loan amount", order: 2 },

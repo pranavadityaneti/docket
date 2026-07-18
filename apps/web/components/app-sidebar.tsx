@@ -39,7 +39,7 @@ const NAV: NavNode[] = [
     title: "Sales",
     symbol: "filter_alt",
     items: [
-      { title: "Leads", symbol: "person_search", href: "/leads" },
+      { title: "Cases", symbol: "folder_shared", href: "/cases" },
       { title: "Partners", symbol: "handshake" },
       { title: "Auctions", symbol: "gavel" },
     ],

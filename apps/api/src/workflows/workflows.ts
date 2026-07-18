@@ -8,6 +8,29 @@ import { CurrentUser, JwtAuthGuard, type AuthUser } from "../auth/auth";
 export class WorkflowsService {
   constructor(private readonly db: DbService) {}
 
+  /**
+   * The tenant's workflows, with their vocabulary.
+   *
+   * The client needs this to know which workflow it is showing. Without it the
+   * dashboard has to assume a slug, and the only slug it could assume was
+   * "business-loan" — which is exactly the lending hardcode this platform is
+   * being rebuilt to remove. A college tenant has no such workflow.
+   */
+  list(tenantId: string) {
+    return this.db.withTenant(tenantId, (tx) =>
+      tx
+        .select({
+          id: workflows.id,
+          name: workflows.name,
+          slug: workflows.slug,
+          subjectLabel: workflows.subjectLabel,
+          caseLabel: workflows.caseLabel,
+        })
+        .from(workflows)
+        .orderBy(asc(workflows.name)),
+    );
+  }
+
   listStages(tenantId: string, workflowSlug: string) {
     return this.db.withTenant(tenantId, async (tx) => {
       const [wf] = await tx
@@ -34,6 +57,13 @@ export class WorkflowsService {
 @UseGuards(JwtAuthGuard)
 export class WorkflowsController {
   constructor(private readonly workflows: WorkflowsService) {}
+
+  // Declared before ":slug/stages" so the literal path is matched first and a
+  // workflow can never be created with the slug that shadows this route.
+  @Get()
+  list(@CurrentUser() u: AuthUser) {
+    return this.workflows.list(u.tenantId);
+  }
 
   @Get(":slug/stages")
   listStages(@CurrentUser() u: AuthUser, @Param("slug") slug: string) {

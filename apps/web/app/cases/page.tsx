@@ -25,14 +25,15 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  listLeads,
-  createLead,
+  listCases,
+  createCase,
   listStages,
-  updateLeadStage,
+  listWorkflows,
+  updateCaseStage,
   AuthRequiredError,
-  type ApiLead,
+  type ApiCase,
   type ApiStage,
-  type CreateLeadInput,
+  type CreateCaseInput,
 } from "@/lib/api";
 
 /* ------------------------------------------------------------------ *
@@ -46,7 +47,7 @@ import {
 const WORKFLOWS = ["Business Loan"] as const;
 
 const VIEWS = [
-  "All Leads",
+  "All Cases",
   "Action",
   "Board",
   "List",
@@ -107,6 +108,8 @@ const SOURCES: Source[] = ["Portal", "Whatsapp", "Email", "Referral", "Website",
 
 type Lead = {
   id: string;
+  /** Human-readable handle (DKT-7F3K2M) quoted over WhatsApp and email. */
+  reference: string;
   name: string;
   company: string;
   loanType: LoanType;
@@ -119,7 +122,7 @@ type Lead = {
   activity: string;
 };
 
-// ---- API (ApiLead) -> UI (Lead) mapping --------------------------------------
+// ---- API (ApiCase) -> UI (Lead) mapping --------------------------------------
 // The API returns contactName/contactCompany/stageName + a UUID id; the UI view
 // model uses name/company/stage. Enum-ish fields arrive as nullable strings, so
 // we clamp them to the UI unions with safe defaults. Owner isn't joined yet
@@ -143,16 +146,33 @@ function relativeTime(iso: string): string {
   return `${Math.floor(h / 24)}d ago`;
 }
 
-function toLead(a: ApiLead): Lead {
+/** Read one domain value out of the case's `data` bag. */
+function str(data: Record<string, unknown> | null, key: string): string | undefined {
+  const v = data?.[key];
+  return typeof v === "string" && v.trim() !== "" ? v : undefined;
+}
+function num(data: Record<string, unknown> | null, key: string): number {
+  const v = data?.[key];
+  if (typeof v === "number") return v;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+}
+
+// Domain fields (loan type, amount, entity type) are no longer columns — they
+// live in `data`, keyed as this workflow's field config defines them. That is
+// what lets the same table serve a college or a CA firm. This screen still
+// renders the lending shape; making the columns config-driven is a later change.
+function toLead(a: ApiCase): Lead {
   return {
     id: a.id,
-    name: a.contactName ?? "—",
-    company: a.contactCompany ?? "—",
-    loanType: (a.loanType ?? "SME Term Loan") as LoanType,
-    entityType: (a.entityType ?? "Proprietorship") as EntityType,
-    amount: a.amount ?? 0,
-    source: (a.source ?? "Other") as Source,
-    monthlyTurnover: a.monthlyTurnover ?? 0,
+    reference: a.reference,
+    name: a.subjectName ?? "—",
+    company: a.subjectOrganisation ?? "—",
+    loanType: (str(a.data, "loan_type") ?? "SME Term Loan") as LoanType,
+    entityType: (str(a.data, "entity_type") ?? "Proprietorship") as EntityType,
+    amount: num(a.data, "loan_amount"),
+    source: (a.source ?? str(a.data, "source") ?? "Other") as Source,
+    monthlyTurnover: num(a.data, "monthly_turnover"),
     stage: toStage(a.stageName),
     owner: "Unassigned",
     activity: relativeTime(a.updatedAt),
@@ -394,7 +414,7 @@ function CreateLeadDialog({
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
-  onCreate: (input: CreateLeadInput) => Promise<void>;
+  onCreate: (input: CreateCaseInput) => Promise<void>;
 }) {
   const [name, setName] = React.useState("");
   const [company, setCompany] = React.useState("");
@@ -446,18 +466,21 @@ function CreateLeadDialog({
     try {
       await onCreate({
         name: name.trim(),
-        company: company.trim(),
-        pan: pan.trim() || undefined,
-        loanType,
-        entityType,
-        amount: amt,
-        monthlyTurnover: Number(turnover) || undefined,
+        organisation: company.trim() || undefined,
         source,
-        fundsNeeded: funds.trim() || undefined,
+        // Keys match this workflow's field config (see business-loan-config.ts).
+        data: {
+          pan_number: pan.trim() || undefined,
+          loan_type: loanType,
+          entity_type: entityType,
+          loan_amount: amt,
+          monthly_turnover: Number(turnover) || undefined,
+          funds_needed: funds.trim() || undefined,
+        },
       });
       handleOpenChange(false); // resets + closes on success
     } catch (e) {
-      setSubmitError(e instanceof Error ? e.message : "Couldn't create the lead. Please try again.");
+      setSubmitError(e instanceof Error ? e.message : "Couldn't create the case. Please try again.");
     } finally {
       setSubmitting(false);
     }
@@ -467,7 +490,7 @@ function CreateLeadDialog({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="gap-0 p-0">
         <DialogHeader className="border-b pr-10">
-          <DialogTitle>New lead</DialogTitle>
+          <DialogTitle>New case</DialogTitle>
           <DialogDescription>
             Business Loan workflow · lands in Pending, then the AI workforce takes over.
           </DialogDescription>
@@ -561,7 +584,7 @@ function CreateLeadDialog({
               </>
             ) : (
               <>
-                <Icon name="add" size={16} /> Create lead
+                <Icon name="add" size={16} /> Create case
               </>
             )}
           </Button>
@@ -596,9 +619,9 @@ function Placeholder({ title, blurb, chips }: { title: string; blurb: string; ch
   );
 }
 
-/* ------------------------------- All Leads (table) ------------------------------- */
+/* ------------------------------- All Cases (table) ------------------------------- */
 
-function AllLeadsView({ leads, onRefresh }: { leads: Lead[]; onRefresh: () => void }) {
+function AllCasesView({ leads, onRefresh }: { leads: Lead[]; onRefresh: () => void }) {
   const searchParams = useSearchParams();
   const urlQuery = searchParams.get("q") ?? "";
 
@@ -620,7 +643,7 @@ function AllLeadsView({ leads, onRefresh }: { leads: Lead[]; onRefresh: () => vo
   const filtered = leads.filter((l) => {
     const q = query.trim().toLowerCase();
     if (!q) return true;
-    return `${l.name} ${l.company} ${l.id}`.toLowerCase().includes(q);
+    return `${l.name} ${l.company} ${l.reference}`.toLowerCase().includes(q);
   });
 
   return (
@@ -680,7 +703,7 @@ function AllLeadsView({ leads, onRefresh }: { leads: Lead[]; onRefresh: () => vo
               <TableRow key={l.id}>
                 <TableCell className="pl-4">
                   <div className="font-medium">{l.name}</div>
-                  <div className="text-xs text-muted-foreground">{l.company} · {l.id}</div>
+                  <div className="text-xs text-muted-foreground">{l.company} · {l.reference}</div>
                 </TableCell>
                 <TableCell className="whitespace-nowrap text-muted-foreground">{l.loanType}</TableCell>
                 <TableCell className="whitespace-nowrap tabular-nums">{inr(l.amount)}</TableCell>
@@ -702,7 +725,7 @@ function AllLeadsView({ leads, onRefresh }: { leads: Lead[]; onRefresh: () => vo
                   <Badge variant="outline" className={`${STAGE_TONE[l.stage]} whitespace-nowrap`}>{l.stage}</Badge>
                 </TableCell>
                 <TableCell className="pr-4 text-right">
-                  <Button variant="ghost" size="icon" className="size-8 text-muted-foreground" aria-label="Lead actions">
+                  <Button variant="ghost" size="icon" className="size-8 text-muted-foreground" aria-label="Case actions">
                     <Icon name="more_horiz" size={18} />
                   </Button>
                 </TableCell>
@@ -766,7 +789,7 @@ function BoardView({
                         <span className="truncate text-sm font-medium">{l.name}</span>
                         <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{inr(l.amount)}</span>
                       </div>
-                      <div className="mt-0.5 truncate text-xs text-muted-foreground">{l.company}</div>
+                      <div className="mt-0.5 truncate text-xs text-muted-foreground">{l.company} · {l.reference}</div>
                       <div className="mt-2 flex items-center gap-1.5">
                         <Badge variant="outline" className="border-primary/20 bg-primary/10 text-[11px] font-normal text-primary">
                           {l.loanType}
@@ -807,8 +830,8 @@ function BoardView({
 
 /* ------------------------------- Page ------------------------------- */
 
-export default function LeadsPage() {
-  const [view, setView] = React.useState<View>("All Leads");
+export default function CasesPage() {
+  const [view, setView] = React.useState<View>("All Cases");
   const [leads, setLeads] = React.useState<Lead[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
@@ -826,12 +849,13 @@ export default function LeadsPage() {
     setLoading(true);
     setError(null);
     try {
-      const [rows, stageRows] = await Promise.all([
-        listLeads("business-loan"),
-        listStages("business-loan"),
-      ]);
+      // Resolve the workflow from the API rather than assuming a slug — this
+      // used to pass nothing and silently land on "business-loan", which does
+      // not exist for a college or a CA firm.
+      const [rows, workflows] = await Promise.all([listCases(), listWorkflows()]);
       setLeads(rows.map(toLead));
-      setStages(stageRows);
+      const slug = workflows[0]?.slug;
+      setStages(slug ? await listStages(slug) : []);
     } catch (e) {
       if (e instanceof AuthRequiredError) return;
       setError(e instanceof Error ? e.message : "Failed to load leads.");
@@ -847,7 +871,7 @@ export default function LeadsPage() {
       const current = leads.find((l) => l.id === leadId)?.stage;
       setLeads((ls) => ls.map((l) => (l.id === leadId ? { ...l, stage: toStageName } : l)));
       try {
-        await updateLeadStage(leadId, toStageId);
+        await updateCaseStage(leadId, toStageId);
       } catch (e) {
         if (current) {
           setLeads((ls) => ls.map((l) => (l.id === leadId ? { ...l, stage: current } : l)));
@@ -869,7 +893,7 @@ export default function LeadsPage() {
     refresh();
   }, [refresh]);
 
-  // Open the create modal when arriving from the Home's "New lead" (/leads?new=1),
+  // Open the create modal when arriving from the Home's "New case" (/cases?new=1),
   // then tidy the URL back to /leads. This must be an effect: it reads
   // window.location (unavailable during SSR, so it can't seed useState without a
   // hydration mismatch) and rewrites the URL — an external system.
@@ -878,7 +902,7 @@ export default function LeadsPage() {
     if (params.get("new") === "1") {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setCreateOpen(true);
-      window.history.replaceState(null, "", "/leads");
+      window.history.replaceState(null, "", "/cases");
     }
   }, []);
 
@@ -886,7 +910,7 @@ export default function LeadsPage() {
     <div className="mx-auto flex max-w-7xl flex-col gap-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Leads</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Cases</h1>
           <p className="text-sm text-muted-foreground">
             Every borrower in the pipeline and where each file stands.
           </p>
@@ -894,7 +918,7 @@ export default function LeadsPage() {
         <div className="flex items-center gap-2">
           <WorkflowSelect />
           <Button className="gap-1.5" onClick={() => setCreateOpen(true)}>
-            <Icon name="add" size={18} /> Lead
+            <Icon name="add" size={18} /> Case
           </Button>
           <Button variant="outline" size="icon" aria-label="More options">
             <Icon name="more_vert" size={18} />
@@ -957,10 +981,10 @@ export default function LeadsPage() {
         </Card>
       ) : (
         <>
-      {/* Suspense: AllLeadsView reads useSearchParams (?q= from the header search). */}
-      {view === "All Leads" ? (
+      {/* Suspense: AllCasesView reads useSearchParams (?q= from the header search). */}
+      {view === "All Cases" ? (
         <React.Suspense>
-          <AllLeadsView leads={leads} onRefresh={refresh} />
+          <AllCasesView leads={leads} onRefresh={refresh} />
         </React.Suspense>
       ) : null}
       {view === "Board" ? <BoardView leads={leads} stages={stages} onMoveStage={moveStage} /> : null}
@@ -999,7 +1023,7 @@ export default function LeadsPage() {
         onOpenChange={setCreateOpen}
         onCreate={async (input) => {
           try {
-            await createLead(input);
+            await createCase(input);
             refresh();
           } catch (e) {
             if (e instanceof AuthRequiredError) return; // AppChrome redirects

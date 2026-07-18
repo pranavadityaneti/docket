@@ -1,7 +1,7 @@
 import { createDb } from "./client";
 import * as schema from "./schema";
 import { hashPassword } from "./password";
-import { LEAD_FIELDS, STAGES } from "./business-loan-config";
+import { LEAD_FIELDS, STAGES, WORKFLOW } from "./business-loan-config";
 
 async function main() {
   const url = process.env.DATABASE_URL;
@@ -31,7 +31,13 @@ async function main() {
 
   const [workflow] = await db
     .insert(schema.workflows)
-    .values({ tenantId: tenant.id, name: "Business Loan", slug: "business-loan" })
+    .values({
+      tenantId: tenant.id,
+      name: WORKFLOW.name,
+      slug: WORKFLOW.slug,
+      subjectLabel: WORKFLOW.subjectLabel,
+      caseLabel: WORKFLOW.caseLabel,
+    })
     .returning();
 
   await db.insert(schema.workflowStages).values(
@@ -44,10 +50,10 @@ async function main() {
     })),
   );
 
-  await db.insert(schema.leadConfigs).values({
+  await db.insert(schema.fieldConfigs).values({
     tenantId: tenant.id,
     workflowId: workflow.id,
-    name: "Business Loan Lead",
+    name: WORKFLOW.name,
     fields: LEAD_FIELDS,
     visibleRoles: [],
   });

@@ -40,7 +40,7 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
 
   const toLogin = React.useCallback(() => {
     // Keep the query string, not just the path: usePathname() drops it, so a
-    // deep link like /leads?q=acme would come back from sign-in as bare /leads
+    // deep link like /cases?q=acme would come back from sign-in as bare /cases
     // with the filter silently gone. Read from window rather than
     // useSearchParams — this only ever runs client-side, and useSearchParams
     // here in the root layout would opt the entire app out of static rendering.

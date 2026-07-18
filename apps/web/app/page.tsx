@@ -74,7 +74,7 @@ export default function HomePage() {
           <Button variant="outline" className="gap-1.5">
             <Icon name="auto_awesome" size={18} /> Ask Copilot
           </Button>
-          <Link href="/leads?new=1" className={cn(buttonVariants(), "gap-1.5")}>
+          <Link href="/cases?new=1" className={cn(buttonVariants(), "gap-1.5")}>
             <Icon name="add" size={18} /> New lead
           </Link>
         </div>

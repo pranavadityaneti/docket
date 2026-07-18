@@ -4,7 +4,7 @@ import { ThrottlerModule } from "@nestjs/throttler";
 import { env } from "./config/env";
 import { DbModule } from "./db/db";
 import { AuthModule } from "./auth/auth";
-import { LeadsModule } from "./leads/leads";
+import { CasesModule } from "./cases/cases";
 import { ContactsModule } from "./contacts/contacts";
 import { WorkflowsModule } from "./workflows/workflows";
 
@@ -29,7 +29,7 @@ class HealthController {
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]),
     DbModule,
     AuthModule,
-    LeadsModule,
+    CasesModule,
     ContactsModule,
     WorkflowsModule,
   ],

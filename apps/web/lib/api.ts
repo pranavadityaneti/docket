@@ -24,19 +24,24 @@ export class AuthRequiredError extends Error {
  */
 export const AUTH_REQUIRED_EVENT = "docket:auth-required";
 
-/** Shape returned by GET /leads (see apps/api/src/leads/leads.ts list()). */
-export type ApiLead = {
+/**
+ * Shape returned by GET /cases (see apps/api/src/cases/cases.ts list()).
+ * Domain values — loan amount, course applied for, claim number — arrive in
+ * `data`, described by the workflow's field config. Nothing here is
+ * industry-specific, which is what lets one dashboard serve a lender, a
+ * college and a CA firm.
+ */
+export type ApiCase = {
   id: string;
-  amount: number | null;
-  loanType: string | null;
-  entityType: string | null;
+  reference: string;
   source: string | null;
-  monthlyTurnover: number | null;
   data: Record<string, unknown> | null;
   createdAt: string;
   updatedAt: string;
-  contactName: string | null;
-  contactCompany: string | null;
+  subjectName: string | null;
+  subjectOrganisation: string | null;
+  subjectEmail: string | null;
+  subjectPhone: string | null;
   stageId: string | null;
   stageName: string | null;
   stageTone: string | null;
@@ -104,28 +109,32 @@ async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
   return (await res.json()) as T;
 }
 
-/** All leads for a workflow, newest first. */
-export function listLeads(workflow = "business-loan"): Promise<ApiLead[]> {
-  return apiFetch<ApiLead[]>(`/leads?workflow=${encodeURIComponent(workflow)}`);
+/**
+ * All cases for a workflow, newest first. `workflow` is optional — when a
+ * workspace runs exactly one, the API resolves it, so the client no longer
+ * hardcodes a lending slug.
+ */
+export function listCases(workflow?: string): Promise<ApiCase[]> {
+  const qs = workflow ? `?workflow=${encodeURIComponent(workflow)}` : "";
+  return apiFetch<ApiCase[]>(`/cases${qs}`);
 }
 
-/** Fields accepted by POST /leads (mirrors apps/api CreateLeadInput). */
-export type CreateLeadInput = {
+/** Fields accepted by POST /cases (mirrors apps/api CreateCaseDto). */
+export type CreateCaseInput = {
+  /** The subject: borrower, student, client — whoever documents come from. */
   name: string;
-  company?: string;
-  pan?: string;
-  loanType?: string;
-  entityType?: string;
-  amount?: number;
-  monthlyTurnover?: number;
+  organisation?: string;
+  email?: string;
+  phone?: string;
   source?: string;
-  fundsNeeded?: string;
   workflow?: string;
+  /** Domain fields keyed as the workflow's field config defines them. */
+  data?: Record<string, unknown>;
 };
 
-/** Create a lead; the API inserts it at the Pending stage and returns the row. */
-export function createLead(input: CreateLeadInput): Promise<{ id: string }> {
-  return apiFetch<{ id: string }>("/leads", {
+/** Create a case; the API places it at the workflow's first stage and returns the row. */
+export function createCase(input: CreateCaseInput): Promise<{ id: string; reference: string }> {
+  return apiFetch<{ id: string; reference: string }>("/cases", {
     method: "POST",
     body: JSON.stringify(input),
   });
@@ -139,14 +148,36 @@ export type ApiStage = {
   position: number;
 };
 
-/** All stages for a workflow, ordered by board position. */
-export function listStages(workflow = "business-loan"): Promise<ApiStage[]> {
+/** Shape returned by GET /workflows — the tenant's processes and their vocabulary. */
+export type ApiWorkflow = {
+  id: string;
+  name: string;
+  slug: string;
+  /** What this workflow calls the party documents come from: Borrower, Student, Client… */
+  subjectLabel: string;
+  /** What this workflow calls one run of itself: Application, Admission, Engagement… */
+  caseLabel: string;
+};
+
+/** The tenant's workflows. The client must not assume which one exists. */
+export function listWorkflows(): Promise<ApiWorkflow[]> {
+  return apiFetch<ApiWorkflow[]>("/workflows");
+}
+
+/**
+ * All stages for a workflow, ordered by board position.
+ *
+ * `workflow` is deliberately REQUIRED. It previously defaulted to
+ * "business-loan", so a caller passing nothing silently requested a lending
+ * workflow — which does not exist for a college or a CA firm.
+ */
+export function listStages(workflow: string): Promise<ApiStage[]> {
   return apiFetch<ApiStage[]>(`/workflows/${encodeURIComponent(workflow)}/stages`);
 }
 
-/** Move a lead to another stage (PATCH /leads/:id/stage). Validated server-side. */
-export function updateLeadStage(leadId: string, stageId: string): Promise<{ id: string }> {
-  return apiFetch<{ id: string }>(`/leads/${encodeURIComponent(leadId)}/stage`, {
+/** Move a case to another stage (PATCH /cases/:id/stage). Validated server-side. */
+export function updateCaseStage(caseId: string, stageId: string): Promise<{ id: string }> {
+  return apiFetch<{ id: string }>(`/cases/${encodeURIComponent(caseId)}/stage`, {
     method: "PATCH",
     body: JSON.stringify({ stageId }),
   });

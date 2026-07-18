@@ -21,7 +21,7 @@ import { logout } from "@/lib/api";
 
 const PAGE_TITLES: Record<string, string> = {
   "/": "Dashboard",
-  "/leads": "Leads",
+  "/cases": "Cases",
   "/contacts": "Contacts",
   "/partners": "Partners",
   "/calling": "Calling",
@@ -64,7 +64,7 @@ export function AppHeader() {
   function submitSearch() {
     const q = query.trim();
     if (!q) return;
-    router.push(`/leads?q=${encodeURIComponent(q)}`);
+    router.push(`/cases?q=${encodeURIComponent(q)}`);
   }
 
   // The icon is a three-way toggle: open when closed, submit when it has a

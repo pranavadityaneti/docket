@@ -12,14 +12,23 @@ import {
 } from "drizzle-orm/pg-core";
 
 /* ------------------------------------------------------------------ *
- * Docket data model — v1 (Phase B0).
+ * Docket data model — industry-agnostic core.
+ *
+ * Docket collects documents from a subject on behalf of a tenant. The
+ * tenant may be a lender, a college, a CA firm, an insurer, a hospital —
+ * so NOTHING here names an industry. A tenant runs `workflows`; each
+ * workflow owns its own vocabulary, its own fields, and (from Change 2)
+ * its own document checklist. Anything domain-specific — loan amount,
+ * course applied for, claim number — lives in `cases.data`, described by
+ * that workflow's field config. No industry gets first-class columns.
+ *
  * Multi-tenant: every tenant-scoped table carries `tenant_id`, and
  * Row-Level Security (see migrations/*_rls.sql) enforces isolation at
- * the database. Configurable/variable fields live in JSONB.
+ * the database, not in application code.
  * ------------------------------------------------------------------ */
 
-/** Shape of one configurable lead field (stored in lead_configs.fields). */
-export type LeadFieldDef = {
+/** Shape of one configurable case field (stored in field_configs.fields). */
+export type FieldDef = {
   field_key: string;
   label: string;
   field_type: "string" | "integer" | "enum";
@@ -30,6 +39,10 @@ export type LeadFieldDef = {
   placeholder?: string;
   order: number;
 };
+
+/** A subject is the party documents are collected FROM: a person or an organisation. */
+export const SUBJECT_KINDS = ["person", "organisation"] as const;
+export type SubjectKind = (typeof SUBJECT_KINDS)[number];
 
 export const ROLES = ["owner", "admin", "agent", "reviewer"] as const;
 export type Role = (typeof ROLES)[number];
@@ -70,7 +83,7 @@ export const memberships = pgTable(
   ],
 );
 
-/* ------------------------------- pipeline (Sales → Leads) ------------------------------- */
+/* ------------------------------- workflows (a process a tenant runs) ------------------------------- */
 
 export const workflows = pgTable(
   "workflows",
@@ -80,6 +93,12 @@ export const workflows = pgTable(
     name: text("name").notNull(),
     slug: text("slug").notNull(),
     description: text("description"),
+    // Vocabulary. A lender says Borrower/Application, a college says
+    // Student/Admission, a CA firm says Client/Engagement. The UI reads these
+    // rather than hardcoding a noun, which is what stops Docket being a
+    // lending tool with other industries bolted on.
+    subjectLabel: text("subject_label").notNull().default("Contact"),
+    caseLabel: text("case_label").notNull().default("Case"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
@@ -104,36 +123,48 @@ export const workflowStages = pgTable(
   ],
 );
 
-export const leadConfigs = pgTable(
-  "lead_configs",
+export const fieldConfigs = pgTable(
+  "field_configs",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     tenantId: uuid("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
     workflowId: uuid("workflow_id").notNull().references(() => workflows.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
-    fields: jsonb("fields").$type<LeadFieldDef[]>().notNull().default(sql`'[]'::jsonb`),
+    fields: jsonb("fields").$type<FieldDef[]>().notNull().default(sql`'[]'::jsonb`),
     visibleRoles: jsonb("visible_roles").$type<string[]>().notNull().default(sql`'[]'::jsonb`),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index("lead_configs_tenant_idx").on(t.tenantId)],
+  (t) => [index("field_configs_tenant_idx").on(t.tenantId)],
 );
 
+/** The party documents are collected FROM — borrower, student, client, vendor. */
 export const contacts = pgTable(
   "contacts",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     tenantId: uuid("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
+    kind: text("kind", { enum: SUBJECT_KINDS }).notNull().default("person"),
     name: text("name").notNull(),
-    company: text("company"),
+    // Set when the subject IS an organisation, or when a person is acting for
+    // one (a borrower's business, a candidate's employer). Was `company`.
+    organisation: text("organisation"),
     email: text("email"),
     phone: text("phone"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index("contacts_tenant_idx").on(t.tenantId)],
+  (t) => [
+    index("contacts_tenant_idx").on(t.tenantId),
+    // Email and phone are the routing keys for inbound documents: every
+    // WhatsApp message and every email that arrives is matched back to a
+    // subject through these, so they are looked up on the hot path.
+    index("contacts_tenant_email_idx").on(t.tenantId, t.email),
+    index("contacts_tenant_phone_idx").on(t.tenantId, t.phone),
+  ],
 );
 
-export const leads = pgTable(
-  "leads",
+/** One instance of a workflow: a loan application, an admission, an audit engagement. */
+export const cases = pgTable(
+  "cases",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     tenantId: uuid("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
@@ -141,21 +172,25 @@ export const leads = pgTable(
     contactId: uuid("contact_id").references(() => contacts.id, { onDelete: "set null" }),
     stageId: uuid("stage_id").references(() => workflowStages.id, { onDelete: "set null" }),
     ownerId: uuid("owner_id").references(() => users.id, { onDelete: "set null" }),
-    // display / filter fields
-    amount: bigint("amount", { mode: "number" }),
-    loanType: text("loan_type"),
-    entityType: text("entity_type"),
+    // Human-readable handle (DKT-7F3K2M). Quoted in WhatsApp and email, and
+    // read aloud to the voice bot — hence a short, unambiguous alphabet
+    // rather than a UUID or a sequence. See generateCaseReference().
+    reference: text("reference").notNull(),
+    // How the case arrived (Website, WhatsApp, Email, Referral, Import, API).
+    // Structural, not domain-specific — it describes the channel, not the industry.
     source: text("source"),
-    monthlyTurnover: bigint("monthly_turnover", { mode: "number" }),
-    // remaining configurable field values (pan_number, funds_needed, …)
+    // Every domain-specific value lives here, described by the workflow's
+    // field config: loan_amount and entity_type for a lender, course_applied
+    // for a college, claim_number for an insurer.
     data: jsonb("data").$type<Record<string, unknown>>().notNull().default(sql`'{}'::jsonb`),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
-    index("leads_tenant_idx").on(t.tenantId),
-    index("leads_workflow_idx").on(t.workflowId),
-    index("leads_stage_idx").on(t.stageId),
+    index("cases_tenant_idx").on(t.tenantId),
+    index("cases_workflow_idx").on(t.workflowId),
+    index("cases_stage_idx").on(t.stageId),
+    uniqueIndex("cases_tenant_reference_uq").on(t.tenantId, t.reference),
   ],
 );
 
@@ -166,7 +201,7 @@ export type User = typeof users.$inferSelect;
 export type Membership = typeof memberships.$inferSelect;
 export type Workflow = typeof workflows.$inferSelect;
 export type WorkflowStage = typeof workflowStages.$inferSelect;
-export type LeadConfig = typeof leadConfigs.$inferSelect;
+export type FieldConfig = typeof fieldConfigs.$inferSelect;
 export type Contact = typeof contacts.$inferSelect;
-export type Lead = typeof leads.$inferSelect;
-export type NewLead = typeof leads.$inferInsert;
+export type Case = typeof cases.$inferSelect;
+export type NewCase = typeof cases.$inferInsert;

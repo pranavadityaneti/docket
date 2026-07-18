@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Icon } from "@/components/ui/icon";
 import { login } from "@/lib/api";
 
-const DEFAULT_NEXT = "/leads";
+const DEFAULT_NEXT = "/cases";
 
 /**
  * Where to send the user after sign-in, from ?next=.
