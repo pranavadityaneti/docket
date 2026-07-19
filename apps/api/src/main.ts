@@ -1,15 +1,25 @@
 import "reflect-metadata";
-import { env } from "./config/env";
 import { ValidationPipe } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import express, { type NextFunction, type Request, type Response } from "express";
-import { AppModule } from "./app.module";
+import { hydrateSecrets } from "./config/secrets";
 
 /** Uploads carry raw file bytes and must not be pre-parsed. */
 const isUploadPath = (url: string) => url.startsWith("/uploads/");
 
 async function bootstrap() {
+  // Secrets FIRST. config/env validates the environment at import time and
+  // app.module reads env.jwtSecret at module scope, so both are imported
+  // dynamically below — a static import would evaluate them before Secrets
+  // Manager had been consulted and the process would die on a missing
+  // DATABASE_URL that was actually available all along.
+  const loaded = await hydrateSecrets();
+  if (loaded.length) console.log(`Loaded from Secrets Manager: ${loaded.join(", ")}`);
+
+  const { env } = await import("./config/env");
+  const { AppModule } = await import("./app.module");
+
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     logger: ["error", "warn", "log"],
     // Nest's default parsers are installed globally, which would consume the

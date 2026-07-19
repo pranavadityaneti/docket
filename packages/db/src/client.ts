@@ -2,10 +2,41 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import { sql } from "drizzle-orm";
 import postgres from "postgres";
 import * as schema from "./schema";
+import { RDS_CA_BUNDLE } from "./rds-ca";
+
+/**
+ * Decide the TLS posture for a connection string.
+ *
+ * RDS sets rds.force_ssl=1, so the connection is encrypted either way — but
+ * `sslmode=require` encrypts WITHOUT checking who is on the other end, which
+ * means anything able to intercept traffic inside the VPC can present its own
+ * certificate and read every borrower document that passes. Verifying against
+ * the Amazon RDS CA closes that.
+ *
+ * A local Postgres has no TLS at all, so verification is applied only when the
+ * host is actually RDS. Forcing it everywhere would simply stop development
+ * working, and a rule developers have to disable is a rule that gets disabled
+ * in production too.
+ */
+export function sslFor(connectionString: string): postgres.Options<{}>["ssl"] {
+  let host = "";
+  try {
+    host = new URL(connectionString).hostname;
+  } catch {
+    return undefined;
+  }
+  const isRds = host.endsWith(".rds.amazonaws.com");
+  if (!isRds) return undefined;
+
+  // `ca` + rejectUnauthorized is verify-ca; `checkServerIdentity` left at the
+  // Node default additionally matches the hostname, which is what makes this
+  // verify-full rather than merely verify-ca.
+  return { ca: RDS_CA_BUNDLE, rejectUnauthorized: true };
+}
 
 /** Create a Drizzle client bound to a Postgres connection string. */
 export function createDb(connectionString: string) {
-  const client = postgres(connectionString, { max: 10 });
+  const client = postgres(connectionString, { max: 10, ssl: sslFor(connectionString) });
   return drizzle(client, { schema });
 }
 

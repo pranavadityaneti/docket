@@ -12,6 +12,7 @@ import path from "node:path";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import postgres from "postgres";
+import { sslFor } from "./client";
 
 async function main() {
   const url = process.env.DATABASE_URL;
@@ -23,7 +24,9 @@ async function main() {
     process.env.MIGRATIONS_DIR ?? path.join(__dirname, "..", "migrations");
 
   // max: 1 — migrations must run serially on a single connection.
-  const sql = postgres(url, { max: 1, onnotice: () => {} });
+  // Same TLS posture as the API — a migration runner that verifies less than
+  // the application is a hole with a schedule.
+  const sql = postgres(url, { max: 1, onnotice: () => {}, ssl: sslFor(url) });
   try {
     console.log(`Applying migrations from ${migrationsFolder} …`);
     await migrate(drizzle(sql), { migrationsFolder });
