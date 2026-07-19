@@ -25,6 +25,18 @@ const webOrigins = webOriginRaw
   ? webOriginRaw.split(",").map((o) => o.trim()).filter(Boolean)
   : [];
 
+// Where documents are stored. "local" writes to disk and is development only —
+// it cannot presign, it keeps upload tickets in process memory, and nothing
+// survives a restart. Production must be "s3" (Change 3b), so a prod boot on
+// the local driver is refused rather than silently writing borrower KYC to an
+// ephemeral EC2 filesystem that vanishes on the next deploy.
+const storageDriver = (process.env.STORAGE_DRIVER ?? "local") as "local" | "s3";
+if (isProd && storageDriver === "local") {
+  throw new Error(
+    "STORAGE_DRIVER=local is development only — documents would be lost on redeploy. Set STORAGE_DRIVER=s3 in production.",
+  );
+}
+
 export const env = {
   nodeEnv,
   isProd,
@@ -32,6 +44,18 @@ export const env = {
   databaseUrl: required("DATABASE_URL"),
   jwtSecret: required("JWT_SECRET"),
   webOrigins,
+  storageDriver,
+  /** Root directory for the local driver. Ignored when storageDriver is "s3". */
+  storageLocalRoot: process.env.STORAGE_LOCAL_ROOT ?? "/tmp/docket-storage",
+  /**
+   * This API's own externally reachable base URL. The local driver hands the
+   * client an upload URL pointing back here, so it must be what the browser can
+   * actually reach — not localhost, if the API sits behind a proxy.
+   */
+  publicApiUrl: (process.env.PUBLIC_API_URL ?? `http://localhost:${process.env.API_PORT ?? 3333}`)
+    .replace(/\/+$/, ""),
+  /** Hard ceiling on a single uploaded file. */
+  maxUploadBytes: Number(process.env.MAX_UPLOAD_BYTES ?? 25 * 1024 * 1024),
   /**
    * Value passed to `enableCors({ origin })`:
    *   - any WEB_ORIGIN set  -> that explicit allow-list

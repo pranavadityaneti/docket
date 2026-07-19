@@ -3,12 +3,30 @@ import { env } from "./config/env";
 import { ValidationPipe } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 import type { NestExpressApplication } from "@nestjs/platform-express";
+import express, { type NextFunction, type Request, type Response } from "express";
 import { AppModule } from "./app.module";
+
+/** Uploads carry raw file bytes and must not be pre-parsed. */
+const isUploadPath = (url: string) => url.startsWith("/uploads/");
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     logger: ["error", "warn", "log"],
+    // Nest's default parsers are installed globally, which would consume the
+    // request stream on the raw upload route before the handler can read it —
+    // a file uploaded as application/json would silently arrive as 0 bytes.
+    // Parsers are re-applied below for every path EXCEPT /uploads.
+    bodyParser: false,
   });
+
+  const jsonParser = express.json({ limit: "1mb" });
+  const formParser = express.urlencoded({ extended: true, limit: "1mb" });
+  app.use((req: Request, res: Response, next: NextFunction) =>
+    isUploadPath(req.url) ? next() : jsonParser(req, res, next),
+  );
+  app.use((req: Request, res: Response, next: NextFunction) =>
+    isUploadPath(req.url) ? next() : formParser(req, res, next),
+  );
 
   // In production we sit behind a load balancer (EB/ALB), so the client's real
   // IP arrives in X-Forwarded-For. Without trusting exactly one proxy hop,
