@@ -4,6 +4,7 @@ import { mkdir, rm, stat } from "node:fs/promises";
 import path from "node:path";
 import { Injectable, Module } from "@nestjs/common";
 import { env } from "../config/env";
+import { S3StorageDriver } from "./s3";
 
 /**
  * Where documents actually live.
@@ -53,10 +54,10 @@ export interface StorageDriver {
 /**
  * Object key for a document.
  *
- * Tenant-first so that S3 can enforce isolation too: an IAM policy or bucket
- * policy can restrict a principal to `tenants/<id>/*`, giving a second,
- * independent boundary alongside Postgres RLS. Belt and braces is the right
- * posture for KYC documents.
+ * Tenant-first so that per-tenant IAM enforcement is POSSIBLE later: a policy
+ * can restrict a principal to `tenants/<id>/*`. Today there is a single
+ * application principal, so this buys auditability and a future boundary — it
+ * is not a second boundary yet. Postgres RLS is the boundary.
  *
  * The user's filename is deliberately NOT in the key. It is untrusted input
  * (path traversal, unicode, absurd length), it is already stored as a column,
@@ -159,11 +160,28 @@ export class LocalStorageDriver implements StorageDriver {
   }
 }
 
-/** Injection token — swapped for the S3 driver in Change 3b via env.storageDriver. */
+/** Injection token for whichever driver is configured. */
 export const STORAGE = "STORAGE_DRIVER";
 
+/**
+ * Both drivers are constructed, and env picks which one answers the token.
+ *
+ * LocalStorageDriver stays registered even in production because the upload
+ * route depends on it directly — but that route is only ever reached when the
+ * local driver is also the one handing out targets, and env refuses to boot
+ * production on the local driver at all.
+ */
 @Module({
-  providers: [LocalStorageDriver, { provide: STORAGE, useExisting: LocalStorageDriver }],
+  providers: [
+    LocalStorageDriver,
+    S3StorageDriver,
+    {
+      provide: STORAGE,
+      inject: [LocalStorageDriver, S3StorageDriver],
+      useFactory: (local: LocalStorageDriver, s3: S3StorageDriver) =>
+        env.storageDriver === "s3" ? s3 : local,
+    },
+  ],
   exports: [STORAGE, LocalStorageDriver],
 })
 export class StorageModule {}

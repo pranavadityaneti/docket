@@ -36,6 +36,12 @@ if (isProd && storageDriver === "local") {
     "STORAGE_DRIVER=local is development only — documents would be lost on redeploy. Set STORAGE_DRIVER=s3 in production.",
   );
 }
+// Fail at boot, not on the first upload. A server that starts happily and then
+// cannot store a borrower's documents is worse than one that refuses to start.
+const s3Bucket = process.env.S3_BUCKET?.trim();
+if (storageDriver === "s3" && !s3Bucket) {
+  throw new Error("S3_BUCKET must be set when STORAGE_DRIVER=s3.");
+}
 
 export const env = {
   nodeEnv,
@@ -47,6 +53,15 @@ export const env = {
   storageDriver,
   /** Root directory for the local driver. Ignored when storageDriver is "s3". */
   storageLocalRoot: process.env.STORAGE_LOCAL_ROOT ?? "/tmp/docket-storage",
+  /** Bucket holding subject documents. Required when storageDriver is "s3". */
+  s3Bucket: s3Bucket ?? "",
+  /**
+   * Customer-managed KMS key. Optional in the sense that the bucket's default
+   * encryption already applies it — naming it explicitly means a misconfigured
+   * bucket cannot silently downgrade what this API writes.
+   */
+  s3KmsKeyId: process.env.S3_KMS_KEY_ID?.trim() || undefined,
+  awsRegion: process.env.AWS_REGION?.trim() || "ap-south-1",
   /**
    * This API's own externally reachable base URL. The local driver hands the
    * client an upload URL pointing back here, so it must be what the browser can
