@@ -3,7 +3,7 @@
 // runs main() on import — importing its constants would run the seed — and
 // because a second copy would drift from this one the first time a stage or
 // field changes.
-import type { FieldDef } from "./schema";
+import type { FieldDef, NewDocumentRequirement } from "./schema";
 
 /* Vocabulary for this workflow. Docket itself is industry-agnostic — these
  * nouns are what make this particular workflow a lending one. A college's
@@ -41,4 +41,72 @@ export const LEAD_FIELDS: FieldDef[] = [
   { field_key: "source", label: "Source", field_type: "enum", input_type: "dropdown", required: false, options: ["Portal", "Whatsapp", "Email", "Referral", "Website", "Other"], order: 5 },
   { field_key: "monthly_turnover", label: "Monthly Turnover", field_type: "integer", input_type: "number", required: false, order: 6 },
   { field_key: "funds_needed", label: "Funds Needed", field_type: "string", input_type: "textarea", required: false, order: 7 },
+];
+
+/**
+ * The Business-Loan document checklist.
+ *
+ * This replaces the hardcoded DOC_HINTS list the dashboard used to render: the
+ * checklist is data now, so a tenant (or an AI-generated blueprint) can change
+ * it without a deploy.
+ *
+ * Two things are doing real work here and are worth understanding:
+ *
+ * `reusable` + `validityDays` decide whether a document can be carried forward
+ * from the subject's other cases. A PAN card is the same PAN card forever, so
+ * it is reused indefinitely. Bank statements and GST returns are reusable only
+ * while fresh — a 12-month statement collected 8 months ago must NOT be pulled
+ * into a new application, so it carries a validity window instead. Anything
+ * describing this particular deal is not reusable at all.
+ *
+ * `condition` gates a requirement on the case's own data. A Partnership Deed is
+ * only meaningful for a partnership; asking every borrower for one is how
+ * checklists become noise that people ignore.
+ *
+ * Omitted deliberately: `accepts` is left empty (any file type). Borrowers send
+ * phone photos, scans and PDFs, and rejecting a legible photo because it is a
+ * HEIC would cost more than it saves.
+ */
+export const DOCUMENT_REQUIREMENTS: Omit<
+  NewDocumentRequirement,
+  "tenantId" | "workflowId"
+>[] = [
+  // ---- identity: the same document forever, so reusable with no expiry ----
+  { key: "applicant_pan", label: "PAN Card", description: "Of the proprietor, partners or directors", required: true, reusable: true, position: 0 },
+  { key: "applicant_aadhaar", label: "Aadhaar", description: "Both sides, clearly legible", required: true, reusable: true, position: 1 },
+  { key: "photograph", label: "Passport photograph", required: true, reusable: true, validityDays: 1095, position: 2 },
+
+  // ---- address: stable, but re-verified yearly ----
+  { key: "residence_address_proof", label: "Residence address proof", description: "Utility bill, rent agreement or passport", required: true, reusable: true, validityDays: 365, position: 3 },
+  { key: "office_address_proof", label: "Office address proof", required: true, reusable: true, validityDays: 365, position: 4 },
+
+  // ---- the business ----
+  { key: "business_proof", label: "Business proof", description: "Shop Act licence, Udyam registration or equivalent", required: true, reusable: true, validityDays: 365, position: 5 },
+  { key: "gst_certificate", label: "GST certificate", required: false, reusable: true, validityDays: 365, position: 6 },
+
+  // ---- financials: reusable ONLY while current ----
+  { key: "itr_computation", label: "ITR + computation", description: "Last 2 assessment years", required: true, reusable: true, validityDays: 365, position: 7 },
+  { key: "audited_financials", label: "Audited financials", description: "Form 3CB/3CD with balance sheet, last 2 years", required: true, reusable: true, validityDays: 365, position: 8 },
+  { key: "bank_statements", label: "Current account statements", description: "Last 12 months, all business accounts", required: true, maxFiles: 12, reusable: true, validityDays: 90, position: 9 },
+  { key: "gstr_3b", label: "GSTR-3B returns", description: "Last 12 months", required: false, maxFiles: 12, reusable: true, validityDays: 90, position: 10 },
+
+  // ---- constitution: gated on entity_type, and never reusable across cases ----
+  {
+    key: "partnership_deed",
+    label: "Partnership Deed",
+    description: "Registered deed with the current partner list",
+    required: true,
+    reusable: false,
+    position: 11,
+    condition: { field: "entity_type", equals: "Partnership" },
+  },
+  {
+    key: "incorporation_certificate",
+    label: "Certificate of Incorporation",
+    description: "With MOA and AOA",
+    required: true,
+    reusable: false,
+    position: 12,
+    condition: { field: "entity_type", in: ["Private Limited", "Public Limited", "LLP"] },
+  },
 ];

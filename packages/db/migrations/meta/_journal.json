@@ -43,6 +43,13 @@
       "when": 1784403674259,
       "tag": "0005_industry_agnostic_core",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1784428960338,
+      "tag": "0006_document_model",
+      "breakpoints": true
     }
   ]
 }

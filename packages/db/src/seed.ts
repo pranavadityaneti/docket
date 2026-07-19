@@ -1,7 +1,12 @@
 import { createDb } from "./client";
 import * as schema from "./schema";
 import { hashPassword } from "./password";
-import { LEAD_FIELDS, STAGES, WORKFLOW } from "./business-loan-config";
+import {
+  DOCUMENT_REQUIREMENTS,
+  LEAD_FIELDS,
+  STAGES,
+  WORKFLOW,
+} from "./business-loan-config";
 
 async function main() {
   const url = process.env.DATABASE_URL;
@@ -58,7 +63,11 @@ async function main() {
     visibleRoles: [],
   });
 
-  console.log(`Seeded tenant "${tenant.slug}" with the Business Loan workflow (${STAGES.length} stages, ${LEAD_FIELDS.length} fields).`);
+  await db.insert(schema.documentRequirements).values(
+    DOCUMENT_REQUIREMENTS.map((r) => ({ ...r, tenantId: tenant.id, workflowId: workflow.id })),
+  );
+
+  console.log(`Seeded tenant "${tenant.slug}" with the Business Loan workflow (${STAGES.length} stages, ${LEAD_FIELDS.length} fields, ${DOCUMENT_REQUIREMENTS.length} document requirements).`);
   console.log(`Admin login: admin@finlot.ai / ${adminPassword}`);
   process.exit(0);
 }

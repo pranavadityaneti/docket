@@ -14,7 +14,12 @@ import { and, eq } from "drizzle-orm";
 import { createDb } from "./client";
 import * as schema from "./schema";
 import { hashPassword } from "./password";
-import { LEAD_FIELDS, STAGES, WORKFLOW } from "./business-loan-config";
+import {
+  DOCUMENT_REQUIREMENTS,
+  LEAD_FIELDS,
+  STAGES,
+  WORKFLOW,
+} from "./business-loan-config";
 
 function required(name: string): string {
   const value = process.env[name];
@@ -163,6 +168,27 @@ async function main() {
       configInserted = true;
     }
 
+    // document_requirements has a unique (workflow_id, key), so unlike stages
+    // this CAN lean on a conflict target: re-running adds any checklist item
+    // the blueprint has gained without duplicating or overwriting the rest.
+    let requirementsInserted = 0;
+    if (DOCUMENT_REQUIREMENTS.length) {
+      const inserted = await tx
+        .insert(schema.documentRequirements)
+        .values(
+          DOCUMENT_REQUIREMENTS.map((r) => ({
+            ...r,
+            tenantId: tenant.id,
+            workflowId: workflow.id,
+          })),
+        )
+        .onConflictDoNothing({
+          target: [schema.documentRequirements.workflowId, schema.documentRequirements.key],
+        })
+        .returning({ id: schema.documentRequirements.id });
+      requirementsInserted = inserted.length;
+    }
+
     return {
       tenant: insertedTenant ? "created" : "existed",
       user: insertedUser ? "created" : "existed",
@@ -170,6 +196,7 @@ async function main() {
       workflow: insertedWorkflow ? "created" : "existed",
       stagesInserted,
       configInserted,
+      requirementsInserted,
     };
   });
 
@@ -179,7 +206,7 @@ async function main() {
     `Admin ${adminEmail} ${report.user}; password ${report.passwordSet ? "set" : "left unchanged"}.`,
   );
   console.log(
-    `Workflow "${workflowSlug}" ${report.workflow}; ${report.stagesInserted} stages inserted; field config ${report.configInserted ? "inserted" : "already present"}.`,
+    `Workflow "${workflowSlug}" ${report.workflow}; ${report.stagesInserted} stages inserted; field config ${report.configInserted ? "inserted" : "already present"}; ${report.requirementsInserted} document requirements inserted.`,
   );
   process.exit(0);
 }

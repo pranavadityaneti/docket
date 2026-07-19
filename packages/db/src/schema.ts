@@ -5,10 +5,12 @@ import {
   text,
   integer,
   bigint,
+  boolean,
   jsonb,
   timestamp,
   index,
   uniqueIndex,
+  type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 
 /* ------------------------------------------------------------------ *
@@ -46,6 +48,45 @@ export type SubjectKind = (typeof SUBJECT_KINDS)[number];
 
 export const ROLES = ["owner", "admin", "agent", "reviewer"] as const;
 export type Role = (typeof ROLES)[number];
+
+/**
+ * Lifecycle of one received document.
+ *
+ * `needs_review` is deliberately distinct from `rejected`. The AI rejects only
+ * when it is confident the document is wrong — the wrong type, or belonging to
+ * someone else. When it is merely unsure (a poor scan, or an Indian name that
+ * varies legitimately between documents: "P. A. Neti" vs "Pranav Aditya Neti"),
+ * it must park the document for a human instead. Auto-rejecting a genuine
+ * document tells a real customer their real PAN card is fake, which is worse
+ * than making a colleague glance at it.
+ */
+export const DOCUMENT_STATUSES = [
+  "received",
+  "needs_review",
+  "accepted",
+  "rejected",
+  "expired",
+] as const;
+export type DocumentStatus = (typeof DOCUMENT_STATUSES)[number];
+
+/** How a document reached us. The product's premise is that most arrive conversationally. */
+export const DOCUMENT_CHANNELS = ["whatsapp", "email", "upload", "import", "api"] as const;
+export type DocumentChannel = (typeof DOCUMENT_CHANNELS)[number];
+
+/**
+ * Optional gate on a checklist item: include this requirement only when the
+ * case's `data` satisfies it. Lending needs a Partnership Deed only from a
+ * partnership; a college needs a transfer certificate only from transferring
+ * students. Without this, every workflow would need a separate checklist per
+ * permutation.
+ */
+export type RequirementCondition = {
+  /** A key in cases.data, as named by the workflow's field config. */
+  field: string;
+  /** Include when the value equals this, or is one of these. */
+  equals?: string | number | boolean;
+  in?: (string | number)[];
+};
 
 /* ------------------------------- tenancy + identity ------------------------------- */
 
@@ -194,6 +235,126 @@ export const cases = pgTable(
   ],
 );
 
+/* ------------------------------- documents ------------------------------- */
+
+/**
+ * The checklist for a workflow: WHAT must be collected. Config, not user data —
+ * this is what an AI-generated blueprint writes, and what a tenant admin edits.
+ *
+ * Deliberately per-workflow rather than global: a college's "Transfer
+ * Certificate" and a lender's "GST Returns" have nothing to say to each other,
+ * and a shared taxonomy would force every tenant into one vocabulary.
+ */
+export const documentRequirements = pgTable(
+  "document_requirements",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
+    workflowId: uuid("workflow_id").notNull().references(() => workflows.id, { onDelete: "cascade" }),
+    /** Stable machine key ("pan_card"). What the AI classifier matches against. */
+    key: text("key").notNull(),
+    label: text("label").notNull(),
+    description: text("description"),
+    required: boolean("required").notNull().default(true),
+    /** Allowed MIME types, e.g. ["application/pdf","image/jpeg"]. Empty = anything. */
+    accepts: jsonb("accepts").$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+    /** Bank statements may be 12 files; a PAN card is 1. */
+    maxFiles: integer("max_files").notNull().default(1),
+    /**
+     * Can this be pulled forward from the subject's other cases?
+     * TRUE for identity documents (PAN, Aadhaar, degree certificate) — they
+     * describe the person and do not change. FALSE for case-specific ones
+     * (property papers, this year's admission letter, this claim's FIR).
+     */
+    reusable: boolean("reusable").notNull().default(false),
+    /**
+     * How long an accepted document stays valid, in days. NULL = forever.
+     * This is what stops a six-month-old bank statement being silently reused
+     * into a fresh credit decision — the reuse rule is "reusable AND not
+     * expired", never "we already have one".
+     */
+    validityDays: integer("validity_days"),
+    /** Include this requirement only when the case data matches (see RequirementCondition). */
+    condition: jsonb("condition").$type<RequirementCondition | null>(),
+    position: integer("position").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("document_requirements_tenant_idx").on(t.tenantId),
+    index("document_requirements_workflow_idx").on(t.workflowId),
+    // The classifier resolves an inbound file to a requirement by key, and a
+    // workflow must not define the same key twice.
+    uniqueIndex("document_requirements_workflow_key_uq").on(t.workflowId, t.key),
+  ],
+);
+
+/**
+ * A document actually received for a case — the heart of the product.
+ *
+ * Files arrive conversationally (a borrower photographs their PAN and replies
+ * on WhatsApp; a student emails three marksheets), so a row here may exist
+ * before anyone knows which requirement it satisfies: `requirementId` is
+ * nullable precisely so an unrecognised file is captured rather than dropped.
+ */
+export const documents = pgTable(
+  "documents",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
+    caseId: uuid("case_id").notNull().references(() => cases.id, { onDelete: "cascade" }),
+    /** NULL until classified — an arrived-but-unrecognised file, for a human to place. */
+    requirementId: uuid("requirement_id").references(() => documentRequirements.id, {
+      onDelete: "set null",
+    }),
+
+    /* ---- the file ---- */
+    fileName: text("file_name").notNull(),
+    mimeType: text("mime_type"),
+    sizeBytes: bigint("size_bytes", { mode: "number" }),
+    /** SHA-256. Detects the same file sent twice across two channels. */
+    checksum: text("checksum"),
+    /** Object-store key. NULL until storage lands (Change 3). */
+    storageKey: text("storage_key"),
+
+    /* ---- lifecycle ---- */
+    status: text("status", { enum: DOCUMENT_STATUSES }).notNull().default("received"),
+    /** Why it was rejected — shown to staff AND used to compose the re-ask message. */
+    rejectionReason: text("rejection_reason"),
+    /** Set on acceptance from the requirement's validityDays. NULL = does not expire. */
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+
+    /* ---- provenance ---- */
+    sourceChannel: text("source_channel", { enum: DOCUMENT_CHANNELS }),
+    /** The WhatsApp number / email address it actually came from, for audit. */
+    sourceIdentifier: text("source_identifier"),
+    /**
+     * Set when this document was carried over from another case of the same
+     * subject rather than collected again. Keeps the audit trail honest: staff
+     * can see it was originally supplied on DKT-7F3K2M in March.
+     */
+    reusedFromId: uuid("reused_from_id").references((): AnyPgColumn => documents.id, {
+      onDelete: "set null",
+    }),
+
+    /* ---- review ---- */
+    /** NULL means no human has confirmed it — the AI alone decided. */
+    reviewedBy: uuid("reviewed_by").references(() => users.id, { onDelete: "set null" }),
+    reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+    receivedAt: timestamp("received_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("documents_tenant_idx").on(t.tenantId),
+    // "show me this case's documents" — the dashboard's main read.
+    index("documents_case_idx").on(t.caseId),
+    index("documents_requirement_idx").on(t.requirementId),
+    // "what still needs a human?" — the exceptions queue.
+    index("documents_tenant_status_idx").on(t.tenantId, t.status),
+    // Cross-channel duplicate detection (same file on WhatsApp and email).
+    index("documents_tenant_checksum_idx").on(t.tenantId, t.checksum),
+  ],
+);
+
 /* ------------------------------- inferred types ------------------------------- */
 
 export type Tenant = typeof tenants.$inferSelect;
@@ -205,3 +366,7 @@ export type FieldConfig = typeof fieldConfigs.$inferSelect;
 export type Contact = typeof contacts.$inferSelect;
 export type Case = typeof cases.$inferSelect;
 export type NewCase = typeof cases.$inferInsert;
+export type DocumentRequirement = typeof documentRequirements.$inferSelect;
+export type NewDocumentRequirement = typeof documentRequirements.$inferInsert;
+export type DocumentRow = typeof documents.$inferSelect;
+export type NewDocumentRow = typeof documents.$inferInsert;
