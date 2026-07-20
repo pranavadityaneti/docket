@@ -19,19 +19,13 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { logout } from "@/lib/api";
 
+// Titles for routes that exist, named as the sidebar names them — the header
+// said "Dashboard" for the page the nav calls "Overview". The rest of this map
+// was Gain's route list (partners, calling, whatsapp, email, campaigns): titles
+// for pages that were never built, on an axis the navigation no longer uses.
 const PAGE_TITLES: Record<string, string> = {
-  "/": "Dashboard",
+  "/": "Overview",
   "/cases": "Cases",
-  "/contacts": "Contacts",
-  "/partners": "Partners",
-  "/calling": "Calling",
-  "/whatsapp": "WhatsApp",
-  "/email": "Email",
-  "/documents": "Documents",
-  "/blueprints": "Blueprints",
-  "/review-queue": "Review Queue",
-  "/workflows": "Workflows",
-  "/campaigns": "Campaigns",
   "/settings": "Settings",
 };
 

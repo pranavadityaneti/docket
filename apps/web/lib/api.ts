@@ -202,6 +202,43 @@ export function updateCaseStage(caseId: string, stageId: string): Promise<{ id: 
   });
 }
 
+/* ------------------------------- overview ------------------------------- */
+
+export type ApiAttentionItem = {
+  caseId: string;
+  reference: string;
+  subjectName: string | null;
+  subjectOrganisation: string | null;
+  stageName: string | null;
+  outstanding: number;
+  awaitingReview: number;
+  updatedAt: string;
+};
+
+export type ApiOverview = {
+  totals: {
+    cases: number;
+    casesNeedingAttention: number;
+    casesComplete: number;
+    documentsAwaitingReview: number;
+    documentsOutstanding: number;
+  };
+  attention: ApiAttentionItem[];
+  /** Live document counts keyed by how they arrived: upload, whatsapp, email… */
+  intake: Record<string, number>;
+};
+
+/**
+ * Real counts for the Overview screen.
+ *
+ * Derived from rows on every request. The screen shows nothing this does not
+ * return — no call volumes, no "documents auto-cleared", no trend arrows —
+ * because none of those exist to be measured yet.
+ */
+export function getOverview(): Promise<ApiOverview> {
+  return apiFetch<ApiOverview>("/overview");
+}
+
 /* ------------------------------- documents ------------------------------- */
 
 export type DocumentStatus = "received" | "needs_review" | "accepted" | "rejected" | "expired";

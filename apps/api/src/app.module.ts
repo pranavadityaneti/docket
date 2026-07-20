@@ -9,6 +9,7 @@ import { DocumentsModule } from "./documents/documents";
 import { StorageModule } from "./storage/storage";
 import { ContactsModule } from "./contacts/contacts";
 import { WorkflowsModule } from "./workflows/workflows";
+import { OverviewModule } from "./overview/overview";
 
 @Controller("health")
 class HealthController {
@@ -36,6 +37,7 @@ class HealthController {
     DocumentsModule,
     ContactsModule,
     WorkflowsModule,
+    OverviewModule,
   ],
   controllers: [HealthController],
 })
