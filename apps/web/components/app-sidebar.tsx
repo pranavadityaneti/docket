@@ -1,111 +1,105 @@
 "use client";
 
-import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import {
   Sidebar,
   SidebarContent,
+  SidebarGroup,
+  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarMenuSub,
-  SidebarMenuSubButton,
-  SidebarMenuSubItem,
   SidebarRail,
 } from "@/components/ui/sidebar";
 import { Icon } from "@/components/ui/icon";
 
-type NavLeaf = { title: string; symbol: string; href?: string };
-type NavNode = { title: string; symbol: string; href?: string; items?: NavLeaf[] };
+type NavItem = {
+  title: string;
+  symbol: string;
+  /** Present only when the screen exists. Everything else renders inert. */
+  href?: string;
+  /** Marks an item as deliberately-next rather than merely absent. */
+  soon?: boolean;
+};
+type NavGroup = { label: string; items: NavItem[] };
 
-// Mirrors the live Gain tenant's navigation (8 modules, ~35 screens).
-// Only screens that actually exist in Docket carry an href; the rest are
-// inert (dimmed) until their page is built — so nothing 404s.
-const NAV: NavNode[] = [
-  { title: "Dashboard", symbol: "dashboard", href: "/" },
-  { title: "Contacts", symbol: "contacts" },
+/*
+ * Navigation follows what a staff user is trying to DO, not what Gain's menu
+ * happened to contain.
+ *
+ * The previous version mirrored the Gain tenant: 38 entries of which 2 led
+ * anywhere, organised around a lending call centre — Employee, Hierarchy,
+ * Auctions, Queues, Routing Rules, Disposition Codes, Supervisor. Docket places
+ * outbound AI calls as the last rung of a nudge ladder; it does not run an
+ * inbound agent floor, and that menu is unreadable to a college or a CA firm.
+ *
+ * The important change is not the pruning, it is the axis. Gain split work by
+ * CHANNEL — Calling, Whatsapp, Email as three destinations. Docket's whole
+ * premise is that channels are invisible: a borrower replies on WhatsApp,
+ * emails a scan two days later, and both land on one case. A channel-first menu
+ * asks staff "which inbox is it in?" — the exact question this product exists
+ * to abolish. So channels appear once, under Setup, as the number and mailbox
+ * we operate on the tenant's behalf.
+ *
+ * Labels stay deliberately neutral. A workflow carries its own vocabulary
+ * (Borrower / Student / Client) and the screens use it, but a tenant running
+ * two workflows would otherwise get a menu that renames itself depending on
+ * where you last clicked.
+ *
+ * `soon` is reserved for the next things actually being built. It is not a
+ * roadmap parking lot — an item nobody is working on should not be here at all,
+ * because a menu full of promises is a menu that lies.
+ */
+const NAV: NavGroup[] = [
   {
-    title: "Human Resource",
-    symbol: "groups",
+    label: "Work",
     items: [
-      { title: "Employee", symbol: "badge" },
-      { title: "Hierarchy", symbol: "account_tree" },
-    ],
-  },
-  {
-    title: "Sales",
-    symbol: "filter_alt",
-    items: [
+      { title: "Overview", symbol: "dashboard", href: "/" },
+      // The daily driver once it exists: everything waiting on a human across
+      // every case, so staff stop opening cases to find out there is nothing to
+      // do in them.
+      { title: "Needs attention", symbol: "pending_actions", soon: true },
       { title: "Cases", symbol: "folder_shared", href: "/cases" },
-      { title: "Partners", symbol: "handshake" },
-      { title: "Auctions", symbol: "gavel" },
+      // The party documents come from, across all their cases — where a
+      // reusable document is answered once instead of re-collected.
+      { title: "Contacts", symbol: "contacts", soon: true },
     ],
   },
   {
-    title: "Calling",
-    symbol: "call",
+    label: "Activity",
     items: [
-      { title: "Assistants", symbol: "support_agent" },
-      { title: "Agent Attempts", symbol: "format_list_bulleted" },
-      { title: "Inbound Dashboard", symbol: "call_received" },
-      { title: "Transfer Dashboard", symbol: "swap_horiz" },
-      { title: "Inbound Analytics", symbol: "bar_chart" },
-      { title: "Queues", symbol: "format_list_numbered" },
-      { title: "Queue Monitor", symbol: "monitor" },
-      { title: "Skills", symbol: "star" },
-      { title: "Agent Skills", symbol: "manage_accounts" },
-      { title: "Routing Rules", symbol: "alt_route" },
-      { title: "Inbound Numbers", symbol: "dialpad" },
-      { title: "Voice Menu", symbol: "list_alt" },
-      { title: "Disposition Codes", symbol: "checklist" },
-      { title: "Recording", symbol: "radio_button_checked" },
-      { title: "Supervisor", symbol: "supervisor_account" },
+      // One thread per case with WhatsApp and email interleaved. Deliberately
+      // not two menu items.
+      { title: "Conversations", symbol: "forum" },
+      { title: "Follow-ups", symbol: "campaign" },
+      { title: "Calls", symbol: "call" },
     ],
   },
   {
-    title: "Whatsapp",
-    symbol: "chat",
+    label: "Setup",
     items: [
-      { title: "Chat", symbol: "forum" },
-      { title: "Assistants", symbol: "support_agent" },
-    ],
-  },
-  {
-    title: "Email",
-    symbol: "mail",
-    items: [
-      { title: "Inbox", symbol: "inbox" },
-      { title: "Assistants", symbol: "support_agent" },
-      { title: "Assignments", symbol: "assignment_ind" },
-      { title: "Template", symbol: "description" },
-    ],
-  },
-  {
-    title: "Integrations",
-    symbol: "hub",
-    items: [
-      { title: "Pipes", symbol: "account_tree" },
-      { title: "Plugins", symbol: "extension" },
-      { title: "Tags", symbol: "sell" },
-      { title: "Blueprints", symbol: "grid_view" },
+      { title: "Workflows", symbol: "account_tree" },
+      // The tenant's own number and mailbox under their own brand — the USP,
+      // configured once rather than worked out of.
+      { title: "Channels", symbol: "hub" },
+      { title: "Integrations", symbol: "extension" },
+      { title: "Team", symbol: "group" },
+      { title: "Settings", symbol: "settings", href: "/settings" },
     ],
   },
 ];
 
-function leafActive(pathname: string, href?: string) {
+function isActive(pathname: string, href?: string) {
   if (!href) return false;
+  // "/" would otherwise prefix-match every route and light up permanently.
   return href === "/" ? pathname === "/" : pathname.startsWith(href);
 }
 
 export function AppSidebar() {
   const pathname = usePathname();
-  const [open, setOpen] = React.useState<Record<string, boolean>>({});
-
-  const groupHasActive = (node: NavNode) =>
-    !!node.items?.some((leaf) => leafActive(pathname, leaf.href));
 
   return (
     <Sidebar>
@@ -122,95 +116,63 @@ export function AppSidebar() {
       </SidebarHeader>
 
       <SidebarContent className="px-1 py-2">
-        <SidebarMenu className="gap-1">
-          {NAV.map((node) => {
-            // Standalone leaf (Dashboard, Contacts)
-            if (!node.items) {
-              const active = leafActive(pathname, node.href);
-              const inner = (
-                <>
-                  <Icon name={node.symbol} size={20} fill={active} />
-                  <span>{node.title}</span>
-                </>
-              );
-              return (
-                <SidebarMenuItem key={node.title}>
-                  {node.href ? (
-                    <SidebarMenuButton
-                      render={<Link href={node.href} />}
-                      isActive={active}
-                      tooltip={node.title}
-                      className="h-9 gap-3 px-3"
-                    >
-                      {inner}
-                    </SidebarMenuButton>
-                  ) : (
-                    <SidebarMenuButton
-                      tooltip={node.title}
-                      className="h-9 gap-3 px-3 text-sidebar-foreground/60"
-                    >
-                      {inner}
-                    </SidebarMenuButton>
-                  )}
-                </SidebarMenuItem>
-              );
-            }
+        {NAV.map((group) => (
+          <SidebarGroup key={group.label} className="py-1">
+            <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
+            <SidebarMenu className="gap-1">
+              {group.items.map((item) => {
+                const active = isActive(pathname, item.href);
+                const inner = (
+                  <>
+                    <Icon name={item.symbol} size={20} fill={active} />
+                    <span>{item.title}</span>
+                    {item.soon ? (
+                      <span className="ml-auto rounded-full border px-1.5 py-px text-[10px] font-medium text-muted-foreground">
+                        Soon
+                      </span>
+                    ) : null}
+                  </>
+                );
 
-            // Collapsible module (Human Resource, Sales, Calling, …)
-            const isOpen = open[node.title] ?? groupHasActive(node);
-            return (
-              <SidebarMenuItem key={node.title}>
-                <SidebarMenuButton
-                  tooltip={node.title}
-                  className="h-9 gap-3 px-3"
-                  onClick={() =>
-                    setOpen((s) => ({ ...s, [node.title]: !isOpen }))
-                  }
-                >
-                  <Icon name={node.symbol} size={20} />
-                  <span>{node.title}</span>
-                  <Icon
-                    name="expand_more"
-                    size={18}
-                    className={`ml-auto text-muted-foreground transition-transform ${
-                      isOpen ? "" : "-rotate-90"
-                    }`}
-                  />
-                </SidebarMenuButton>
-                {isOpen ? (
-                  <SidebarMenuSub className="gap-0.5">
-                    {node.items.map((leaf) => {
-                      const active = leafActive(pathname, leaf.href);
-                      const inner = (
-                        <>
-                          <Icon name={leaf.symbol} size={18} fill={active} />
-                          <span>{leaf.title}</span>
-                        </>
-                      );
-                      return (
-                        <SidebarMenuSubItem key={leaf.title}>
-                          {leaf.href ? (
-                            <SidebarMenuSubButton
-                              render={<Link href={leaf.href} />}
-                              isActive={active}
-                              className="h-8 gap-2.5"
-                            >
-                              {inner}
-                            </SidebarMenuSubButton>
-                          ) : (
-                            <SidebarMenuSubButton className="h-8 gap-2.5 text-sidebar-foreground/55">
-                              {inner}
-                            </SidebarMenuSubButton>
-                          )}
-                        </SidebarMenuSubItem>
-                      );
-                    })}
-                  </SidebarMenuSub>
-                ) : null}
-              </SidebarMenuItem>
-            );
-          })}
-        </SidebarMenu>
+                return (
+                  <SidebarMenuItem key={item.title}>
+                    {item.href ? (
+                      <SidebarMenuButton
+                        render={<Link href={item.href} />}
+                        isActive={active}
+                        tooltip={item.title}
+                        className="h-9 gap-3 px-3"
+                      >
+                        {inner}
+                      </SidebarMenuButton>
+                    ) : (
+                      // No href, so there is nothing to navigate to: a real
+                      // disabled button, which browsers already keep out of the
+                      // tab order and screen readers already announce as
+                      // unavailable.
+                      //
+                      // Deliberately no `tooltip` here. Passing one wraps this
+                      // in a base-ui TooltipTrigger, which converts `disabled`
+                      // into aria-disabled so a disabled control can still
+                      // explain itself — leaving the item focusable and needing
+                      // a tabIndex={-1} workaround to undo. The tooltip would
+                      // buy nothing anyway: it only renders while the sidebar
+                      // is collapsed, and this sidebar is `collapsible:
+                      // "offcanvas"`, so collapsing slides it off screen
+                      // entirely rather than to an icon rail.
+                      <SidebarMenuButton
+                        disabled
+                        className="h-9 cursor-default gap-3 px-3 text-sidebar-foreground/55"
+                      >
+                        {inner}
+                      </SidebarMenuButton>
+                    )}
+                  </SidebarMenuItem>
+                );
+              })}
+            </SidebarMenu>
+          </SidebarGroup>
+        ))}
       </SidebarContent>
 
       <SidebarRail />
