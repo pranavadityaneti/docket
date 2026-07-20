@@ -108,8 +108,11 @@ export function AppHeader() {
                 submitSearch();
               }
             }}
-            placeholder="Search leads…"
-            aria-label="Search leads"
+            // Neutral wording on purpose: the header is outside any workflow,
+            // so it has no vocabulary to borrow. The Cases screen this submits
+            // to uses the workflow's own noun.
+            placeholder="Search cases…"
+            aria-label="Search cases"
             aria-hidden={!searchOpen}
             tabIndex={searchOpen ? 0 : -1}
             className="h-8 bg-muted/50"

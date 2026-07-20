@@ -191,6 +191,22 @@ function toLead(a: ApiCase): Lead {
   };
 }
 
+/**
+ * Plural of a workflow's own noun — "Application" -> "Applications",
+ * "Enquiry" -> "Enquiries".
+ *
+ * The vocabulary is tenant-authored, so copy cannot hard-code "cases" and
+ * cannot naively append "s" either: a workspace collecting Enquiries would read
+ * "Enquirys" on every empty state. These rules cover ordinary English nouns; a
+ * workflow whose plural is irregular ("Person") needs a plural field of its own
+ * on the workflow, which is the honest fix if a tenant ever asks for one.
+ */
+function plural(label: string): string {
+  if (/[^aeiou]y$/i.test(label)) return label.slice(0, -1) + "ies";
+  if (/(s|x|z|ch|sh)$/i.test(label)) return label + "es";
+  return label + "s";
+}
+
 function initials(name: string) {
   return name.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase();
 }
@@ -505,11 +521,14 @@ function AllCasesView({
   leads,
   onRefresh,
   subjectLabel,
+  caseLabel,
 }: {
   leads: Lead[];
   onRefresh: () => void;
   /** What this workflow calls the party documents come from. Never hardcoded. */
   subjectLabel: string;
+  /** What this workflow calls one run of itself: Application, Admission… */
+  caseLabel: string;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -544,7 +563,7 @@ function AllCasesView({
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search by name, email, or phone…"
+            placeholder={`Search ${plural(caseLabel).toLowerCase()} by name, company or reference…`}
             className="pl-8"
           />
         </div>
@@ -580,11 +599,13 @@ function AllCasesView({
             {filtered.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={8} className="py-12 text-center">
-                  <div className="text-sm font-medium">No leads match your search</div>
+                  <div className="text-sm font-medium">
+                    No {plural(caseLabel).toLowerCase()} match your search
+                  </div>
                   <p className="mt-1 text-sm text-muted-foreground">
                     {query.trim()
-                      ? `Nothing found for “${query.trim()}”. Try a name, company or lead ID.`
-                      : "There are no leads in this workflow yet."}
+                      ? `Nothing found for “${query.trim()}”. Try a name, company or reference.`
+                      : `There are no ${plural(caseLabel).toLowerCase()} in this workflow yet.`}
                   </p>
                 </TableCell>
               </TableRow>
@@ -673,10 +694,12 @@ function BoardView({
   leads,
   stages,
   onMoveStage,
+  caseLabel,
 }: {
   leads: Lead[];
   stages: ApiStage[];
   onMoveStage: (leadId: string, toStageId: string, toStageName: Stage) => void;
+  caseLabel: string;
 }) {
   const stageIdByName = React.useMemo(() => new Map(stages.map((s) => [s.name, s.id])), [stages]);
   // Options come from the API's stages once loaded (so each name resolves to an
@@ -699,7 +722,9 @@ function BoardView({
               </div>
               <div className="flex min-h-24 flex-col gap-2 p-2">
                 {items.length === 0 ? (
-                  <div className="py-6 text-center text-xs text-muted-foreground">No leads</div>
+                  <div className="py-6 text-center text-xs text-muted-foreground">
+                    No {plural(caseLabel).toLowerCase()}
+                  </div>
                 ) : (
                   items.map((l) => (
                     <div key={l.id} className="rounded-lg border bg-background p-3 shadow-sm">
@@ -767,6 +792,12 @@ export default function CasesPage() {
   // also flash an error card.
 
   // Load leads + stages from the live API (apps/api) — tenant-scoped via RLS.
+  // Mirrors the schema defaults, so the first paint — before workflows load —
+  // shows a neutral word rather than flashing a lending term at a college.
+  // Declared here, above the callbacks that read it.
+  const subjectLabel = workflow?.subjectLabel ?? "Contact";
+  const caseLabel = workflow?.caseLabel ?? "Case";
+
   const refresh = React.useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -784,7 +815,7 @@ export default function CasesPage() {
       setStages(wf ? await listStages(wf.slug) : []);
     } catch (e) {
       if (e instanceof AuthRequiredError) return;
-      setError(e instanceof Error ? e.message : "Failed to load leads.");
+      setError(e instanceof Error ? e.message : "Failed to load this workflow.");
     } finally {
       setLoading(false);
     }
@@ -803,10 +834,14 @@ export default function CasesPage() {
           setLeads((ls) => ls.map((l) => (l.id === leadId ? { ...l, stage: current } : l)));
         }
         if (e instanceof AuthRequiredError) return;
-        setMoveError(e instanceof Error ? e.message : "Couldn't move the lead. Please try again.");
+        setMoveError(
+          e instanceof Error
+            ? e.message
+            : `Couldn't move the ${caseLabel.toLowerCase()}. Please try again.`,
+        );
       }
     },
-    [leads],
+    [leads, caseLabel],
   );
 
   React.useEffect(() => {
@@ -825,7 +860,6 @@ export default function CasesPage() {
   // hydration mismatch) and rewrites the URL — an external system.
   // Mirrors the schema default, so the first paint (before workflows load)
   // shows a neutral word rather than flashing a lending term at a college.
-  const subjectLabel = workflow?.subjectLabel ?? "Contact";
 
   React.useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -842,7 +876,8 @@ export default function CasesPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Cases</h1>
           <p className="text-sm text-muted-foreground">
-            Every borrower in the pipeline and where each file stands.
+            Every {subjectLabel.toLowerCase()} in the pipeline, and what each{" "}
+            {caseLabel.toLowerCase()} still needs.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -901,7 +936,9 @@ export default function CasesPage() {
             <Icon name="error" size={22} />
           </div>
           <div>
-            <div className="font-medium">Couldn&rsquo;t load leads</div>
+            <div className="font-medium">
+              Couldn&rsquo;t load {plural(caseLabel).toLowerCase()}
+            </div>
             <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">{error}</p>
             <p className="mx-auto mt-1 max-w-md text-xs text-muted-foreground">
               Make sure the API is running (<code>pnpm --filter @docket/api dev</code>).
@@ -914,17 +951,29 @@ export default function CasesPage() {
       ) : loading ? (
         <Card className="flex flex-col items-center gap-3 py-16 text-center text-muted-foreground">
           <Icon name="progress_activity" size={22} className="animate-spin" />
-          <span className="text-sm">Loading leads…</span>
+          <span className="text-sm">Loading {plural(caseLabel).toLowerCase()}…</span>
         </Card>
       ) : (
         <>
       {/* Suspense: AllCasesView reads useSearchParams (?q= from the header search). */}
       {view === "Table" ? (
         <React.Suspense>
-          <AllCasesView leads={leads} onRefresh={refresh} subjectLabel={subjectLabel} />
+          <AllCasesView
+            leads={leads}
+            onRefresh={refresh}
+            subjectLabel={subjectLabel}
+            caseLabel={caseLabel}
+          />
         </React.Suspense>
       ) : null}
-      {view === "Board" ? <BoardView leads={leads} stages={stages} onMoveStage={moveStage} /> : null}
+      {view === "Board" ? (
+        <BoardView
+          leads={leads}
+          stages={stages}
+          onMoveStage={moveStage}
+          caseLabel={caseLabel}
+        />
+      ) : null}
         </>
       )}
 
