@@ -124,6 +124,31 @@ export const memberships = pgTable(
   ],
 );
 
+/**
+ * One-time password-reset tokens. GLOBAL (per-user), not tenant-scoped: a reset
+ * is about a person, who may belong to several tenants. Reached only via the
+ * owner role in the pre-auth flow, exactly as `login` reads `users`. No
+ * tenant_id and no RLS — see migration 0009, which also revokes the app role's
+ * auto-granted access so the tenant-scoped role can never read tokens.
+ */
+export const passwordResetTokens = pgTable(
+  "password_reset_tokens",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    // sha256(raw) hex — the raw token lives only in the emailed link.
+    tokenHash: text("token_hash").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    // NULL until consumed; set when the reset succeeds or the token is superseded.
+    usedAt: timestamp("used_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("password_reset_tokens_token_hash_idx").on(t.tokenHash),
+    index("password_reset_tokens_user_idx").on(t.userId),
+  ],
+);
+
 /* ------------------------------- workflows (a process a tenant runs) ------------------------------- */
 
 export const workflows = pgTable(

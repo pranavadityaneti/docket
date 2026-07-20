@@ -64,6 +64,13 @@
       "when": 1784574173141,
       "tag": "0008_document_removal",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1784585481064,
+      "tag": "0009_password_reset_tokens",
+      "breakpoints": true
     }
   ]
 }
