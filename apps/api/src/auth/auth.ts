@@ -193,10 +193,19 @@ export class AuthService {
         tokenHash: hash,
         expiresAt: new Date(now.getTime() + 60 * 60 * 1000), // 1 hour
       });
-      await this.email.sendPasswordResetEmail(
-        user.email,
-        `${env.appOrigin}/reset?token=${encodeURIComponent(raw)}`,
-      );
+      // Fire-and-forget: deliberately NOT awaited. Awaiting the send makes the
+      // response slower only for real accounts (the network call runs solely
+      // for them) — a timing side-channel that re-opens the enumeration this
+      // endpoint's constant response body closes. The email module logs its own
+      // failures; the catch keeps an unexpected throw from becoming an unhandled
+      // rejection. The token row is already committed above, so the link is
+      // valid regardless of when the send completes.
+      void this.email
+        .sendPasswordResetEmail(
+          user.email,
+          `${env.appOrigin}/reset?token=${encodeURIComponent(raw)}`,
+        )
+        .catch(() => {});
     }
     return { ok: true };
   }
