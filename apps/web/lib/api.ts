@@ -86,6 +86,36 @@ export function logout(): void {
   clearToken();
 }
 
+/**
+ * POST /auth/forgot-password — start a reset. Pre-auth (no token). Always
+ * resolves when the request is accepted; the API never reveals whether the
+ * email is registered, so callers must show the same neutral message either way.
+ */
+export async function requestPasswordReset(email: string): Promise<void> {
+  const res = await fetch(`${API_URL}/auth/forgot-password`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
+  if (!res.ok) throw new Error(`Request failed (${res.status})`);
+}
+
+/**
+ * POST /auth/reset-password — set a new password with a reset token. Pre-auth.
+ * Throws with the API's message on an invalid/expired token (400).
+ */
+export async function resetPassword(token: string, password: string): Promise<void> {
+  const res = await fetch(`${API_URL}/auth/reset-password`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ token, password }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.message ?? `Reset failed (${res.status})`);
+  }
+}
+
 async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
   const res = await fetch(`${API_URL}${path}`, {
     ...init,

@@ -11,7 +11,10 @@ import { AUTH_REQUIRED_EVENT, isLoggedIn } from "@/lib/api";
 // sidebar/header. These two properties currently coincide; split the list if a
 // route ever needs one without the other (e.g. a full-screen authenticated
 // document viewer, which would be chromeless but still private).
-const PUBLIC_PREFIXES = ["/login"];
+// Pre-auth routes — reachable without a session. The password-reset pages must
+// be here: a locked-out user has no token, so gating them would redirect the
+// very people the flow exists for straight back to the login they can't pass.
+const PUBLIC_PREFIXES = ["/login", "/forgot", "/reset"];
 
 function isPublicPath(pathname: string) {
   return PUBLIC_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + "/"));

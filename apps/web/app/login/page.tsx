@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,6 +36,7 @@ function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const next = safeNext(searchParams.get("next"));
+  const justReset = searchParams.get("reset") === "1";
 
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
@@ -68,6 +70,11 @@ function LoginForm() {
         </div>
 
         <form onSubmit={submit} className="flex flex-col gap-4 p-6">
+          {justReset ? (
+            <div className="flex items-center gap-1.5 rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+              <Icon name="check_circle" size={15} /> Password updated — sign in with your new password.
+            </div>
+          ) : null}
           <div className="flex flex-col gap-1.5">
             <label htmlFor="email" className="text-sm font-medium">
               Email
@@ -83,9 +90,14 @@ function LoginForm() {
             />
           </div>
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="password" className="text-sm font-medium">
-              Password
-            </label>
+            <div className="flex items-center justify-between">
+              <label htmlFor="password" className="text-sm font-medium">
+                Password
+              </label>
+              <Link href="/forgot" className="text-xs text-muted-foreground hover:text-foreground">
+                Forgot password?
+              </Link>
+            </div>
             <Input
               id="password"
               type="password"
