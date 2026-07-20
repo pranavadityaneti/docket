@@ -97,7 +97,26 @@ async function main() {
       });
 
     /* ---- workflow ---- */
-    const [insertedWorkflow] = await tx
+    // Whether this workflow already existed has to be decided BEFORE the
+    // upsert. onConflictDoUpdate always returns a row, so "did .returning()
+    // give us anything" no longer tells a create apart from an update — it
+    // reported every re-run as a fresh install.
+    //
+    // Filtered on tenant as well as slug: the unique constraint is
+    // (tenant_id, slug), and this runs as the owner role, so RLS is not here to
+    // scope the lookup the way it does inside withTenant().
+    const [priorWorkflow] = await tx
+      .select({ id: schema.workflows.id })
+      .from(schema.workflows)
+      .where(
+        and(
+          eq(schema.workflows.tenantId, tenant.id),
+          eq(schema.workflows.slug, workflowSlug),
+        ),
+      )
+      .limit(1);
+
+    const [workflow] = await tx
       .insert(schema.workflows)
       .values({
         tenantId: tenant.id,
@@ -106,27 +125,28 @@ async function main() {
         subjectLabel: WORKFLOW.subjectLabel,
         caseLabel: WORKFLOW.caseLabel,
       })
-      .onConflictDoNothing({
+      // Reconcile rather than skip. onConflictDoNothing meant a workflow that
+      // already existed could never receive a value it did not have when it was
+      // created — which is exactly how every pre-0005 workflow kept the neutral
+      // 'Contact'/'Case' defaults after a vocabulary had been declared in
+      // config, and why re-running bootstrap could not repair it. This tool's
+      // contract is "make the workspace match the declared configuration", so
+      // the config-owned columns are written on every run.
+      //
+      // These three fields only: tenant_id and slug are the conflict target and
+      // must not move, and nothing here touches a workspace's own data.
+      //
+      // When tenants can edit their own vocabulary in the product, this will
+      // need a policy for whose value wins; today config is its only author.
+      .onConflictDoUpdate({
         target: [schema.workflows.tenantId, schema.workflows.slug],
+        set: {
+          name: WORKFLOW.name,
+          subjectLabel: WORKFLOW.subjectLabel,
+          caseLabel: WORKFLOW.caseLabel,
+        },
       })
       .returning();
-    // Must filter on tenant too: the unique constraint is (tenant_id, slug), and
-    // this runs as the owner role, so RLS is not here to scope it for us the way
-    // it scopes the same lookup inside withTenant().
-    const workflow =
-      insertedWorkflow ??
-      (
-        await tx
-          .select()
-          .from(schema.workflows)
-          .where(
-            and(
-              eq(schema.workflows.tenantId, tenant.id),
-              eq(schema.workflows.slug, workflowSlug),
-            ),
-          )
-          .limit(1)
-      )[0];
 
     /* ---- stages & field config ----
      * workflow_stages and field_configs have no unique constraint, so there is
@@ -193,7 +213,7 @@ async function main() {
       tenant: insertedTenant ? "created" : "existed",
       user: insertedUser ? "created" : "existed",
       passwordSet,
-      workflow: insertedWorkflow ? "created" : "existed",
+      workflow: priorWorkflow ? "existed" : "created",
       stagesInserted,
       configInserted,
       requirementsInserted,
