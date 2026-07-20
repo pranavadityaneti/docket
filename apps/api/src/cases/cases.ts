@@ -164,6 +164,50 @@ export class CasesService {
     });
   }
 
+  /**
+   * One case, with the vocabulary of the workflow it actually belongs to.
+   *
+   * The workflow is joined, not resolved from a slug and not taken as "the
+   * tenant's first workflow". A detail screen that guessed would label a
+   * student "Borrower" the moment a tenant runs two workflows — the same class
+   * of bug that made `listStages` silently default to a lending slug.
+   */
+  get(tenantId: string, caseId: string) {
+    return this.db.withTenant(tenantId, async (tx) => {
+      const [row] = await tx
+        .select({
+          id: cases.id,
+          reference: cases.reference,
+          source: cases.source,
+          data: cases.data,
+          createdAt: cases.createdAt,
+          updatedAt: cases.updatedAt,
+          subjectName: contacts.name,
+          subjectOrganisation: contacts.organisation,
+          subjectEmail: contacts.email,
+          subjectPhone: contacts.phone,
+          stageId: workflowStages.id,
+          stageName: workflowStages.name,
+          stageTone: workflowStages.tone,
+          workflowId: workflows.id,
+          workflowName: workflows.name,
+          workflowSlug: workflows.slug,
+          subjectLabel: workflows.subjectLabel,
+          caseLabel: workflows.caseLabel,
+        })
+        .from(cases)
+        .innerJoin(workflows, eq(cases.workflowId, workflows.id))
+        .leftJoin(contacts, eq(cases.contactId, contacts.id))
+        .leftJoin(workflowStages, eq(cases.stageId, workflowStages.id))
+        .where(eq(cases.id, caseId))
+        .limit(1);
+      // RLS already confines this to the tenant, so a miss is genuinely "not
+      // here" — there is no path by which this returns another tenant's case.
+      if (!row) throw new NotFoundException("Case not found");
+      return row;
+    });
+  }
+
   create(tenantId: string, input: CreateCaseDto) {
     const data = input.data ?? {};
     // Byte length, not string length: JSON.stringify(...).length counts UTF-16
@@ -277,6 +321,11 @@ export class CasesController {
   @Get()
   list(@CurrentUser() u: AuthUser, @Query("workflow") workflow?: string) {
     return this.cases.list(u.tenantId, workflow);
+  }
+
+  @Get(":id")
+  get(@CurrentUser() u: AuthUser, @Param("id", ParseUUIDPipe) id: string) {
+    return this.cases.get(u.tenantId, id);
   }
 
   @Post()

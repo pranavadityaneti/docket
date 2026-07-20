@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import {
   Table,
@@ -33,6 +33,7 @@ import {
   AuthRequiredError,
   type ApiCase,
   type ApiStage,
+  type ApiWorkflow,
   type CreateCaseInput,
 } from "@/lib/api";
 
@@ -186,113 +187,6 @@ function inr(n: number) {
   return "₹" + n.toLocaleString("en-IN");
 }
 
-// Entity-type-aware document checklist (our guided touch — Gain doesn't preview
-// docs on lead creation). Counts reflect India-lender best-practice, cross-checked
-// against Gain's blueprints + web research — see
-// docs/docket-document-checklist-comparison.html. Several items are multi-document
-// (2 yrs ITR, 12 mo statements, per-director/partner KYC), so real files are higher.
-const DOC_HINTS: Record<EntityType, string[]> = {
-  Proprietorship: [
-    "Passport photo",
-    "Proprietor PAN",
-    "Proprietor Aadhaar",
-    "Residence address proof",
-    "Office address proof",
-    "Business proof (Shop Act / Udyam)",
-    "ITR + computation (2 yrs)",
-    "Form 3CB/3CD + audited B/S (2 yrs)",
-    "Current-A/c statements (12 mo)",
-    "GST certificate",
-    "GSTR-3B (12 mo)",
-    "Udyam / MSME cert",
-    "Existing loan details",
-    "Property ownership proof",
-    "Collateral docs (if secured)",
-  ],
-  Partnership: [
-    "Firm PAN",
-    "Partnership deed",
-    "Partnership registration cert",
-    "All partners' PAN",
-    "All partners' Aadhaar",
-    "Partners' photos",
-    "Managing-partner authority letter",
-    "Office address proof",
-    "Last-2-yrs financials",
-    "ITR (2 yrs)",
-    "Bank statements — Current/CC/OD (12 mo)",
-    "GST certificate",
-    "GSTR-3B (12 mo)",
-    "Udyam cert",
-    "Property ownership proof",
-    "Existing loan details",
-    "Collateral docs (if secured)",
-  ],
-  "Private Limited": [
-    "Company PAN",
-    "Certificate of Incorporation",
-    "MOA",
-    "AOA",
-    "Board resolution",
-    "All directors' PAN",
-    "All directors' Aadhaar",
-    "Directors' photos",
-    "List of directors (DIN)",
-    "Shareholding pattern",
-    "Office address proof",
-    "Company ITR (2 yrs)",
-    "Form 3CB + audited financials (2 yrs)",
-    "Current-A/c statements (12 mo)",
-    "GST certificate",
-    "GSTR-3B (12 mo)",
-    "Udyam / MSME cert",
-    "Existing loan details",
-    "Collateral docs (if secured)",
-  ],
-  "Public Limited": [
-    "Company PAN",
-    "Certificate of Incorporation",
-    "MOA",
-    "AOA",
-    "Board resolution",
-    "All directors' PAN",
-    "All directors' Aadhaar",
-    "Directors' photos",
-    "List of directors (DIN)",
-    "Shareholding pattern",
-    "Office address proof",
-    "Company ITR (2 yrs)",
-    "Form 3CB + audited financials (2 yrs)",
-    "Current-A/c statements (12 mo)",
-    "GST certificate",
-    "GSTR-3B (12 mo)",
-    "Udyam / MSME cert",
-    "Existing loan details",
-    "Collateral docs (if secured)",
-    "Annual report / prospectus",
-    "Auditor's report + MCA filings",
-  ],
-  LLP: [
-    "LLP PAN",
-    "Certificate of Incorporation",
-    "LLP Agreement (Form 3)",
-    "All designated partners' PAN",
-    "All designated partners' Aadhaar",
-    "DPIN (designated partners)",
-    "DSC (authorized signatory)",
-    "Partners' photos",
-    "Office address proof",
-    "Rent agreement + NOC (if rented)",
-    "Last-2-yrs financials",
-    "ITR (2 yrs)",
-    "Bank statements (12 mo)",
-    "GST certificate",
-    "GSTR-3B (12 mo)",
-    "Udyam cert",
-    "Existing loan details",
-  ],
-};
-
 // Auto-format a PAN as it's typed: uppercase, strip junk, enforce AAAAA9999A structure.
 function formatPan(raw: string): string {
   const s = raw.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10);
@@ -411,10 +305,13 @@ function CreateLeadDialog({
   open,
   onOpenChange,
   onCreate,
+  subjectLabel,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
   onCreate: (input: CreateCaseInput) => Promise<void>;
+  /** "Borrower" for a lender, "Student" for a college — from the workflow. */
+  subjectLabel: string;
 }) {
   const [name, setName] = React.useState("");
   const [company, setCompany] = React.useState("");
@@ -452,7 +349,7 @@ function CreateLeadDialog({
 
   async function submit() {
     const errs: Record<string, string> = {};
-    if (!name.trim()) errs.name = "Borrower name is required.";
+    if (!name.trim()) errs.name = `${subjectLabel} name is required.`;
     if (!company.trim()) errs.company = "Company name is required.";
     const amt = Number(amount);
     if (!amount || Number.isNaN(amt) || amt <= 0) errs.amount = "Enter a valid amount.";
@@ -497,7 +394,7 @@ function CreateLeadDialog({
         </DialogHeader>
 
         <div className="min-h-0 flex-1 overflow-y-auto p-4">
-          <FormSection title="Borrower">
+          <FormSection title={subjectLabel}>
             <Field label="Full name" error={errors.name} required>
               <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Ramesh Kumar" />
             </Field>
@@ -519,22 +416,19 @@ function CreateLeadDialog({
             </div>
           </FormSection>
 
+          {/* The checklist is deliberately NOT previewed here. Which documents
+              apply depends on conditions the API evaluates against the case's
+              own data (an LLP and a proprietorship get different lists), and
+              re-implementing that rule in the browser would give us two answers
+              to the same question — with the WhatsApp and voice bots reading the
+              server's. The real list appears on the case as soon as it exists. */}
           <div className="mb-5 rounded-lg border bg-muted/40 p-3">
             <div className="flex items-center gap-1.5 text-xs font-medium text-foreground">
               <Icon name="fact_check" size={15} className="text-primary" />
               <span>
-                <span className="text-primary">{DOC_HINTS[entityType].length} documents</span> we&rsquo;ll collect for a {entityType}
+                The document checklist for this {entityType} is built when the case is
+                created — you&rsquo;ll land on it next.
               </span>
-            </div>
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {DOC_HINTS[entityType].map((d) => (
-                <span
-                  key={d}
-                  className="rounded-full border bg-background px-2 py-0.5 text-[11px] text-muted-foreground"
-                >
-                  {d}
-                </span>
-              ))}
             </div>
           </div>
 
@@ -621,7 +515,17 @@ function Placeholder({ title, blurb, chips }: { title: string; blurb: string; ch
 
 /* ------------------------------- All Cases (table) ------------------------------- */
 
-function AllCasesView({ leads, onRefresh }: { leads: Lead[]; onRefresh: () => void }) {
+function AllCasesView({
+  leads,
+  onRefresh,
+  subjectLabel,
+}: {
+  leads: Lead[];
+  onRefresh: () => void;
+  /** What this workflow calls the party documents come from. Never hardcoded. */
+  subjectLabel: string;
+}) {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const urlQuery = searchParams.get("q") ?? "";
 
@@ -676,7 +580,7 @@ function AllCasesView({ leads, onRefresh }: { leads: Lead[]; onRefresh: () => vo
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="pl-4">Borrower</TableHead>
+              <TableHead className="pl-4">{subjectLabel}</TableHead>
               <TableHead>Loan Type</TableHead>
               <TableHead>Amount</TableHead>
               <TableHead>Entity</TableHead>
@@ -700,7 +604,25 @@ function AllCasesView({ leads, onRefresh }: { leads: Lead[]; onRefresh: () => vo
               </TableRow>
             ) : (
               filtered.map((l) => (
-              <TableRow key={l.id}>
+              <TableRow
+                key={l.id}
+                // The row is the link to the case's checklist. role/tabIndex and
+                // the Enter handler keep it reachable without a mouse — a plain
+                // onClick on a <tr> is invisible to keyboard and screen readers.
+                role="link"
+                tabIndex={0}
+                aria-label={`Open case ${l.reference}`}
+                className="cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                onClick={() => router.push(`/cases/${l.id}`)}
+                onKeyDown={(e) => {
+                  // Enter only. role="link" activates on Enter; Space is the
+                  // page-scroll key and hijacking it breaks keyboard scrolling.
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    router.push(`/cases/${l.id}`);
+                  }
+                }}
+              >
                 <TableCell className="pl-4">
                   <div className="font-medium">{l.name}</div>
                   <div className="text-xs text-muted-foreground">{l.company} · {l.reference}</div>
@@ -725,7 +647,17 @@ function AllCasesView({ leads, onRefresh }: { leads: Lead[]; onRefresh: () => vo
                   <Badge variant="outline" className={`${STAGE_TONE[l.stage]} whitespace-nowrap`}>{l.stage}</Badge>
                 </TableCell>
                 <TableCell className="pr-4 text-right">
-                  <Button variant="ghost" size="icon" className="size-8 text-muted-foreground" aria-label="Case actions">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-8 text-muted-foreground"
+                    aria-label="Case actions"
+                    // Both handlers, not just click: the row listens on keydown
+                    // too, so Enter on this button would bubble up and navigate
+                    // away instead of opening the menu.
+                    onClick={(e) => e.stopPropagation()}
+                    onKeyDown={(e) => e.stopPropagation()}
+                  >
                     <Icon name="more_horiz" size={18} />
                   </Button>
                 </TableCell>
@@ -831,11 +763,15 @@ function BoardView({
 /* ------------------------------- Page ------------------------------- */
 
 export default function CasesPage() {
+  const router = useRouter();
   const [view, setView] = React.useState<View>("All Cases");
   const [leads, setLeads] = React.useState<Lead[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [stages, setStages] = React.useState<ApiStage[]>([]);
+  // The tenant's workflow, kept so every label on this screen comes from
+  // configuration rather than a hardcoded lending word.
+  const [workflow, setWorkflow] = React.useState<ApiWorkflow | null>(null);
   const [moveError, setMoveError] = React.useState<string | null>(null);
   const [createOpen, setCreateOpen] = React.useState(false);
 
@@ -854,8 +790,12 @@ export default function CasesPage() {
       // not exist for a college or a CA firm.
       const [rows, workflows] = await Promise.all([listCases(), listWorkflows()]);
       setLeads(rows.map(toLead));
-      const slug = workflows[0]?.slug;
-      setStages(slug ? await listStages(slug) : []);
+      // listCases() with no slug resolves the tenant's sole workflow, so the
+      // same one is used here. Choosing between several is a separate change;
+      // this at least stops the vocabulary being hardcoded.
+      const wf = workflows[0] ?? null;
+      setWorkflow(wf);
+      setStages(wf ? await listStages(wf.slug) : []);
     } catch (e) {
       if (e instanceof AuthRequiredError) return;
       setError(e instanceof Error ? e.message : "Failed to load leads.");
@@ -897,6 +837,10 @@ export default function CasesPage() {
   // then tidy the URL back to /leads. This must be an effect: it reads
   // window.location (unavailable during SSR, so it can't seed useState without a
   // hydration mismatch) and rewrites the URL — an external system.
+  // Mirrors the schema default, so the first paint (before workflows load)
+  // shows a neutral word rather than flashing a lending term at a college.
+  const subjectLabel = workflow?.subjectLabel ?? "Contact";
+
   React.useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get("new") === "1") {
@@ -984,7 +928,7 @@ export default function CasesPage() {
       {/* Suspense: AllCasesView reads useSearchParams (?q= from the header search). */}
       {view === "All Cases" ? (
         <React.Suspense>
-          <AllCasesView leads={leads} onRefresh={refresh} />
+          <AllCasesView leads={leads} onRefresh={refresh} subjectLabel={subjectLabel} />
         </React.Suspense>
       ) : null}
       {view === "Board" ? <BoardView leads={leads} stages={stages} onMoveStage={moveStage} /> : null}
@@ -1021,10 +965,14 @@ export default function CasesPage() {
       <CreateLeadDialog
         open={createOpen}
         onOpenChange={setCreateOpen}
+        subjectLabel={subjectLabel}
         onCreate={async (input) => {
           try {
-            await createCase(input);
-            refresh();
+            const created = await createCase(input);
+            // Straight to the checklist. Creating a case and then hunting for
+            // it in the table is the wrong next step — what the case needs is
+            // the only reason it was created.
+            router.push(`/cases/${created.id}`);
           } catch (e) {
             if (e instanceof AuthRequiredError) return; // AppChrome redirects
             throw e; // let the dialog show its own inline error

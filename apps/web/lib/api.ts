@@ -119,6 +119,25 @@ export function listCases(workflow?: string): Promise<ApiCase[]> {
   return apiFetch<ApiCase[]>(`/cases${qs}`);
 }
 
+/**
+ * One case plus the vocabulary of the workflow it belongs to.
+ *
+ * The labels ride along with the case rather than being looked up separately,
+ * so a detail screen never has to guess which workflow it is showing.
+ */
+export type ApiCaseDetail = ApiCase & {
+  workflowId: string;
+  workflowName: string;
+  workflowSlug: string;
+  subjectLabel: string;
+  caseLabel: string;
+};
+
+/** GET /cases/:id — 404s if the id is not this tenant's. */
+export function getCase(caseId: string): Promise<ApiCaseDetail> {
+  return apiFetch<ApiCaseDetail>(`/cases/${encodeURIComponent(caseId)}`);
+}
+
 /** Fields accepted by POST /cases (mirrors apps/api CreateCaseDto). */
 export type CreateCaseInput = {
   /** The subject: borrower, student, client — whoever documents come from. */
@@ -180,5 +199,128 @@ export function updateCaseStage(caseId: string, stageId: string): Promise<{ id: 
   return apiFetch<{ id: string }>(`/cases/${encodeURIComponent(caseId)}/stage`, {
     method: "PATCH",
     body: JSON.stringify({ stageId }),
+  });
+}
+
+/* ------------------------------- documents ------------------------------- */
+
+export type DocumentStatus = "received" | "needs_review" | "accepted" | "rejected" | "expired";
+export type ChecklistItemStatus = DocumentStatus | "missing";
+
+export type ApiDocument = {
+  id: string;
+  fileName: string;
+  status: DocumentStatus;
+  rejectionReason: string | null;
+  sizeBytes: number | null;
+  sourceChannel: string | null;
+  receivedAt: string;
+  /** False while a row is reserved but the bytes have not landed. */
+  uploaded: boolean;
+};
+
+export type ApiChecklistItem = {
+  requirementId: string;
+  key: string;
+  label: string;
+  description: string | null;
+  required: boolean;
+  maxFiles: number;
+  /** Can be carried forward from the subject's other cases. */
+  reusable: boolean;
+  /** Days an accepted document stays valid; null = indefinitely. */
+  validityDays: number | null;
+  status: ChecklistItemStatus;
+  documents: ApiDocument[];
+};
+
+export type ApiChecklist = {
+  caseId: string;
+  items: ApiChecklistItem[];
+  /** Arrived but matching no requirement — for a human to place. */
+  unclassified: Pick<ApiDocument, "id" | "fileName" | "status" | "sourceChannel" | "receivedAt">[];
+  summary: { required: number; accepted: number; outstanding: number; awaitingReview: number };
+};
+
+/**
+ * What this case still needs.
+ *
+ * Conditions are resolved server-side, so this is the same answer the WhatsApp
+ * bot and the voice bot will get. The dashboard deliberately does not evaluate
+ * requirement rules itself — a second implementation is a second answer.
+ */
+export function getChecklist(caseId: string): Promise<ApiChecklist> {
+  return apiFetch<ApiChecklist>(`/cases/${encodeURIComponent(caseId)}/checklist`);
+}
+
+type UploadTarget = { url: string; method: string; headers: Record<string, string>; expiresIn: number };
+
+/**
+ * The raw document row, as the write endpoints return it.
+ *
+ * Deliberately NOT ApiDocument: the checklist projects a derived `uploaded`
+ * flag that the underlying row does not have. Typing these as ApiDocument would
+ * promise a field that is never sent. Callers refetch the checklist after a
+ * write rather than patching state from this.
+ */
+export type ApiDocumentRow = {
+  id: string;
+  caseId: string;
+  requirementId: string | null;
+  fileName: string;
+  status: DocumentStatus;
+  rejectionReason: string | null;
+  sizeBytes: number | null;
+  storageKey: string | null;
+};
+
+/**
+ * Upload a file against a checklist item.
+ *
+ * Three steps, because the middle one goes straight to object storage and never
+ * touches our API: reserve a row and get a target, PUT the bytes there, then
+ * confirm — at which point the API reads size and checksum back from storage
+ * rather than trusting anything the browser claims.
+ */
+export async function uploadDocument(
+  caseId: string,
+  file: File,
+  requirementId?: string,
+): Promise<ApiDocumentRow> {
+  const begun = await apiFetch<{ documentId: string; upload: UploadTarget }>(
+    `/cases/${encodeURIComponent(caseId)}/documents`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        fileName: file.name,
+        contentType: file.type || undefined,
+        requirementId,
+      }),
+    },
+  );
+
+  const res = await fetch(begun.upload.url, {
+    method: begun.upload.method,
+    headers: begun.upload.headers,
+    body: file,
+  });
+  if (!res.ok) {
+    throw new Error(`Upload failed (${res.status}). The link may have expired — try again.`);
+  }
+
+  return apiFetch<ApiDocumentRow>(`/documents/${encodeURIComponent(begun.documentId)}/complete`, {
+    method: "POST",
+  });
+}
+
+/** Accept a document, or reject it with a reason the subject will be told. */
+export function reviewDocument(
+  documentId: string,
+  status: "accepted" | "rejected" | "needs_review",
+  rejectionReason?: string,
+): Promise<ApiDocumentRow> {
+  return apiFetch<ApiDocumentRow>(`/documents/${encodeURIComponent(documentId)}`, {
+    method: "PATCH",
+    body: JSON.stringify({ status, rejectionReason }),
   });
 }

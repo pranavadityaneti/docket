@@ -11,6 +11,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Put,
   Req,
   UseGuards,
 } from "@nestjs/common";
@@ -418,7 +419,13 @@ export class DocumentsController {
 export class LocalUploadController {
   constructor(private readonly local: LocalStorageDriver) {}
 
-  @Post(":token")
+  // PUT, because that is the method LocalStorageDriver.requestUpload() hands
+  // the client, and it is what a presigned S3 URL takes. This was @Post while
+  // the driver advertised PUT, so any client that honoured the contract got a
+  // 404 — invisible to a hand-written `curl -X POST`, and invisible to the S3
+  // path, which uploads to Amazon and never reaches this route at all. Local
+  // and production now exercise the same verb.
+  @Put(":token")
   async upload(@Param("token") token: string, @Req() req: Request) {
     const ticket = this.local.redeemTicket(token);
     if (!ticket) throw new BadRequestException("Upload link is invalid or has expired");
