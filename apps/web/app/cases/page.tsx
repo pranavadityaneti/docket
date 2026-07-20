@@ -38,23 +38,34 @@ import {
 } from "@/lib/api";
 
 /* ------------------------------------------------------------------ *
- * Schema mirrors the live Gain "Business Loan" workflow (see
- * docs/gain-parity-audit.html): the exact 12 board stages, the real
- * lead fields (loan_type / entity_type / source enums), and the six
- * views. "Portal" is spelled correctly here (Gain's enum has a "Protal"
- * typo). The +Lead modal creates leads into the pipeline at Pending.
+ * The stages and lead fields still mirror the live Gain "Business Loan"
+ * workflow (see docs/gain-parity-audit.html): the same 12 board stages
+ * and the real loan_type / entity_type / source enums. "Portal" is
+ * spelled correctly here — Gain's enum has a "Protal" typo.
+ *
+ * Gain's six views are gone; see VIEWS below. What remains lending-shaped
+ * is this screen's columns, which are still hardcoded rather than driven
+ * by the workflow's field config — the change that would let a college or
+ * a CA firm use this table as-is.
  * ------------------------------------------------------------------ */
 
 const WORKFLOWS = ["Business Loan"] as const;
 
-const VIEWS = [
-  "All Cases",
-  "Action",
-  "Board",
-  "List",
-  "Dashboard",
-  "Settings",
-] as const;
+/*
+ * Two ways to look at the same cases, not six sections.
+ *
+ * This was All Cases / Action / Board / List / Dashboard / Settings, of which
+ * Board and the table were real and four rendered a placeholder card. Three of
+ * those four have since moved somewhere truthful in the navigation — Action is
+ * "Needs attention", Dashboard is "Overview", and workflow Settings belongs
+ * under Setup, where it no longer sits confusingly beside the app's own
+ * Settings. "List" was a second table.
+ *
+ * What is left is a display toggle, so it is rendered as one: a tab strip
+ * implies sections with different content, and these show identical data
+ * arranged two ways.
+ */
+const VIEWS = ["Table", "Board"] as const;
 type View = (typeof VIEWS)[number];
 
 const STAGES = [
@@ -488,31 +499,6 @@ function CreateLeadDialog({
   );
 }
 
-/* ------------------------------- Placeholder tabs ------------------------------- */
-
-function Placeholder({ title, blurb, chips }: { title: string; blurb: string; chips?: string[] }) {
-  return (
-    <Card className="flex flex-col items-center gap-3 border-dashed py-16 text-center">
-      <div className="flex size-11 items-center justify-center rounded-full bg-muted text-muted-foreground">
-        <Icon name="construction" size={22} />
-      </div>
-      <div>
-        <div className="font-medium">{title}</div>
-        <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">{blurb}</p>
-      </div>
-      {chips ? (
-        <div className="flex flex-wrap justify-center gap-1.5">
-          {chips.map((c) => (
-            <span key={c} className="rounded-full border bg-background px-2.5 py-0.5 text-xs text-muted-foreground">
-              {c}
-            </span>
-          ))}
-        </div>
-      ) : null}
-    </Card>
-  );
-}
-
 /* ------------------------------- All Cases (table) ------------------------------- */
 
 function AllCasesView({
@@ -764,7 +750,7 @@ function BoardView({
 
 export default function CasesPage() {
   const router = useRouter();
-  const [view, setView] = React.useState<View>("All Cases");
+  const [view, setView] = React.useState<View>("Table");
   const [leads, setLeads] = React.useState<Lead[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
@@ -870,18 +856,25 @@ export default function CasesPage() {
         </div>
       </div>
 
-      {/* View tabs */}
-      <div className="flex flex-wrap items-center gap-1 border-b">
+      {/* Display toggle. role=group with aria-pressed, not a tablist: these
+          buttons swap how one set of cases is drawn, they do not switch panels. */}
+      <div
+        role="group"
+        aria-label="Case display"
+        className="inline-flex w-fit items-center gap-0.5 rounded-lg border bg-muted/50 p-0.5"
+      >
         {VIEWS.map((v) => (
           <button
             key={v}
             onClick={() => setView(v)}
-            className={`-mb-px border-b-2 px-3 py-2 text-sm transition-colors ${
+            aria-pressed={view === v}
+            className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm transition-colors ${
               view === v
-                ? "border-primary font-medium text-foreground"
-                : "border-transparent text-muted-foreground hover:text-foreground"
+                ? "bg-background font-medium text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
             }`}
           >
+            <Icon name={v === "Table" ? "table_rows" : "view_kanban"} size={16} />
             {v}
           </button>
         ))}
@@ -926,39 +919,12 @@ export default function CasesPage() {
       ) : (
         <>
       {/* Suspense: AllCasesView reads useSearchParams (?q= from the header search). */}
-      {view === "All Cases" ? (
+      {view === "Table" ? (
         <React.Suspense>
           <AllCasesView leads={leads} onRefresh={refresh} subjectLabel={subjectLabel} />
         </React.Suspense>
       ) : null}
       {view === "Board" ? <BoardView leads={leads} stages={stages} onMoveStage={moveStage} /> : null}
-      {view === "Action" ? (
-        <Placeholder
-          title="Action queues"
-          blurb="Work items the AI workforce and humans need to act on for this workflow."
-          chips={["Notifications", "Manual Reminders", "Human First Tasks", "AI Assistant Tasks"]}
-        />
-      ) : null}
-      {view === "List" ? (
-        <Placeholder
-          title="List view"
-          blurb="Dense table with comment-tracking columns."
-          chips={["Contact", "Stage", "Tag / Next Contact", "Latest Comment", "Last Contacted"]}
-        />
-      ) : null}
-      {view === "Dashboard" ? (
-        <Placeholder
-          title="Workflow dashboard"
-          blurb="Per-workflow lead analytics — conversion by stage, source mix, SLA and ageing."
-        />
-      ) : null}
-      {view === "Settings" ? (
-        <Placeholder
-          title="Workflow settings"
-          blurb="Workflow details and the configurable lead field schema (Form / JSON)."
-          chips={["pan_number", "company_name", "loan_amount", "loan_type", "entity_type", "source", "monthly_turnover", "funds_needed"]}
-        />
-      ) : null}
         </>
       )}
 
