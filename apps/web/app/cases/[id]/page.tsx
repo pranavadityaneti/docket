@@ -246,7 +246,10 @@ function ChecklistRow({
 }) {
   const inputRef = React.useRef<HTMLInputElement>(null);
   const isUploading = uploading === item.requirementId;
-  const full = item.documents.length >= item.maxFiles;
+  // The API decides this — see ApiChecklistItem.canUpload. Counting
+  // item.documents here would grey out the button on a rejected item that the
+  // server would happily accept a replacement for.
+  const full = !item.canUpload;
 
   return (
     <div className="border-b p-4 last:border-b-0">
@@ -295,7 +298,11 @@ function ChecklistRow({
             variant="outline"
             className="h-8 gap-1.5"
             disabled={isUploading || full}
-            title={full ? `This item accepts at most ${item.maxFiles} file(s)` : undefined}
+            title={
+              full
+                ? `${item.label} already has ${item.slotsUsed} of ${item.maxFiles} file${item.maxFiles === 1 ? "" : "s"}`
+                : undefined
+            }
             onClick={() => inputRef.current?.click()}
           >
             <Icon name={isUploading ? "progress_activity" : "upload"} size={15} />

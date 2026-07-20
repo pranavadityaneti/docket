@@ -226,6 +226,15 @@ export type ApiChecklistItem = {
   description: string | null;
   required: boolean;
   maxFiles: number;
+  /** Files still holding a slot — rejected/expired/never-uploaded excluded. */
+  slotsUsed: number;
+  /**
+   * Whether another file may be added. Comes from the API, which enforces the
+   * same rule on upload. Never re-derive this from documents.length: a rejected
+   * document still appears in the list but no longer occupies a slot, so
+   * counting rows would block the replacement the rejection is asking for.
+   */
+  canUpload: boolean;
   /** Can be carried forward from the subject's other cases. */
   reusable: boolean;
   /** Days an accepted document stays valid; null = indefinitely. */

@@ -81,6 +81,49 @@ export type ChecklistItemStatus =
   | "expired";
 
 /**
+ * Have this row's bytes actually reached storage?
+ *
+ * A document row is created BEFORE the upload, so a row on its own proves
+ * nothing — it is a reservation. If the upload is abandoned (a dropped
+ * connection, a closed tab, an expired ticket) the row survives with no file
+ * behind it. Such a row is not a document and must not be treated as one:
+ * counting it told a borrower's checklist that a file had arrived when nothing
+ * had.
+ */
+export function hasLanded(doc: { storageKey: string | null }): boolean {
+  return doc.storageKey !== null;
+}
+
+/**
+ * Does this document occupy one of a requirement's `maxFiles` slots?
+ *
+ * This used to be "every row that exists", on the reasoning that a rejected
+ * file still occupies a slot *until someone removes it*. There is no remove
+ * action, so that reasoning never completed: rejecting the single permitted
+ * copy of a document made the item permanently unfillable. Staff rejected a
+ * blurry Aadhaar and then could not accept a clear one — the exact workflow the
+ * product exists to run, deadlocked by its own validation.
+ *
+ * A slot is held by a file that is still a candidate:
+ *   - accepted / received / needs_review → yes, it is the live copy
+ *   - rejected  → no. It was refused; a replacement is the point.
+ *   - expired   → no. It is out of date; a fresh one is required.
+ *   - no bytes  → no. Nothing was ever uploaded.
+ *
+ * Note this is deliberately NOT the same question as rollUpStatus answers. A
+ * rejected document must keep *showing* as rejected — that is the signal a
+ * human acts on — while no longer *blocking* the replacement it is asking for.
+ * Occupancy is about capacity; roll-up is about what to display.
+ */
+export function occupiesSlot(doc: {
+  storageKey: string | null;
+  status: DocumentStatus;
+}): boolean {
+  if (!hasLanded(doc)) return false;
+  return doc.status !== "rejected" && doc.status !== "expired";
+}
+
+/**
  * Roll a requirement's documents up into one status.
  *
  * Order matters and is chosen so the worst actionable state wins: anything
@@ -175,6 +218,12 @@ export class DocumentsService {
 
       const items = applicable.map((r) => {
         const mine = docs.filter((d) => d.requirementId === r.id);
+        // Whether another file may be added is decided HERE, by the same
+        // predicate beginUpload enforces with. The client must not re-derive it
+        // from documents.length: that is a second implementation of the rule,
+        // and it would grey out the upload button on a rejected item that the
+        // API would in fact accept — the deadlock reappearing in the UI only.
+        const slotsUsed = mine.filter(occupiesSlot).length;
         return {
           requirementId: r.id,
           key: r.key,
@@ -182,6 +231,8 @@ export class DocumentsService {
           description: r.description,
           required: r.required,
           maxFiles: r.maxFiles,
+          slotsUsed,
+          canUpload: slotsUsed < r.maxFiles,
           reusable: r.reusable,
           validityDays: r.validityDays,
           status: rollUpStatus(mine.map((d) => d.status)),
@@ -230,6 +281,51 @@ export class DocumentsService {
     });
   }
 
+  /**
+   * Refuse the caller if the requirement has no free slot left.
+   *
+   * Capacity used to be checked in exactly one place — beginUpload — and that
+   * was sufficient only while "a row exists" meant "a slot is used". Now that
+   * occupancy is a predicate that CHANGES over a document's life (a rejection
+   * frees a slot, an upload completing takes one), a single up-front check is
+   * no longer enough: the limit has to hold at every transition INTO occupancy,
+   * or it can be walked around. Two ways it could be, both verified reachable:
+   *
+   *   - complete two uploads that were reserved before either finished, since
+   *     neither reservation held a slot at the time it was created;
+   *   - review a rejected document back to accepted after its replacement has
+   *     already taken the slot.
+   *
+   * `excludeDocumentId` is the document being changed — it must not be counted
+   * against itself.
+   */
+  private async assertSlotFree(
+    tx: Parameters<Parameters<DbService["withTenant"]>[1]>[0],
+    caseId: string,
+    requirementId: string,
+    excludeDocumentId: string | null,
+  ) {
+    const [req] = await tx
+      .select({ maxFiles: documentRequirements.maxFiles, label: documentRequirements.label })
+      .from(documentRequirements)
+      .where(eq(documentRequirements.id, requirementId))
+      .limit(1);
+    if (!req) return;
+
+    const rows = await tx
+      .select({ id: documents.id, status: documents.status, storageKey: documents.storageKey })
+      .from(documents)
+      .where(and(eq(documents.caseId, caseId), eq(documents.requirementId, requirementId)));
+
+    const used = rows.filter((d) => d.id !== excludeDocumentId && occupiesSlot(d)).length;
+    if (used >= req.maxFiles) {
+      throw new BadRequestException(
+        `"${req.label}" already has ${req.maxFiles} file${req.maxFiles === 1 ? "" : "s"}. ` +
+          `Reject the existing one first if this should replace it.`,
+      );
+    }
+  }
+
   /** Step 1: reserve a row and hand back somewhere to PUT the bytes. */
   beginUpload(tenantId: string, caseId: string, input: BeginUploadDto) {
     return this.db.withTenant(tenantId, async (tx) => {
@@ -255,20 +351,10 @@ export class DocumentsService {
           .limit(1);
         if (!req) throw new BadRequestException("Requirement does not belong to this case");
 
-        // maxFiles counts what is actually there — a rejected file still
-        // occupies a slot until someone removes it, which is the honest
-        // reading of "how many files are attached to this item".
-        const existing = await tx
-          .select({ id: documents.id })
-          .from(documents)
-          .where(
-            and(eq(documents.caseId, caseId), eq(documents.requirementId, input.requirementId)),
-          );
-        if (existing.length >= req.maxFiles) {
-          throw new BadRequestException(
-            `"${req.label}" accepts at most ${req.maxFiles} file${req.maxFiles === 1 ? "" : "s"}`,
-          );
-        }
+        // Fail fast, before the caller uploads bytes it cannot file. This is
+        // early feedback, NOT the authoritative check — a reservation holds no
+        // slot, so the binding check is the one in completeUpload().
+        await this.assertSlotFree(tx, caseId, input.requirementId, null);
       }
 
       const [doc] = await tx
@@ -308,6 +394,20 @@ export class DocumentsService {
       // what it sent.
       const object = await this.storage.head(key);
       if (!object) throw new BadRequestException("No file was uploaded for this document");
+
+      // The authoritative capacity check. A reservation holds no slot, so two
+      // uploads can legitimately be in flight for a one-file requirement; the
+      // first to land takes it and the second must be refused here rather than
+      // silently pushing the item over its limit. The object is removed so a
+      // refused upload does not leave bytes behind with nothing pointing at them.
+      if (doc.requirementId) {
+        try {
+          await this.assertSlotFree(tx, doc.caseId, doc.requirementId, doc.id);
+        } catch (err) {
+          await this.storage.delete(key);
+          throw err;
+        }
+      }
       if (object.sizeBytes > env.maxUploadBytes) {
         await this.storage.delete(key);
         throw new BadRequestException(
@@ -335,11 +435,27 @@ export class DocumentsService {
     }
     return this.db.withTenant(tenantId, async (tx) => {
       const [doc] = await tx
-        .select({ id: documents.id, requirementId: documents.requirementId })
+        .select({
+          id: documents.id,
+          caseId: documents.caseId,
+          requirementId: documents.requirementId,
+          status: documents.status,
+          storageKey: documents.storageKey,
+        })
         .from(documents)
         .where(eq(documents.id, documentId))
         .limit(1);
       if (!doc) throw new NotFoundException("Document not found");
+
+      // Un-rejecting takes a slot back. If the replacement has already filled
+      // it, this would push the item past maxFiles, so the same guard applies
+      // here as on upload. Only this ONE transition needs it: rejecting never
+      // adds occupancy, and accepting something already received does not
+      // change it — so a plain review of a live file is untouched.
+      const willOccupy = input.status !== "rejected" && hasLanded(doc);
+      if (willOccupy && !occupiesSlot(doc) && doc.requirementId) {
+        await this.assertSlotFree(tx, doc.caseId, doc.requirementId, doc.id);
+      }
 
       // On acceptance, stamp the expiry from the requirement's validity window.
       // This is what later makes "reusable AND still valid" answerable without
