@@ -340,6 +340,27 @@ export const documents = pgTable(
     /** NULL means no human has confirmed it — the AI alone decided. */
     reviewedBy: uuid("reviewed_by").references(() => users.id, { onDelete: "set null" }),
     reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+
+    /* ---- removal ---- */
+    /*
+     * A soft delete of the ROW paired with a hard delete of the FILE — the only
+     * combination that serves both reasons a document gets removed.
+     *
+     * The usual reason is a mistake: the wrong file, sometimes one holding
+     * another person's KYC. That must genuinely stop existing, so the stored
+     * object is purged and storage_key cleared. But a lender asked in an audit
+     * what became of a document it once accepted cannot answer "no idea", so
+     * the row survives with its file name, checksum and size — enough to say
+     * what the file was and who removed it when, without keeping the file.
+     *
+     * Every read path must filter on deleted_at IS NULL. A soft delete that
+     * leaks into one query is worse than no delete at all, because the record
+     * reappears somewhere nobody is looking for it.
+     */
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    deletedBy: uuid("deleted_by").references(() => users.id, { onDelete: "set null" }),
+    deletionReason: text("deletion_reason"),
+
     receivedAt: timestamp("received_at", { withTimezone: true }).notNull().defaultNow(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -352,6 +373,10 @@ export const documents = pgTable(
     index("documents_tenant_status_idx").on(t.tenantId, t.status),
     // Cross-channel duplicate detection (same file on WhatsApp and email).
     index("documents_tenant_checksum_idx").on(t.tenantId, t.checksum),
+    // Every checklist read is "this case's documents that are still here", so
+    // the live-only filter belongs in the index rather than being applied to
+    // the result of a wider scan.
+    index("documents_case_live_idx").on(t.caseId).where(sql`${t.deletedAt} is null`),
   ],
 );
 

@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
   Inject,
   Injectable,
@@ -16,7 +17,7 @@ import {
   UseGuards,
 } from "@nestjs/common";
 import { IsIn, IsOptional, IsString, IsUUID, MaxLength, MinLength } from "class-validator";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, isNull } from "drizzle-orm";
 import type { Request } from "express";
 import {
   cases,
@@ -177,6 +178,14 @@ export class ReviewDocumentDto {
   rejectionReason?: string;
 }
 
+export class RemoveDocumentDto {
+  /** Optional, but it is the whole audit value — prompted for in the UI. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  reason?: string;
+}
+
 @Injectable()
 export class DocumentsService {
   constructor(
@@ -208,10 +217,12 @@ export class DocumentsService {
         .where(eq(documentRequirements.workflowId, row.workflowId))
         .orderBy(asc(documentRequirements.position));
 
+      // Removed documents are gone from every staff-facing surface. The row
+      // survives for audit; it is not a document any more.
       const docs = await tx
         .select()
         .from(documents)
-        .where(eq(documents.caseId, caseId))
+        .where(and(eq(documents.caseId, caseId), isNull(documents.deletedAt)))
         .orderBy(asc(documents.receivedAt));
 
       const applicable = reqs.filter((r) => requirementApplies(r.condition, row.data));
@@ -315,7 +326,15 @@ export class DocumentsService {
     const rows = await tx
       .select({ id: documents.id, status: documents.status, storageKey: documents.storageKey })
       .from(documents)
-      .where(and(eq(documents.caseId, caseId), eq(documents.requirementId, requirementId)));
+      .where(
+        and(
+          eq(documents.caseId, caseId),
+          eq(documents.requirementId, requirementId),
+          // A removed document frees its slot — that is most of the point of
+          // being able to remove one.
+          isNull(documents.deletedAt),
+        ),
+      );
 
     const used = rows.filter((d) => d.id !== excludeDocumentId && occupiesSlot(d)).length;
     if (used >= req.maxFiles) {
@@ -384,8 +403,11 @@ export class DocumentsService {
       const [doc] = await tx
         .select()
         .from(documents)
-        .where(eq(documents.id, documentId))
+        .where(and(eq(documents.id, documentId), isNull(documents.deletedAt)))
         .limit(1);
+      // Also covers the removed case: an upload confirmed after its row was
+      // removed must not write a storage key back onto it and resurrect a
+      // document whose file was deliberately purged.
       if (!doc) throw new NotFoundException("Document not found");
 
       const key = documentKey(tenantId, doc.caseId, doc.id);
@@ -428,6 +450,49 @@ export class DocumentsService {
     });
   }
 
+  /**
+   * Remove a document: purge the file, keep the record.
+   *
+   * The file is deleted first and the row updated second. If the purge fails
+   * the whole thing fails and the document is untouched — the opposite order
+   * could mark a document removed while its bytes are still sitting in storage,
+   * which is precisely the outcome someone removing a misfiled KYC document is
+   * trying to avoid. A crash between the two leaves an orphaned object with no
+   * row pointing at it, which is recoverable; the reverse is not.
+   *
+   * storage_key is cleared because the object it names no longer exists. What
+   * stays — file name, checksum, size — describes what the file was without
+   * being the file.
+   */
+  remove(tenantId: string, userId: string, documentId: string, input: RemoveDocumentDto) {
+    return this.db.withTenant(tenantId, async (tx) => {
+      const [doc] = await tx
+        .select({ id: documents.id, caseId: documents.caseId, storageKey: documents.storageKey })
+        .from(documents)
+        .where(and(eq(documents.id, documentId), isNull(documents.deletedAt)))
+        .limit(1);
+      // Already removed reads as "not found" rather than succeeding quietly:
+      // a second remove is a sign the caller believes something else is true.
+      if (!doc) throw new NotFoundException("Document not found");
+
+      if (doc.storageKey) {
+        await this.storage.delete(doc.storageKey);
+      }
+
+      const [updated] = await tx
+        .update(documents)
+        .set({
+          deletedAt: new Date(),
+          deletedBy: userId,
+          deletionReason: input.reason?.trim() || null,
+          storageKey: null,
+        })
+        .where(eq(documents.id, documentId))
+        .returning({ id: documents.id, caseId: documents.caseId });
+      return updated;
+    });
+  }
+
   /** Staff review. The AI will drive this later; the human path exists first. */
   review(tenantId: string, userId: string, documentId: string, input: ReviewDocumentDto) {
     if (input.status === "rejected" && !input.rejectionReason?.trim()) {
@@ -443,7 +508,7 @@ export class DocumentsService {
           storageKey: documents.storageKey,
         })
         .from(documents)
-        .where(eq(documents.id, documentId))
+        .where(and(eq(documents.id, documentId), isNull(documents.deletedAt)))
         .limit(1);
       if (!doc) throw new NotFoundException("Document not found");
 
@@ -510,6 +575,15 @@ export class DocumentsController {
   @Post("documents/:id/complete")
   complete(@CurrentUser() u: AuthUser, @Param("id", ParseUUIDPipe) id: string) {
     return this.docs.completeUpload(u.tenantId, id);
+  }
+
+  @Delete("documents/:id")
+  remove(
+    @CurrentUser() u: AuthUser,
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body() body: RemoveDocumentDto,
+  ) {
+    return this.docs.remove(u.tenantId, u.userId, id, body);
   }
 
   @Patch("documents/:id")

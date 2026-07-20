@@ -322,6 +322,20 @@ export async function uploadDocument(
   });
 }
 
+/**
+ * Remove a document: the stored file is purged, the record is kept.
+ *
+ * Irreversible — the file is gone, not archived. What survives is a row marked
+ * removed, carrying the file name, checksum and who removed it, so the removal
+ * itself stays answerable.
+ */
+export function removeDocument(documentId: string, reason?: string): Promise<{ id: string }> {
+  return apiFetch<{ id: string }>(`/documents/${encodeURIComponent(documentId)}`, {
+    method: "DELETE",
+    body: JSON.stringify({ reason }),
+  });
+}
+
 /** Accept a document, or reject it with a reason the subject will be told. */
 export function reviewDocument(
   documentId: string,

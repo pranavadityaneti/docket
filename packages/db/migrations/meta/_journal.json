@@ -57,6 +57,13 @@
       "when": 1784569173157,
       "tag": "0007_backfill_workflow_vocabulary",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1784574173141,
+      "tag": "0008_document_removal",
+      "breakpoints": true
     }
   ]
 }

@@ -22,6 +22,7 @@ import {
   getChecklist,
   uploadDocument,
   reviewDocument,
+  removeDocument,
   AuthRequiredError,
   type ApiCaseDetail,
   type ApiChecklist,
@@ -170,10 +171,12 @@ function ProgressCard({
 function DocumentRow({
   doc,
   onReview,
+  onRemove,
   busy,
 }: {
   doc: ApiDocument;
   onReview: (doc: ApiDocument, status: "accepted" | "rejected") => void;
+  onRemove: (doc: ApiDocument) => void;
   busy: boolean;
 }) {
   const size = fileSize(doc.sizeBytes);
@@ -205,28 +208,45 @@ function DocumentRow({
       {/* Review is offered only where it means something: an accepted or
           rejected file is already decided, and a row with no bytes has nothing
           to look at. */}
-      {doc.uploaded && (doc.status === "received" || doc.status === "needs_review") ? (
-        <div className="flex gap-1">
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-7 gap-1 px-2 text-xs"
-            disabled={busy}
-            onClick={() => onReview(doc, "accepted")}
-          >
-            <Icon name="check" size={14} /> Accept
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-7 gap-1 px-2 text-xs"
-            disabled={busy}
-            onClick={() => onReview(doc, "rejected")}
-          >
-            <Icon name="close" size={14} /> Reject
-          </Button>
-        </div>
-      ) : null}
+      <div className="flex gap-1">
+        {doc.uploaded && (doc.status === "received" || doc.status === "needs_review") ? (
+          <>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 gap-1 px-2 text-xs"
+              disabled={busy}
+              onClick={() => onReview(doc, "accepted")}
+            >
+              <Icon name="check" size={14} /> Accept
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 gap-1 px-2 text-xs"
+              disabled={busy}
+              onClick={() => onReview(doc, "rejected")}
+            >
+              <Icon name="close" size={14} /> Reject
+            </Button>
+          </>
+        ) : null}
+        {/* Offered at every status, accepted included: the reason to remove a
+            document is usually that it should never have been filed — the wrong
+            file, or someone else's — and that does not stop being true once
+            somebody has approved it. */}
+        <Button
+          size="sm"
+          variant="ghost"
+          className="size-7 p-0 text-muted-foreground hover:text-red-600"
+          disabled={busy}
+          aria-label={`Remove ${doc.fileName}`}
+          title="Remove this document"
+          onClick={() => onRemove(doc)}
+        >
+          <Icon name="delete" size={15} />
+        </Button>
+      </div>
     </div>
   );
 }
@@ -235,12 +255,14 @@ function ChecklistRow({
   item,
   onUpload,
   onReview,
+  onRemove,
   busyId,
   uploading,
 }: {
   item: ApiChecklistItem;
   onUpload: (item: ApiChecklistItem, file: File) => void;
   onReview: (doc: ApiDocument, status: "accepted" | "rejected") => void;
+  onRemove: (doc: ApiDocument) => void;
   busyId: string | null;
   uploading: string | null;
 }) {
@@ -314,7 +336,13 @@ function ChecklistRow({
       {item.documents.length > 0 ? (
         <div className="mt-3 flex flex-col gap-1.5">
           {item.documents.map((d) => (
-            <DocumentRow key={d.id} doc={d} onReview={onReview} busy={busyId === d.id} />
+            <DocumentRow
+              key={d.id}
+              doc={d}
+              onReview={onReview}
+              onRemove={onRemove}
+              busy={busyId === d.id}
+            />
           ))}
         </div>
       ) : null}
@@ -391,6 +419,74 @@ function RejectDialog({
   );
 }
 
+/* ------------------------------- remove dialog ------------------------------- */
+
+function RemoveDialog({
+  doc,
+  onCancel,
+  onConfirm,
+}: {
+  doc: ApiDocument | null;
+  onCancel: () => void;
+  onConfirm: (reason: string) => void;
+}) {
+  const [reason, setReason] = React.useState("");
+  const [forDoc, setForDoc] = React.useState<string | null>(null);
+  // Reset when a different document is put up for removal, so last time's
+  // reason can never be attached to this file.
+  if (doc && doc.id !== forDoc) {
+    setForDoc(doc.id);
+    setReason("");
+  }
+
+  return (
+    <Dialog open={!!doc} onOpenChange={(next) => !next && onCancel()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Remove this document?</DialogTitle>
+          <DialogDescription>
+            The file is deleted permanently — this cannot be undone. A record of the
+            removal is kept, showing the file name and who removed it.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="px-4">
+          <div className="mb-3 flex items-center gap-2 rounded-md border bg-muted/40 px-3 py-2">
+            <Icon name="description" size={16} className="shrink-0 text-muted-foreground" />
+            <span className="truncate text-sm">{doc?.fileName}</span>
+            {doc ? <StatusBadge status={doc.status} /> : null}
+          </div>
+          <label className="mb-1 block text-xs font-medium text-muted-foreground">
+            Reason (optional)
+          </label>
+          <Input
+            value={reason}
+            autoFocus
+            maxLength={500}
+            placeholder="e.g. Wrong file — belongs to another applicant"
+            onChange={(e) => setReason(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") onConfirm(reason.trim());
+            }}
+          />
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onCancel}>
+            Cancel
+          </Button>
+          <Button
+            className="bg-red-600 text-white hover:bg-red-700"
+            onClick={() => onConfirm(reason.trim())}
+          >
+            Remove permanently
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 /* ------------------------------- page ------------------------------- */
 
 export default function CaseDetailPage() {
@@ -406,6 +502,7 @@ export default function CaseDetailPage() {
   const [uploading, setUploading] = React.useState<string | null>(null);
   const [busyId, setBusyId] = React.useState<string | null>(null);
   const [rejecting, setRejecting] = React.useState<ApiDocument | null>(null);
+  const [removing, setRemoving] = React.useState<ApiDocument | null>(null);
   const [hasData, setHasData] = React.useState(false);
 
   // `hasData` distinguishes "never loaded" from "reload failed". A failure with
@@ -487,6 +584,23 @@ export default function CaseDetailPage() {
     } catch (e) {
       if (e instanceof AuthRequiredError) return;
       setActionError(e instanceof Error ? e.message : "Couldn't reject the document.");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function confirmRemove(reason: string) {
+    const doc = removing;
+    if (!doc) return;
+    setRemoving(null);
+    setActionError(null);
+    setBusyId(doc.id);
+    try {
+      await removeDocument(doc.id, reason || undefined);
+      await refresh();
+    } catch (e) {
+      if (e instanceof AuthRequiredError) return;
+      setActionError(e instanceof Error ? e.message : "Couldn't remove the document.");
     } finally {
       setBusyId(null);
     }
@@ -616,6 +730,7 @@ export default function CaseDetailPage() {
               item={item}
               onUpload={handleUpload}
               onReview={handleReview}
+              onRemove={setRemoving}
               busyId={busyId}
               uploading={uploading}
             />
@@ -663,6 +778,12 @@ export default function CaseDetailPage() {
         doc={rejecting}
         onCancel={() => setRejecting(null)}
         onConfirm={confirmReject}
+      />
+
+      <RemoveDialog
+        doc={removing}
+        onCancel={() => setRemoving(null)}
+        onConfirm={confirmRemove}
       />
     </div>
   );
