@@ -79,4 +79,17 @@ export const env = {
    * is always the explicit list there.
    */
   corsOrigin: webOrigins.length > 0 ? webOrigins : true,
+  /**
+   * Resend credentials for transactional email (password reset). Optional: when
+   * either is unset the email module logs and no-ops, so dev and tests run
+   * without email. Supplied in prod via the Secrets Manager secret.
+   */
+  resendApiKey: process.env.RESEND_API_KEY?.trim() || undefined,
+  resendFromEmail: process.env.RESEND_FROM_EMAIL?.trim() || undefined,
+  /**
+   * Canonical app origin for links we email (e.g. the reset link). The first
+   * WEB_ORIGIN entry in prod (the dashboard's own origin); localhost in dev
+   * where WEB_ORIGIN is unset. Never taken from request input.
+   */
+  appOrigin: webOrigins[0] ?? "http://localhost:3000",
 } as const;
