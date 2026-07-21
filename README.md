@@ -37,11 +37,26 @@ a commit from any other identity is refused with "Deployment Blocked: the commit
 author did not have contributing access", **before the build starts**, so there
 are no build logs to read.
 
-Commit as the Vercel account:
+Vercel runs **two** checks, and they are different things:
+
+1. the commit email must resolve to a **GitHub account** (not a Vercel account
+   email — `ideayemedia@gmail.com` is the Vercel login and matches no GitHub
+   user, which fails here); and
+2. that GitHub account must have contributing access to the Vercel project.
+
+Use the ID-prefixed GitHub noreply, which is GitHub's canonical form and always
+resolves:
 
 ```bash
-git config --local user.email "ideayemedia@gmail.com"
+git config --local user.email "63978595+pranavadityaneti@users.noreply.github.com"
+git config --local user.name  "Pranav Aditya N"
 ```
+
+Vercel's "Fix Git Configuration" button on a blocked deployment is authoritative
+if this ever changes.
+
+Note: an **empty commit does not trigger a deployment** — Vercel skips commits
+with no file changes, so use a real change to force a rebuild.
 
 This bit us for two days: a stale `user.email` override in this repo meant every
 push was silently rejected while production kept serving an old build. If deploys
