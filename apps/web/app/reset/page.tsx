@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/password-input";
 import { Icon } from "@/components/ui/icon";
 import { resetPassword } from "@/lib/api";
 
@@ -67,9 +67,8 @@ function ResetForm() {
           <label htmlFor="password" className="text-sm font-medium">
             New password
           </label>
-          <Input
+          <PasswordInput
             id="password"
-            type="password"
             autoComplete="new-password"
             required
             value={password}
@@ -81,9 +80,8 @@ function ResetForm() {
           <label htmlFor="confirm" className="text-sm font-medium">
             Confirm password
           </label>
-          <Input
+          <PasswordInput
             id="confirm"
-            type="password"
             autoComplete="new-password"
             required
             value={confirm}
