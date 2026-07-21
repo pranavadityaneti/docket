@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Icon } from "@/components/ui/icon";
 import { login } from "@/lib/api";
+import { BuildMarker } from "@/components/build-marker";
 
 const DEFAULT_NEXT = "/cases";
 
@@ -125,6 +126,12 @@ function LoginForm() {
             )}
           </Button>
         </form>
+
+        {/* Deliberately pre-auth: the one time production went stale, nobody
+            could sign in to check which build was live. */}
+        <div className="flex justify-center border-t px-6 py-2.5">
+          <BuildMarker />
+        </div>
       </Card>
     </div>
   );

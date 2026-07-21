@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarGroup,
   SidebarGroupLabel,
   SidebarHeader,
@@ -15,6 +16,7 @@ import {
   SidebarRail,
 } from "@/components/ui/sidebar";
 import { Icon } from "@/components/ui/icon";
+import { BuildMarker } from "@/components/build-marker";
 
 type NavItem = {
   title: string;
@@ -174,6 +176,11 @@ export function AppSidebar() {
           </SidebarGroup>
         ))}
       </SidebarContent>
+
+      {/* Which deployment you are looking at — see build-marker.tsx. */}
+      <SidebarFooter className="px-4 py-3">
+        <BuildMarker />
+      </SidebarFooter>
 
       <SidebarRail />
     </Sidebar>
