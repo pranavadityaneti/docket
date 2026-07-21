@@ -87,6 +87,13 @@ export const env = {
   resendApiKey: process.env.RESEND_API_KEY?.trim() || undefined,
   resendFromEmail: process.env.RESEND_FROM_EMAIL?.trim() || undefined,
   /**
+   * Key that encrypts tenant channel credentials at rest (see secret-box.ts).
+   * Optional in dev; when unset the channels feature refuses to store or read a
+   * credential rather than doing it in the clear. Supplied in prod via the
+   * Secrets Manager secret.
+   */
+  channelSecretKey: process.env.CHANNEL_SECRET_KEY?.trim() || undefined,
+  /**
    * Canonical app origin for links we email (e.g. the reset link). The first
    * WEB_ORIGIN entry in prod (the dashboard's own origin); localhost in dev
    * where WEB_ORIGIN is unset. Never taken from request input.

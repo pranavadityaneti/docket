@@ -27,7 +27,13 @@ import { GetSecretValueCommand, SecretsManagerClient } from "@aws-sdk/client-sec
 const REGION = process.env.AWS_REGION?.trim() || "ap-south-1";
 
 /** Keys we are willing to take from a secret. Anything else is ignored. */
-const ALLOWED = new Set(["DATABASE_URL", "JWT_SECRET", "RESEND_API_KEY", "RESEND_FROM_EMAIL"]);
+const ALLOWED = new Set([
+  "DATABASE_URL",
+  "JWT_SECRET",
+  "RESEND_API_KEY",
+  "RESEND_FROM_EMAIL",
+  "CHANNEL_SECRET_KEY",
+]);
 
 export async function hydrateSecrets(): Promise<string[]> {
   const secretId = process.env.APP_SECRET_ID?.trim();
