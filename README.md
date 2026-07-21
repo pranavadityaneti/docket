@@ -28,3 +28,24 @@ pnpm dev        # runs the dashboard at http://localhost:3000
 - shadcn/ui components; brand teal mapped to `--primary` / `--ring`; deeper teal
   (`#0d9488`) for solid buttons (contrast), bright teal for accents/active states/charts.
 - Status colours keep conventional meaning: success = green, warning = amber, error = red.
+
+## Deploys — commit identity matters
+
+The web app deploys to Vercel (project `docket`, account `ideaye`). On the Hobby
+plan a **private** repo only deploys commits whose author is the account owner —
+a commit from any other identity is refused with "Deployment Blocked: the commit
+author did not have contributing access", **before the build starts**, so there
+are no build logs to read.
+
+Commit as the Vercel account:
+
+```bash
+git config --local user.email "ideayemedia@gmail.com"
+```
+
+This bit us for two days: a stale `user.email` override in this repo meant every
+push was silently rejected while production kept serving an old build. If deploys
+stop, check `git log -1 --format=%ae` before suspecting the build.
+
+The deployed commit is shown in the app — sidebar footer and, deliberately, the
+**login page** (pre-auth, so staleness is checkable without signing in).
