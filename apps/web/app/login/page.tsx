@@ -33,6 +33,10 @@ function safeNext(raw: string | null): string {
   return raw;
 }
 
+/**
+ * Only the part that needs the URL. Reading useSearchParams opts this subtree
+ * out of prerendering, so it is kept as small as possible — see LoginPage.
+ */
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -58,6 +62,67 @@ function LoginForm() {
   }
 
   return (
+    <form onSubmit={submit} className="flex flex-col gap-4 p-6">
+      {justReset ? (
+        <div className="flex items-center gap-1.5 rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+          <Icon name="check_circle" size={15} /> Password updated — sign in with your new password.
+        </div>
+      ) : null}
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor="email" className="text-sm font-medium">
+          Email
+        </label>
+        <Input
+          id="email"
+          type="email"
+          autoComplete="username"
+          required
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="you@company.com"
+        />
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <div className="flex items-center justify-between">
+          <label htmlFor="password" className="text-sm font-medium">
+            Password
+          </label>
+          <Link href="/forgot" className="text-xs text-muted-foreground hover:text-foreground">
+            Forgot password?
+          </Link>
+        </div>
+        <Input
+          id="password"
+          type="password"
+          autoComplete="current-password"
+          required
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder="••••••••"
+        />
+      </div>
+
+      {error ? (
+        <div className="flex items-center gap-1.5 rounded-md bg-red-50 px-3 py-2 text-sm text-red-600">
+          <Icon name="error" size={15} /> {error}
+        </div>
+      ) : null}
+
+      <Button type="submit" disabled={submitting} className="mt-1 gap-1.5">
+        {submitting ? (
+          <>
+            <Icon name="progress_activity" size={16} className="animate-spin" /> Signing in…
+          </>
+        ) : (
+          "Sign in"
+        )}
+      </Button>
+    </form>
+  );
+}
+
+export default function LoginPage() {
+  return (
     <div className="flex min-h-screen items-center justify-center bg-muted/30 p-4">
       <Card className="w-full max-w-sm gap-0 p-0">
         <div className="flex flex-col items-center gap-2 border-b p-6 text-center">
@@ -70,77 +135,21 @@ function LoginForm() {
           </p>
         </div>
 
-        <form onSubmit={submit} className="flex flex-col gap-4 p-6">
-          {justReset ? (
-            <div className="flex items-center gap-1.5 rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
-              <Icon name="check_circle" size={15} /> Password updated — sign in with your new password.
-            </div>
-          ) : null}
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="email" className="text-sm font-medium">
-              Email
-            </label>
-            <Input
-              id="email"
-              type="email"
-              autoComplete="username"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@company.com"
-            />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <div className="flex items-center justify-between">
-              <label htmlFor="password" className="text-sm font-medium">
-                Password
-              </label>
-              <Link href="/forgot" className="text-xs text-muted-foreground hover:text-foreground">
-                Forgot password?
-              </Link>
-            </div>
-            <Input
-              id="password"
-              type="password"
-              autoComplete="current-password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-            />
-          </div>
+        {/* The Suspense boundary wraps ONLY the form, because only the form reads
+            useSearchParams. Wrapping the whole card (as this once did) opted the
+            build marker out of prerendering too. */}
+        <React.Suspense fallback={<div className="p-6" />}>
+          <LoginForm />
+        </React.Suspense>
 
-          {error ? (
-            <div className="flex items-center gap-1.5 rounded-md bg-red-50 px-3 py-2 text-sm text-red-600">
-              <Icon name="error" size={15} /> {error}
-            </div>
-          ) : null}
-
-          <Button type="submit" disabled={submitting} className="mt-1 gap-1.5">
-            {submitting ? (
-              <>
-                <Icon name="progress_activity" size={16} className="animate-spin" /> Signing in…
-              </>
-            ) : (
-              "Sign in"
-            )}
-          </Button>
-        </form>
-
-        {/* Deliberately pre-auth: the one time production went stale, nobody
-            could sign in to check which build was live. */}
+        {/* Outside the boundary on purpose: prerendered into the served HTML, so
+            `curl /login | grep 'build '` works and an uptime check can detect a
+            stale deploy without driving a browser. A staleness signal only a
+            human can read is one nobody reads. */}
         <div className="flex justify-center border-t px-6 py-2.5">
           <BuildMarker />
         </div>
       </Card>
     </div>
-  );
-}
-
-export default function LoginPage() {
-  return (
-    <React.Suspense>
-      <LoginForm />
-    </React.Suspense>
   );
 }
