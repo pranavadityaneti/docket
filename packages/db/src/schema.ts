@@ -73,6 +73,21 @@ export type DocumentStatus = (typeof DOCUMENT_STATUSES)[number];
 export const DOCUMENT_CHANNELS = ["whatsapp", "email", "upload", "import", "api"] as const;
 export type DocumentChannel = (typeof DOCUMENT_CHANNELS)[number];
 
+/** Kinds of inbound channel a tenant can operate. */
+export const CHANNEL_KINDS = ["email", "whatsapp"] as const;
+export type ChannelKind = (typeof CHANNEL_KINDS)[number];
+
+/** Non-secret channel settings. Credentials never live here — see secretCiphertext. */
+export type ChannelConfig = {
+  /** email: IMAP host/port, e.g. imap.gmail.com / 993 */
+  imapHost?: string;
+  imapPort?: number;
+  imapUser?: string;
+  /** whatsapp: Meta phone-number id the webhook delivers for. */
+  phoneNumberId?: string;
+  [key: string]: unknown;
+};
+
 /**
  * Optional gate on a checklist item: include this requirement only when the
  * case's `data` satisfies it. Lending needs a Partnership Deed only from a
@@ -146,6 +161,50 @@ export const passwordResetTokens = pgTable(
   (t) => [
     index("password_reset_tokens_token_hash_idx").on(t.tokenHash),
     index("password_reset_tokens_user_idx").on(t.userId),
+  ],
+);
+
+/**
+ * A tenant's own inbound channel — the mailbox or WhatsApp number a subject
+ * actually writes to.
+ *
+ * Per-tenant by design, and that is the product, not a detail: Docket is
+ * white-labelled, so a borrower must see their own lender's address, never
+ * ours. One shared inbox would give the game away the moment a second customer
+ * signed up. Adding a tenant is a row here, not a code change.
+ *
+ * Credentials (mailbox password, WhatsApp token) are stored ONLY as
+ * `secretCiphertext` — AES-256-GCM, see secret-box.ts — and are never returned
+ * by the API or written to logs. `config` holds the non-secret half.
+ */
+export const channels = pgTable(
+  "channels",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
+    kind: text("kind", { enum: CHANNEL_KINDS }).notNull(),
+    /** What the subject sees: docs@theirbank.com, or +91XXXXXXXXXX. */
+    address: text("address").notNull(),
+    enabled: boolean("enabled").notNull().default(true),
+    config: jsonb("config").$type<ChannelConfig>().notNull().default(sql`'{}'::jsonb`),
+    secretCiphertext: text("secret_ciphertext"),
+    /**
+     * Where polling got to — IMAP UIDVALIDITY/UID for mail. Opaque to everything
+     * but the poller; kept so a restart resumes instead of re-importing every
+     * message in the mailbox as new documents.
+     */
+    cursor: text("cursor"),
+    lastPolledAt: timestamp("last_polled_at", { withTimezone: true }),
+    /** Last failure, surfaced in the UI so a broken mailbox is visible not silent. */
+    lastError: text("last_error"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("channels_tenant_idx").on(t.tenantId),
+    // One address per kind per tenant; re-adding the same mailbox is a mistake.
+    uniqueIndex("channels_tenant_kind_address_uq").on(t.tenantId, t.kind, t.address),
+    // The poller asks "which channels are due?" across all tenants.
+    index("channels_kind_enabled_idx").on(t.kind, t.enabled),
   ],
 );
 
