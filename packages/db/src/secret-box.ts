@@ -41,8 +41,12 @@ export function sealSecret(plaintext: string, key: string): string {
 
 /** Decrypt a credential sealed by sealSecret. Throws if tampered or wrong key. */
 export function openSecret(sealed: string, key: string): string {
-  const [version, ivB64, tagB64, ctB64] = sealed.split(".");
-  if (version !== VERSION || !ivB64 || !tagB64 || !ctB64) {
+  const parts = sealed.split(".");
+  const [version, ivB64, tagB64, ctB64] = parts;
+  // Validate structure by SHAPE, not truthiness: an empty plaintext seals to an
+  // empty ciphertext part (base64 of nothing is ""), which is valid — a
+  // `!ctB64` check would wrongly reject it. iv and tag are always present.
+  if (parts.length !== 4 || version !== VERSION || !ivB64 || !tagB64 || ctB64 === undefined) {
     throw new Error("Sealed secret is malformed");
   }
   const decipher = createDecipheriv("aes-256-gcm", keyBytes(key), Buffer.from(ivB64, "base64"));
