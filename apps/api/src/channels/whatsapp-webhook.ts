@@ -84,6 +84,13 @@ interface WhatsappSecret {
   appSecret: string;
 }
 
+/**
+ * Ceiling on changes processed from one delivery. Meta batches a handful of
+ * events per POST; this exists purely so a forged 1 MB body cannot buy
+ * thousands of unauthenticated channel lookups.
+ */
+const MAX_CHANGES_PER_DELIVERY = 100;
+
 @Injectable()
 export class WhatsappService {
   private readonly log = new Logger(WhatsappService.name);
@@ -103,12 +110,25 @@ export class WhatsappService {
     rawBody: Buffer | undefined,
     signature: string | undefined,
   ): Promise<void> {
-    const changes = (body.entry ?? [])
+    let changes = (body.entry ?? [])
       .flatMap((e) => e.changes ?? [])
       .map((c) => c.value)
       .filter((v): v is WaChangeValue => !!v && !!v.metadata?.phone_number_id);
 
     if (changes.length === 0) return; // status callbacks etc. — nothing to ingest
+
+    // Cap pre-signature work. Every distinct phone_number_id costs a channel
+    // lookup BEFORE the signature can be checked (the lookup is how we find the
+    // secret to check it with), and the body is attacker-controlled up to the
+    // parser's 1 MB limit — thousands of fabricated changes must not translate
+    // into thousands of unauthenticated DB queries. Meta batches are far smaller
+    // than this, so a legitimate delivery is never truncated.
+    if (changes.length > MAX_CHANGES_PER_DELIVERY) {
+      this.log.warn(
+        `WhatsApp: delivery carried ${changes.length} changes — processing first ${MAX_CHANGES_PER_DELIVERY}`,
+      );
+      changes = changes.slice(0, MAX_CHANGES_PER_DELIVERY);
+    }
 
     // Resolve each distinct phone number to its channel once.
     const byPhoneId = new Map<string, ChannelRow>();
