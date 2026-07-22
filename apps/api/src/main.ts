@@ -29,7 +29,18 @@ async function bootstrap() {
     bodyParser: false,
   });
 
-  const jsonParser = express.json({ limit: "1mb" });
+  // WhatsApp webhook signatures (X-Hub-Signature-256) are an HMAC over the exact
+  // raw request bytes. express.json() would hand the handler only the parsed
+  // object, and re-serialising it will not reproduce Meta's byte stream (key
+  // order, spacing), so the HMAC would never match. Stash the raw buffer on the
+  // request for webhook paths only — the parser still runs, so @Body() keeps
+  // working; we just also keep the bytes the signature was computed over.
+  const captureRawBody = (req: Request, _res: Response, buf: Buffer) => {
+    if (req.url.startsWith("/webhooks/")) {
+      (req as Request & { rawBody?: Buffer }).rawBody = buf;
+    }
+  };
+  const jsonParser = express.json({ limit: "1mb", verify: captureRawBody });
   const formParser = express.urlencoded({ extended: true, limit: "1mb" });
   app.use((req: Request, res: Response, next: NextFunction) =>
     isUploadPath(req.url) ? next() : jsonParser(req, res, next),

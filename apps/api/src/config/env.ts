@@ -94,6 +94,16 @@ export const env = {
    */
   channelSecretKey: process.env.CHANNEL_SECRET_KEY?.trim() || undefined,
   /**
+   * Verify token for the WhatsApp webhook GET handshake. Global (not per-tenant)
+   * because Meta verifies the callback URL when the webhook is configured —
+   * before any channel row with credentials exists. Per-tenant app secrets still
+   * gate every inbound POST. A future multi-app setup would move to per-path
+   * webhooks; one token is right while there is one Meta app.
+   */
+  whatsappVerifyToken: process.env.WHATSAPP_VERIFY_TOKEN?.trim() || undefined,
+  /** Meta Graph API version used for media download. */
+  graphApiVersion: process.env.GRAPH_API_VERSION?.trim() || "v21.0",
+  /**
    * Canonical app origin for links we email (e.g. the reset link). The first
    * WEB_ORIGIN entry in prod (the dashboard's own origin); localhost in dev
    * where WEB_ORIGIN is unset. Never taken from request input.

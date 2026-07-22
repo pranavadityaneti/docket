@@ -19,6 +19,7 @@ import { DbService } from "../db/db";
 import { CurrentUser, JwtAuthGuard, type AuthUser } from "../auth/auth";
 import { StorageModule } from "../storage/storage";
 import { EmailPollerService, type PollResult } from "./email-poller";
+import { WhatsappService, WhatsappWebhookController } from "./whatsapp-webhook";
 import { env } from "../config/env";
 
 /**
@@ -57,6 +58,31 @@ export class CreateEmailChannelDto {
   @MinLength(1)
   @MaxLength(1024)
   password!: string;
+}
+
+export class CreateWhatsappChannelDto {
+  /** The WhatsApp number subjects see, for display (e.g. "+1 555 010 1234"). */
+  @IsString()
+  @MaxLength(64)
+  address!: string;
+
+  /** Meta's phone number ID — the routing key the webhook matches on. */
+  @IsString()
+  @MinLength(1)
+  @MaxLength(64)
+  phoneNumberId!: string;
+
+  /** Access token used to download inbound media from the Graph API. */
+  @IsString()
+  @MinLength(1)
+  @MaxLength(1024)
+  accessToken!: string;
+
+  /** App secret used to verify the X-Hub-Signature-256 on every delivery. */
+  @IsString()
+  @MinLength(1)
+  @MaxLength(1024)
+  appSecret!: string;
 }
 
 /** A channel as returned to the client — never includes the credential. */
@@ -104,6 +130,29 @@ export class ChannelsService {
       const [row] = await tx
         .insert(channels)
         .values({ tenantId, kind: "email", address: input.address, config, secretCiphertext })
+        .returning(SAFE_COLUMNS);
+      return row;
+    });
+  }
+
+  async createWhatsapp(tenantId: string, input: CreateWhatsappChannelDto) {
+    if (!env.channelSecretKey) {
+      throw new BadRequestException(
+        "WhatsApp channels are unavailable: the server has no channel encryption key configured.",
+      );
+    }
+    const config: ChannelConfig = { phoneNumberId: input.phoneNumberId };
+    // Both credentials sealed together — the webhook needs the access token to
+    // download media and the app secret to verify signatures. Never returned.
+    const secretCiphertext = sealSecret(
+      JSON.stringify({ accessToken: input.accessToken, appSecret: input.appSecret }),
+      env.channelSecretKey,
+    );
+
+    return this.db.withTenant(tenantId, async (tx) => {
+      const [row] = await tx
+        .insert(channels)
+        .values({ tenantId, kind: "whatsapp", address: input.address, config, secretCiphertext })
         .returning(SAFE_COLUMNS);
       return row;
     });
@@ -162,6 +211,11 @@ export class ChannelsController {
     return this.channels.createEmail(u.tenantId, body);
   }
 
+  @Post("whatsapp")
+  createWhatsapp(@CurrentUser() u: AuthUser, @Body() body: CreateWhatsappChannelDto) {
+    return this.channels.createWhatsapp(u.tenantId, body);
+  }
+
   @Post(":id/poll")
   poll(@CurrentUser() u: AuthUser, @Param("id", ParseUUIDPipe) id: string) {
     return this.channels.pollNow(u.tenantId, id);
@@ -170,8 +224,8 @@ export class ChannelsController {
 
 @Module({
   imports: [ScheduleModule.forRoot(), StorageModule],
-  controllers: [ChannelsController],
-  providers: [ChannelsService, EmailPollerService],
+  controllers: [ChannelsController, WhatsappWebhookController],
+  providers: [ChannelsService, EmailPollerService, WhatsappService],
   exports: [ChannelsService],
 })
 export class ChannelsModule {}
