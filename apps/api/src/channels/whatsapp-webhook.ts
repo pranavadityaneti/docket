@@ -133,6 +133,15 @@ export class WhatsappService {
     }
     if (!this.signatureValid(rawBody, signature, firstSecret.appSecret)) {
       this.log.error("WhatsApp: signature verification failed — delivery dropped");
+      // The most likely cause is a mistyped app secret at channel setup — and
+      // without this, that mistake is invisible outside server logs while every
+      // inbound document silently vanishes. Surface it where staff look.
+      for (const channel of byPhoneId.values()) {
+        await this.recordError(
+          channel,
+          "Webhook signature verification failed — the channel's app secret is likely wrong",
+        );
+      }
       return;
     }
 
