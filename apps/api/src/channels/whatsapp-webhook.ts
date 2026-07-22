@@ -199,7 +199,13 @@ export class WhatsappService {
     const caption = media.caption ?? message.text?.body ?? "";
     const buffer = await this.downloadMedia(media.id, secret.accessToken);
 
+    if (buffer === null) {
+      // Oversized per Graph metadata — the bytes were never fetched.
+      this.log.warn(`WhatsApp: ${media.id} exceeds size limit (metadata) — skipped`);
+      return;
+    }
     if (buffer.length === 0) return;
+    // Belt and braces: metadata may omit or understate file_size.
     if (buffer.length > env.maxUploadBytes) {
       this.log.warn(`WhatsApp: ${media.id} exceeds size limit — skipped`);
       return;
@@ -310,8 +316,14 @@ export class WhatsappService {
     return null;
   }
 
-  /** Two-step media fetch: metadata URL, then the authenticated binary. */
-  private async downloadMedia(mediaId: string, accessToken: string): Promise<Buffer> {
+  /**
+   * Two-step media fetch: metadata URL, then the authenticated binary.
+   * Returns null (never fetching the bytes) when the metadata says the file is
+   * over the upload limit — WhatsApp allows documents up to 100 MB and the
+   * binary is buffered in memory, so checking size only after download would
+   * let a burst of large files exhaust RAM on the instance.
+   */
+  private async downloadMedia(mediaId: string, accessToken: string): Promise<Buffer | null> {
     const base = `https://graph.facebook.com/${env.graphApiVersion}`;
     const metaRes = await fetch(`${base}/${mediaId}`, {
       headers: { Authorization: `Bearer ${accessToken}` },
@@ -320,8 +332,11 @@ export class WhatsappService {
     if (!metaRes.ok) {
       throw new Error(`media metadata fetch ${metaRes.status} (token may be invalid/expired)`);
     }
-    const meta = (await metaRes.json()) as { url?: string };
+    const meta = (await metaRes.json()) as { url?: string; file_size?: number };
     if (!meta.url) throw new Error("media metadata had no url");
+    if (typeof meta.file_size === "number" && meta.file_size > env.maxUploadBytes) {
+      return null;
+    }
 
     const binRes = await fetch(meta.url, {
       headers: { Authorization: `Bearer ${accessToken}` },
