@@ -646,5 +646,9 @@ export class LocalUploadController {
   imports: [StorageModule],
   controllers: [DocumentsController, LocalUploadController],
   providers: [DocumentsService],
+  // Exported so the nudge feature can read the live checklist from the one place
+  // that computes it — the dashboard and the document requests can never then
+  // disagree about what a case still needs.
+  exports: [DocumentsService],
 })
 export class DocumentsModule {}
