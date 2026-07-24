@@ -77,6 +77,18 @@ export type DocumentChannel = (typeof DOCUMENT_CHANNELS)[number];
 export const CHANNEL_KINDS = ["email", "whatsapp"] as const;
 export type ChannelKind = (typeof CHANNEL_KINDS)[number];
 
+/** Kinds of outbound document-request message. */
+export const MESSAGE_KINDS = ["initial", "reminder", "manual"] as const;
+export type MessageKind = (typeof MESSAGE_KINDS)[number];
+
+/** One item Docket is (still) asking a subject for, captured on each message. */
+export type NudgeSnapshotItem = {
+  key: string;
+  label: string;
+  state: "missing" | "rejected";
+  reason?: string;
+};
+
 /** Non-secret channel settings. Credentials never live here — see secretCiphertext. */
 export type ChannelConfig = {
   /** email: IMAP host/port, e.g. imap.gmail.com / 993 */
@@ -308,6 +320,12 @@ export const cases = pgTable(
     // field config: loan_amount and entity_type for a lender, course_applied
     // for a college, claim_number for an insurer.
     data: jsonb("data").$type<Record<string, unknown>>().notNull().default(sql`'{}'::jsonb`),
+    /**
+     * Set when staff pause automated document requests for this case. Null =
+     * active. The reminder cron skips paused cases; a manual "Request documents"
+     * still works — pause stops the machine, not the person.
+     */
+    nudgesPausedAt: timestamp("nudges_paused_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -464,6 +482,45 @@ export const documents = pgTable(
   ],
 );
 
+/**
+ * One outbound document request or reminder, per channel delivered.
+ *
+ * This is both the audit trail ("what did we ask for, when, on which channel?")
+ * and the reminder scheduler's memory: the cron decides what is due by reading
+ * the newest successful row for a case. Snapshotting the items asked for
+ * (itemsSnapshot) keeps the audit honest even after the checklist later changes.
+ */
+export const caseMessages = pgTable(
+  "case_messages",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
+    caseId: uuid("case_id").notNull().references(() => cases.id, { onDelete: "cascade" }),
+    kind: text("kind", { enum: MESSAGE_KINDS }).notNull(),
+    // Reuses CHANNEL_KINDS — an outbound message goes over the same kinds of
+    // channel a subject writes in on.
+    channel: text("channel", { enum: CHANNEL_KINDS }).notNull(),
+    /** The address/number it was sent to, for audit. */
+    recipient: text("recipient").notNull(),
+    /** Email subject; null for WhatsApp (template-driven). */
+    subject: text("subject"),
+    itemsSnapshot: jsonb("items_snapshot")
+      .$type<NudgeSnapshotItem[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    status: text("status", { enum: ["sent", "failed"] }).notNull(),
+    /** Populated when status = 'failed'. */
+    error: text("error"),
+    sentAt: timestamp("sent_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("case_messages_tenant_idx").on(t.tenantId),
+    // The reminder cron and the case screen both read "this case's messages,
+    // newest first".
+    index("case_messages_case_sent_idx").on(t.caseId, t.sentAt),
+  ],
+);
+
 /* ------------------------------- inferred types ------------------------------- */
 
 export type Tenant = typeof tenants.$inferSelect;
@@ -479,3 +536,4 @@ export type DocumentRequirement = typeof documentRequirements.$inferSelect;
 export type NewDocumentRequirement = typeof documentRequirements.$inferInsert;
 export type DocumentRow = typeof documents.$inferSelect;
 export type NewDocumentRow = typeof documents.$inferInsert;
+export type CaseMessage = typeof caseMessages.$inferSelect;
