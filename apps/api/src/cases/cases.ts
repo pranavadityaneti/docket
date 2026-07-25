@@ -4,6 +4,7 @@ import {
   Controller,
   Get,
   Injectable,
+  Logger,
   Module,
   NotFoundException,
   Param,
@@ -35,6 +36,7 @@ import {
 } from "@docket/db";
 import { DbService } from "../db/db";
 import { CurrentUser, JwtAuthGuard, type AuthUser } from "../auth/auth";
+import { NudgesModule, NudgeService } from "../nudges/nudges";
 
 /**
  * A case is one run of a workflow: a loan application, a college admission, an
@@ -117,7 +119,12 @@ export class UpdateStageDto {
 
 @Injectable()
 export class CasesService {
-  constructor(private readonly db: DbService) {}
+  private readonly log = new Logger(CasesService.name);
+
+  constructor(
+    private readonly db: DbService,
+    private readonly nudges: NudgeService,
+  ) {}
 
   /**
    * Resolve which workflow a request means. An explicit slug wins; otherwise,
@@ -217,7 +224,8 @@ export class CasesService {
       throw new BadRequestException("data is too large");
     }
 
-    return this.db.withTenant(tenantId, async (tx) => {
+    return this.db
+      .withTenant(tenantId, async (tx) => {
       const wf = await this.resolveWorkflow(tx, input.workflow);
 
       // The workflow's first stage, by position — not a stage named "Pending".
@@ -278,7 +286,16 @@ export class CasesService {
         }
       }
       throw new BadRequestException("Could not allocate a case reference; please retry");
-    });
+      })
+      .then((created) => {
+        // The borrower's first document request. Fire-and-forget AFTER the case
+        // is committed: a send problem (or no email on file) is recorded on
+        // case_messages and must never fail or delay case creation itself.
+        void this.nudges
+          .sendNudge(tenantId, created.id, "initial")
+          .catch((e) => this.log.error(`initial nudge for case ${created.id} failed: ${e}`));
+        return created;
+      });
   }
 
   updateStage(tenantId: string, caseId: string, stageId: string) {
@@ -343,5 +360,9 @@ export class CasesController {
   }
 }
 
-@Module({ controllers: [CasesController], providers: [CasesService] })
+@Module({
+  imports: [NudgesModule],
+  controllers: [CasesController],
+  providers: [CasesService],
+})
 export class CasesModule {}

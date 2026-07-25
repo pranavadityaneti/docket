@@ -11,6 +11,7 @@ import { ContactsModule } from "./contacts/contacts";
 import { WorkflowsModule } from "./workflows/workflows";
 import { OverviewModule } from "./overview/overview";
 import { ChannelsModule } from "./channels/channels";
+import { NudgesModule } from "./nudges/nudges";
 
 @Controller("health")
 class HealthController {
@@ -40,6 +41,7 @@ class HealthController {
     WorkflowsModule,
     OverviewModule,
     ChannelsModule,
+    NudgesModule,
   ],
   controllers: [HealthController],
 })
