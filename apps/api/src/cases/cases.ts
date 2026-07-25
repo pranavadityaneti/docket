@@ -187,6 +187,7 @@ export class CasesService {
           reference: cases.reference,
           source: cases.source,
           data: cases.data,
+          nudgesPausedAt: cases.nudgesPausedAt,
           createdAt: cases.createdAt,
           updatedAt: cases.updatedAt,
           subjectName: contacts.name,

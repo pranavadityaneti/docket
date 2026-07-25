@@ -161,11 +161,53 @@ export type ApiCaseDetail = ApiCase & {
   workflowSlug: string;
   subjectLabel: string;
   caseLabel: string;
+  /** When document requests are paused for this case; null = active. */
+  nudgesPausedAt: string | null;
 };
 
 /** GET /cases/:id — 404s if the id is not this tenant's. */
 export function getCase(caseId: string): Promise<ApiCaseDetail> {
   return apiFetch<ApiCaseDetail>(`/cases/${encodeURIComponent(caseId)}`);
+}
+
+/* ------------------------------ document requests (nudges) ------------------------------ */
+
+/** Per-channel result of one send attempt (see apps/api NudgeService). */
+export type NudgeChannelResult = { channel: "email" | "whatsapp"; ok: boolean; detail?: string };
+/** `sent` is empty and `skipped` set when nothing was sent (complete/paused/no channel/…). */
+export type NudgeResult = { sent: NudgeChannelResult[]; skipped?: string };
+
+/** One outbound request or reminder, as shown in the case's Sent history. */
+export type ApiCaseMessage = {
+  id: string;
+  kind: "initial" | "reminder" | "manual";
+  channel: "email" | "whatsapp";
+  recipient: string;
+  status: "sent" | "failed";
+  error: string | null;
+  sentAt: string;
+};
+
+/** POST /cases/:id/nudge — send a document request now (manual). */
+export function requestDocuments(caseId: string): Promise<NudgeResult> {
+  return apiFetch<NudgeResult>(`/cases/${encodeURIComponent(caseId)}/nudge`, { method: "POST" });
+}
+
+/** POST /cases/:id/nudges/pause — stop automated reminders for this case. */
+export function pauseNudges(caseId: string): Promise<{ id: string; nudgesPausedAt: string | null }> {
+  return apiFetch(`/cases/${encodeURIComponent(caseId)}/nudges/pause`, { method: "POST" });
+}
+
+/** POST /cases/:id/nudges/resume — re-enable automated reminders. */
+export function resumeNudges(
+  caseId: string,
+): Promise<{ id: string; nudgesPausedAt: string | null }> {
+  return apiFetch(`/cases/${encodeURIComponent(caseId)}/nudges/resume`, { method: "POST" });
+}
+
+/** GET /cases/:id/messages — the case's outbound history, newest first. */
+export function getCaseMessages(caseId: string): Promise<ApiCaseMessage[]> {
+  return apiFetch<ApiCaseMessage[]>(`/cases/${encodeURIComponent(caseId)}/messages`);
 }
 
 /** Fields accepted by POST /cases (mirrors apps/api CreateCaseDto). */

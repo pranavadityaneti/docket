@@ -23,11 +23,17 @@ import {
   uploadDocument,
   reviewDocument,
   removeDocument,
+  requestDocuments,
+  pauseNudges,
+  resumeNudges,
+  getCaseMessages,
   AuthRequiredError,
   type ApiCaseDetail,
   type ApiChecklist,
   type ApiChecklistItem,
   type ApiDocument,
+  type ApiCaseMessage,
+  type NudgeResult,
   type ChecklistItemStatus,
 } from "@/lib/api";
 
@@ -85,6 +91,11 @@ const CHANNEL_LABEL: Record<string, string> = {
   upload: "Uploaded here",
   import: "Imported",
   api: "API",
+};
+const MESSAGE_KIND_LABEL: Record<string, string> = {
+  initial: "Initial request",
+  reminder: "Reminder",
+  manual: "Manual request",
 };
 
 function fileSize(bytes: number | null) {
@@ -504,6 +515,10 @@ export default function CaseDetailPage() {
   const [rejecting, setRejecting] = React.useState<ApiDocument | null>(null);
   const [removing, setRemoving] = React.useState<ApiDocument | null>(null);
   const [hasData, setHasData] = React.useState(false);
+  const [messages, setMessages] = React.useState<ApiCaseMessage[]>([]);
+  const [nudging, setNudging] = React.useState(false);
+  const [pausing, setPausing] = React.useState(false);
+  const [nudgeNotice, setNudgeNotice] = React.useState<string | null>(null);
 
   // `hasData` distinguishes "never loaded" from "reload failed". A failure with
   // data already on screen must NOT blank the checklist — it becomes a banner,
@@ -511,9 +526,14 @@ export default function CaseDetailPage() {
   // than showing slightly stale data next to the error.
   const refresh = React.useCallback(async () => {
     try {
-      const [c, cl] = await Promise.all([getCase(caseId), getChecklist(caseId)]);
+      const [c, cl, msgs] = await Promise.all([
+        getCase(caseId),
+        getChecklist(caseId),
+        getCaseMessages(caseId),
+      ]);
       setDetail(c);
       setChecklist(cl);
+      setMessages(msgs);
       setError(null);
       setActionError(null);
     } catch (e) {
@@ -606,6 +626,59 @@ export default function CaseDetailPage() {
     }
   }
 
+  // Turn a NudgeResult into one plain-English line for the staff notice.
+  function describeNudge(r: NudgeResult): string {
+    if (r.sent.length === 0) {
+      const reason =
+        r.skipped === "complete"
+          ? "Nothing outstanding — no request sent."
+          : r.skipped === "no-channel" || r.skipped === "no-contact"
+            ? "No email or WhatsApp on file for this subject."
+            : r.skipped === "paused"
+              ? "Requests are paused for this case."
+              : "Nothing was sent.";
+      return reason;
+    }
+    return r.sent
+      .map((s) =>
+        s.ok
+          ? `Sent via ${s.channel === "email" ? "email" : "WhatsApp"}.`
+          : `${s.channel === "email" ? "Email" : "WhatsApp"} failed: ${s.detail ?? "unknown error"}`,
+      )
+      .join(" ");
+  }
+
+  async function handleRequestDocuments() {
+    setActionError(null);
+    setNudgeNotice(null);
+    setNudging(true);
+    try {
+      const result = await requestDocuments(caseId);
+      setNudgeNotice(describeNudge(result));
+      await refresh();
+    } catch (e) {
+      if (e instanceof AuthRequiredError) return;
+      setActionError(e instanceof Error ? e.message : "Couldn't send the request.");
+    } finally {
+      setNudging(false);
+    }
+  }
+
+  async function handleTogglePause(paused: boolean) {
+    setActionError(null);
+    setNudgeNotice(null);
+    setPausing(true);
+    try {
+      await (paused ? resumeNudges(caseId) : pauseNudges(caseId));
+      await refresh();
+    } catch (e) {
+      if (e instanceof AuthRequiredError) return;
+      setActionError(e instanceof Error ? e.message : "Couldn't update reminders.");
+    } finally {
+      setPausing(false);
+    }
+  }
+
   if (loading) {
     return (
       <div className="mx-auto flex max-w-5xl flex-col gap-4">
@@ -667,12 +740,30 @@ export default function CaseDetailPage() {
                 .join(" · ")}
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {detail.stageName ? (
               <Badge variant="outline" className="whitespace-nowrap">
                 {detail.stageName}
               </Badge>
             ) : null}
+            <Button
+              size="sm"
+              className="gap-1.5"
+              onClick={handleRequestDocuments}
+              disabled={nudging}
+            >
+              <Icon name="send" size={16} /> {nudging ? "Sending…" : "Request documents"}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              onClick={() => handleTogglePause(detail.nudgesPausedAt !== null)}
+              disabled={pausing}
+            >
+              <Icon name={detail.nudgesPausedAt ? "play_arrow" : "pause"} size={16} />
+              {detail.nudgesPausedAt ? "Resume reminders" : "Pause reminders"}
+            </Button>
             <Button variant="outline" size="sm" className="gap-1.5" onClick={refresh}>
               <Icon name="refresh" size={16} /> Refresh
             </Button>
@@ -700,6 +791,12 @@ export default function CaseDetailPage() {
       {actionError ? (
         <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
           {actionError}
+        </div>
+      ) : null}
+
+      {nudgeNotice ? (
+        <div className="rounded-md border border-border bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
+          {nudgeNotice}
         </div>
       ) : null}
 
@@ -768,6 +865,45 @@ export default function CaseDetailPage() {
                   </div>
                 </div>
                 <StatusBadge status={d.status} />
+              </div>
+            ))}
+          </div>
+        </Card>
+      ) : null}
+
+      {/* Outbound history — every document request and reminder sent, so staff
+          can see the chase without leaving the case. */}
+      {messages.length > 0 ? (
+        <Card className="gap-0 overflow-hidden py-0">
+          <div className="border-b p-4">
+            <div className="font-medium">Requests sent</div>
+            <p className="text-sm text-muted-foreground">
+              Document requests and reminders sent to this {subject.toLowerCase()}.
+            </p>
+          </div>
+          <div className="flex flex-col gap-1.5 p-4">
+            {messages.map((m) => (
+              <div
+                key={m.id}
+                className="flex flex-wrap items-center gap-2 rounded-md border bg-background px-3 py-2"
+              >
+                <Icon
+                  name={m.channel === "whatsapp" ? "chat" : "mail"}
+                  size={16}
+                  className="shrink-0 text-muted-foreground"
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm">
+                    {MESSAGE_KIND_LABEL[m.kind] ?? m.kind} · {CHANNEL_LABEL[m.channel] ?? m.channel}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {[m.recipient, when(m.sentAt)].filter(Boolean).join(" · ")}
+                    {m.status === "failed" && m.error ? ` — ${m.error}` : ""}
+                  </div>
+                </div>
+                <Badge variant={m.status === "failed" ? "destructive" : "outline"}>
+                  {m.status === "failed" ? "Failed" : "Sent"}
+                </Badge>
               </div>
             ))}
           </div>
