@@ -49,7 +49,8 @@ import {
  * a CA firm use this table as-is.
  * ------------------------------------------------------------------ */
 
-const WORKFLOWS = ["Business Loan"] as const;
+/** localStorage key remembering which workflow the Cases screen is showing. */
+const WORKFLOW_STORAGE_KEY = "docket_workflow_slug";
 
 /*
  * Two ways to look at the same cases, not six sections.
@@ -228,13 +229,29 @@ function formatPan(raw: string): string {
 
 /* ------------------------------- Workflow selector ------------------------------- */
 
-function WorkflowSelect() {
+/**
+ * Which of the tenant's workflows this screen is showing. Real, not cosmetic:
+ * the selection drives which cases, stages and vocabulary load. Hidden when a
+ * tenant runs a single workflow — a picker with one option is noise. (The old
+ * mock listed a hardcoded name and a dead "Create New Workflow" button; the
+ * builder belongs to tenant onboarding, not this screen.)
+ */
+function WorkflowSelect({
+  workflows,
+  selectedSlug,
+  onSelect,
+}: {
+  workflows: ApiWorkflow[];
+  selectedSlug: string | null;
+  onSelect: (slug: string) => void;
+}) {
   const [open, setOpen] = React.useState(false);
-  const [selected, setSelected] = React.useState<string>(WORKFLOWS[0]);
+  if (workflows.length < 2) return null;
+  const selected = workflows.find((w) => w.slug === selectedSlug) ?? workflows[0];
   return (
     <div className="relative">
       <Button variant="outline" className="gap-2" onClick={() => setOpen((o) => !o)}>
-        {selected}
+        {selected.name}
         <Icon name="expand_more" size={16} className="text-muted-foreground" />
       </Button>
       {open ? (
@@ -245,23 +262,21 @@ function WorkflowSelect() {
             onClick={() => setOpen(false)}
           />
           <div className="absolute right-0 top-full z-50 mt-1 w-60 rounded-md border bg-popover p-1 text-popover-foreground shadow-md">
-            {WORKFLOWS.map((w) => (
+            {workflows.map((w) => (
               <button
-                key={w}
+                key={w.slug}
                 onClick={() => {
-                  setSelected(w);
                   setOpen(false);
+                  if (w.slug !== selected.slug) onSelect(w.slug);
                 }}
                 className="flex w-full items-center justify-between rounded-sm px-2.5 py-1.5 text-sm hover:bg-accent"
               >
-                {w}
-                {selected === w ? <Icon name="check" size={16} className="text-primary" /> : null}
+                {w.name}
+                {selected.slug === w.slug ? (
+                  <Icon name="check" size={16} className="text-primary" />
+                ) : null}
               </button>
             ))}
-            <div className="my-1 h-px bg-border" />
-            <button className="flex w-full items-center gap-2 rounded-sm px-2.5 py-1.5 text-sm text-primary hover:bg-accent">
-              <Icon name="add" size={16} /> Create New Workflow
-            </button>
           </div>
         </>
       ) : null}
@@ -783,6 +798,12 @@ export default function CasesPage() {
   // The tenant's workflow, kept so every label on this screen comes from
   // configuration rather than a hardcoded lending word.
   const [workflow, setWorkflow] = React.useState<ApiWorkflow | null>(null);
+  // Every workflow the tenant runs, and which one this screen is showing.
+  // With one workflow this is invisible plumbing; with two or more, the
+  // switcher in the header drives it. Persisted so navigating away and back
+  // (or a mid-demo reload) doesn't silently snap to the first workflow.
+  const [workflows, setWorkflows] = React.useState<ApiWorkflow[]>([]);
+  const [selectedSlug, setSelectedSlug] = React.useState<string | null>(null);
   const [moveError, setMoveError] = React.useState<string | null>(null);
   const [createOpen, setCreateOpen] = React.useState(false);
 
@@ -802,24 +823,39 @@ export default function CasesPage() {
     setLoading(true);
     setError(null);
     try {
-      // Resolve the workflow from the API rather than assuming a slug — this
-      // used to pass nothing and silently land on "business-loan", which does
-      // not exist for a college or a CA firm.
-      const [rows, workflows] = await Promise.all([listCases(), listWorkflows()]);
-      setLeads(rows.map(toLead));
-      // listCases() with no slug resolves the tenant's sole workflow, so the
-      // same one is used here. Choosing between several is a separate change;
-      // this at least stops the vocabulary being hardcoded.
-      const wf = workflows[0] ?? null;
+      // Workflows FIRST: once a tenant runs more than one, every other read
+      // needs a slug — listCases() with no slug is an error the moment a
+      // second workflow exists, which is exactly the trap this used to have.
+      const all = await listWorkflows();
+      setWorkflows(all);
+
+      // Which workflow to show: the current selection if it still exists,
+      // else the persisted choice, else the first. Nothing here guesses a
+      // slug — the list is the authority.
+      const stored =
+        typeof window !== "undefined" ? window.localStorage.getItem(WORKFLOW_STORAGE_KEY) : null;
+      const slug =
+        (selectedSlug && all.some((w) => w.slug === selectedSlug) && selectedSlug) ||
+        (stored && all.some((w) => w.slug === stored) && stored) ||
+        all[0]?.slug ||
+        null;
+      if (slug !== selectedSlug) setSelectedSlug(slug);
+
+      const wf = all.find((w) => w.slug === slug) ?? null;
       setWorkflow(wf);
-      setStages(wf ? await listStages(wf.slug) : []);
+      const [rows, stageRows] = await Promise.all([
+        listCases(slug ?? undefined),
+        wf ? listStages(wf.slug) : Promise.resolve([]),
+      ]);
+      setLeads(rows.map(toLead));
+      setStages(stageRows);
     } catch (e) {
       if (e instanceof AuthRequiredError) return;
       setError(e instanceof Error ? e.message : "Failed to load this workflow.");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [selectedSlug]);
 
   // Move a lead to another stage — optimistic, with revert + message on failure.
   const moveStage = React.useCallback(
@@ -881,7 +917,16 @@ export default function CasesPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <WorkflowSelect />
+          <WorkflowSelect
+            workflows={workflows}
+            selectedSlug={selectedSlug}
+            onSelect={(slug) => {
+              window.localStorage.setItem(WORKFLOW_STORAGE_KEY, slug);
+              // refresh() depends on selectedSlug, so the effect below re-runs
+              // it — one place reloads cases, stages and vocabulary together.
+              setSelectedSlug(slug);
+            }}
+          />
           <Button className="gap-1.5" onClick={() => setCreateOpen(true)}>
             <Icon name="add" size={18} /> Case
           </Button>
@@ -983,7 +1028,11 @@ export default function CasesPage() {
         subjectLabel={subjectLabel}
         onCreate={async (input) => {
           try {
-            const created = await createCase(input);
+            // The new case belongs to the workflow this screen is showing.
+            // Without the slug, POST /cases rejects the moment a tenant runs
+            // more than one workflow — the create-dialog sibling of the same
+            // bug the picker fixes.
+            const created = await createCase({ ...input, workflow: selectedSlug ?? undefined });
             // Straight to the checklist. Creating a case and then hunting for
             // it in the table is the wrong next step — what the case needs is
             // the only reason it was created.
