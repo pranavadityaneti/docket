@@ -1,4 +1,4 @@
-import { createHash, createHmac, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import {
   Body,
   Controller,
@@ -22,9 +22,10 @@ import {
   documents,
   normaliseCaseReference,
   openSecret,
+  unmatchedDocuments,
 } from "@docket/db";
 import { DbService } from "../db/db";
-import { STORAGE, type StorageDriver, documentKey } from "../storage/storage";
+import { STORAGE, type StorageDriver, documentKey, unmatchedKey } from "../storage/storage";
 import { env } from "../config/env";
 
 /**
@@ -218,9 +219,19 @@ export class WhatsappService {
     await this.db.withTenant(channel.tenantId, async (tx) => {
       const caseId = await this.matchCase(tx, caption, message.from);
       if (!caseId) {
-        // Never guess. A misfiled KYC document is worse than an unfiled one.
+        // Never guess — but never lose it either. Meta stops redelivering the
+        // moment we 200, so an unmatched document that isn't stored here is
+        // gone. Hold the bytes for a human to route.
+        const held = await this.holdUnmatched(tx, channel, {
+          content: buffer,
+          checksum,
+          fileName,
+          mimeType,
+          sender: message.from,
+          context: caption || null,
+        });
         this.log.warn(
-          `WhatsApp: message ${message.id} from ${message.from} matched no case — skipped`,
+          `WhatsApp: message ${message.id} from ${message.from} matched no case — ${held ? "held for review" : "duplicate of a pending arrival, skipped"}`,
         );
         return;
       }
@@ -273,6 +284,56 @@ export class WhatsappService {
       .set({ lastPolledAt: new Date(), lastError: null })
       .where(eq(channels.id, channel.id))
       .catch(() => {});
+  }
+
+  /**
+   * Store one unmatched media file for human triage. Bytes first, row second —
+   * unmatched_documents.storage_key is NOT NULL, so a row can never exist
+   * without its object. Deduped by checksum against the tenant's PENDING rows
+   * only, so Meta redeliveries don't pile up copies while a resend after a
+   * discard correctly surfaces again. Returns false when deduped.
+   */
+  private async holdUnmatched(
+    tx: Tx,
+    channel: ChannelRow,
+    att: {
+      content: Buffer;
+      checksum: string;
+      fileName: string;
+      mimeType: string | null;
+      sender: string;
+      context: string | null;
+    },
+  ): Promise<boolean> {
+    const [dupe] = await tx
+      .select({ id: unmatchedDocuments.id })
+      .from(unmatchedDocuments)
+      .where(
+        and(
+          eq(unmatchedDocuments.tenantId, channel.tenantId),
+          eq(unmatchedDocuments.checksum, att.checksum),
+          eq(unmatchedDocuments.status, "pending"),
+        ),
+      )
+      .limit(1);
+    if (dupe) return false;
+
+    const id = randomUUID();
+    const key = unmatchedKey(channel.tenantId, id);
+    const stored = await this.storage.put(key, att.content, att.mimeType ?? undefined);
+    await tx.insert(unmatchedDocuments).values({
+      id,
+      tenantId: channel.tenantId,
+      channel: channel.kind,
+      sender: att.sender,
+      context: att.context,
+      fileName: att.fileName,
+      mimeType: att.mimeType,
+      sizeBytes: stored.sizeBytes,
+      checksum: stored.checksum,
+      storageKey: key,
+    });
+    return true;
   }
 
   /**

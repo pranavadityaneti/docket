@@ -67,6 +67,15 @@ export function documentKey(tenantId: string, caseId: string, documentId: string
   return `tenants/${tenantId}/cases/${caseId}/${documentId}`;
 }
 
+/**
+ * Key for an inbound document that matched no case. Deliberately NOT under any
+ * case's prefix — it does not belong to one yet, and assignment later points a
+ * documents row at this same key rather than copying bytes.
+ */
+export function unmatchedKey(tenantId: string, unmatchedId: string): string {
+  return `tenants/${tenantId}/unmatched/${unmatchedId}`;
+}
+
 function sha256(buf: Buffer): string {
   return createHash("sha256").update(buf).digest("hex");
 }

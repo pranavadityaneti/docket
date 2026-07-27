@@ -1,3 +1,4 @@
+import { createHash, randomUUID } from "node:crypto";
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import { ImapFlow, type FetchMessageObject } from "imapflow";
 import { simpleParser } from "mailparser";
@@ -9,9 +10,10 @@ import {
   documents,
   normaliseCaseReference,
   openSecret,
+  unmatchedDocuments,
 } from "@docket/db";
 import { DbService } from "../db/db";
-import { STORAGE, type StorageDriver, documentKey } from "../storage/storage";
+import { STORAGE, type StorageDriver, documentKey, unmatchedKey } from "../storage/storage";
 import { env } from "../config/env";
 
 export type PollResult = {
@@ -165,11 +167,28 @@ export class EmailPollerService {
     return this.db.withTenant(channel.tenantId, async (tx) => {
       const caseId = await this.matchCase(tx, subject, fromEmail);
       if (!caseId) {
-        // Never guess. A misfiled KYC document is worse than an unfiled one; the
-        // message stays in the mailbox for a human. (Surfacing these in the UI
-        // is a follow-up; for now they are logged and skipped.)
+        // Never guess — a misfiled KYC document is worse than an unfiled one.
+        // But never lose it either: the cursor advances past this message, so
+        // "left in the mailbox" means gone. Hold the bytes for a human instead.
+        let held = 0;
+        for (const att of attachments) {
+          if (att.content.length > env.maxUploadBytes) {
+            this.log.warn(
+              `Channel ${channel.id}: unmatched attachment ${att.filename ?? "(unnamed)"} exceeds size limit — skipped`,
+            );
+            continue;
+          }
+          const stored = await this.holdUnmatched(tx, channel, {
+            content: att.content,
+            fileName: att.filename ?? `attachment-${message.uid}`,
+            mimeType: att.contentType ?? null,
+            sender: fromEmail,
+            context: subject || null,
+          });
+          if (stored) held++;
+        }
         this.log.warn(
-          `Channel ${channel.id}: message uid ${message.uid} from ${fromEmail ?? "?"} matched no case — skipped`,
+          `Channel ${channel.id}: message uid ${message.uid} from ${fromEmail ?? "?"} matched no case — ${held} attachment(s) held for review`,
         );
         return { imported: 0 };
       }
@@ -207,6 +226,58 @@ export class EmailPollerService {
       }
       return { imported };
     });
+  }
+
+  /**
+   * Store one unmatched attachment for human triage. Bytes first, row second —
+   * unmatched_documents.storage_key is NOT NULL, so a row can never exist
+   * without its object. Deduped by checksum against the tenant's PENDING rows
+   * only: a redelivered message doesn't pile up copies, while a resend after a
+   * discard correctly surfaces again. Returns false when deduped/empty.
+   */
+  private async holdUnmatched(
+    tx: Parameters<Parameters<DbService["withTenant"]>[1]>[0],
+    channel: ChannelRow,
+    att: {
+      content: Buffer;
+      fileName: string;
+      mimeType: string | null;
+      sender: string | null;
+      context: string | null;
+    },
+  ): Promise<boolean> {
+    if (att.content.length === 0) return false;
+    const checksum = createHash("sha256").update(att.content).digest("hex");
+
+    const [dupe] = await tx
+      .select({ id: unmatchedDocuments.id })
+      .from(unmatchedDocuments)
+      .where(
+        and(
+          eq(unmatchedDocuments.tenantId, channel.tenantId),
+          eq(unmatchedDocuments.checksum, checksum),
+          eq(unmatchedDocuments.status, "pending"),
+        ),
+      )
+      .limit(1);
+    if (dupe) return false;
+
+    const id = randomUUID();
+    const key = unmatchedKey(channel.tenantId, id);
+    const stored = await this.storage.put(key, att.content, att.mimeType ?? undefined);
+    await tx.insert(unmatchedDocuments).values({
+      id,
+      tenantId: channel.tenantId,
+      channel: channel.kind,
+      sender: att.sender,
+      context: att.context,
+      fileName: att.fileName,
+      mimeType: att.mimeType,
+      sizeBytes: stored.sizeBytes,
+      checksum: stored.checksum,
+      storageKey: key,
+    });
+    return true;
   }
 
   /**
