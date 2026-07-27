@@ -60,10 +60,10 @@ const NAV: NavGroup[] = [
     label: "Work",
     items: [
       { title: "Overview", symbol: "dashboard", href: "/" },
-      // The daily driver once it exists: everything waiting on a human across
-      // every case, so staff stop opening cases to find out there is nothing to
-      // do in them.
-      { title: "Needs attention", symbol: "pending_actions", soon: true },
+      // The exceptions queue: inbound documents that matched no case, waiting
+      // for a human to route them. (Documents awaiting review join this screen
+      // in a later pass — one queue, not two menu items.)
+      { title: "Needs attention", symbol: "pending_actions", href: "/unmatched" },
       { title: "Cases", symbol: "folder_shared", href: "/cases" },
       // The party documents come from, across all their cases — where a
       // reusable document is answered once instead of re-collected.

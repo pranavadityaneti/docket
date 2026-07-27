@@ -210,6 +210,45 @@ export function getCaseMessages(caseId: string): Promise<ApiCaseMessage[]> {
   return apiFetch<ApiCaseMessage[]>(`/cases/${encodeURIComponent(caseId)}/messages`);
 }
 
+/* ------------------------------ unmatched documents (Needs attention) ------------------------------ */
+
+/** An inbound document that matched no case, waiting for a human to route it. */
+export type ApiUnmatchedDocument = {
+  id: string;
+  channel: "email" | "whatsapp";
+  sender: string | null;
+  /** Email subject or WhatsApp caption — the clue for where it belongs. */
+  context: string | null;
+  fileName: string;
+  mimeType: string | null;
+  sizeBytes: number | null;
+  receivedAt: string;
+};
+
+/** GET /unmatched — the tenant's pending arrivals, newest first. */
+export function listUnmatched(): Promise<ApiUnmatchedDocument[]> {
+  return apiFetch<ApiUnmatchedDocument[]>("/unmatched");
+}
+
+/** POST /unmatched/:id/assign — file it onto a case (optionally a checklist slot). */
+export function assignUnmatched(
+  id: string,
+  input: { caseId: string; requirementId?: string },
+): Promise<{ documentId: string; caseId: string }> {
+  return apiFetch(`/unmatched/${encodeURIComponent(id)}/assign`, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+/** POST /unmatched/:id/discard — not ours / junk. The file is kept for audit. */
+export function discardUnmatched(id: string, reason?: string): Promise<{ id: string }> {
+  return apiFetch(`/unmatched/${encodeURIComponent(id)}/discard`, {
+    method: "POST",
+    body: JSON.stringify({ reason }),
+  });
+}
+
 /** Fields accepted by POST /cases (mirrors apps/api CreateCaseDto). */
 export type CreateCaseInput = {
   /** The subject: borrower, student, client — whoever documents come from. */
