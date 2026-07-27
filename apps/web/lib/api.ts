@@ -279,6 +279,27 @@ export type ApiStage = {
 };
 
 /** Shape returned by GET /workflows — the tenant's processes and their vocabulary. */
+/**
+ * One domain field a workflow collects (mirrors FieldDef in @docket/db).
+ *
+ * `show_in_table` is why this reaches the client: which domain values earn a
+ * column on the Cases table is the workflow's configuration, not this app's
+ * guess — a lender's "Loan Type" and a college's "Course" are the same feature.
+ */
+export type ApiFieldDef = {
+  field_key: string;
+  label: string;
+  field_type: "string" | "integer" | "enum";
+  input_type: "text" | "number" | "dropdown" | "textarea";
+  required: boolean;
+  options?: string[];
+  placeholder?: string;
+  order: number;
+  show_in_table?: boolean;
+  /** Display hint: "inr" renders an integer as Indian-format currency. */
+  format?: "inr";
+};
+
 export type ApiWorkflow = {
   id: string;
   name: string;
@@ -287,6 +308,8 @@ export type ApiWorkflow = {
   subjectLabel: string;
   /** What this workflow calls one run of itself: Application, Admission, Engagement… */
   caseLabel: string;
+  /** The workflow's domain fields. Empty when it has no field config. */
+  fields: ApiFieldDef[];
 };
 
 /** The tenant's workflows. The client must not assume which one exists. */

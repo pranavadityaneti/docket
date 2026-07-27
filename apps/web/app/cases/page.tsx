@@ -34,19 +34,21 @@ import {
   type ApiCase,
   type ApiStage,
   type ApiWorkflow,
+  type ApiFieldDef,
   type CreateCaseInput,
 } from "@/lib/api";
 
 /* ------------------------------------------------------------------ *
- * The stages and lead fields still mirror the live Gain "Business Loan"
- * workflow (see docs/gain-parity-audit.html): the same 12 board stages
- * and the real loan_type / entity_type / source enums. "Portal" is
- * spelled correctly here — Gain's enum has a "Protal" typo.
+ * Cases — the table and board over one workflow's cases.
  *
- * Gain's six views are gone; see VIEWS below. What remains lending-shaped
- * is this screen's columns, which are still hardcoded rather than driven
- * by the workflow's field config — the change that would let a college or
- * a CA firm use this table as-is.
+ * Both surfaces are workflow-driven, not lending-shaped: board columns come
+ * from the workflow's own stages, and the table's domain columns from the
+ * fields it flags with show_in_table. Nothing here names an industry, so the
+ * same screen serves a lender, a college or a CA firm.
+ *
+ * Still lending-shaped: the create-case dialog's fields (PAN, entity type,
+ * loan amount…), which are hardcoded rather than rendered from the field
+ * config. Tracked — it is the last surface in this class.
  * ------------------------------------------------------------------ */
 
 /** localStorage key remembering which workflow the Cases screen is showing. */
@@ -69,36 +71,31 @@ const WORKFLOW_STORAGE_KEY = "docket_workflow_slug";
 const VIEWS = ["Table", "Board"] as const;
 type View = (typeof VIEWS)[number];
 
-const STAGES = [
-  "Pending",
-  "Proprietorship Documents Collection",
-  "Partnership Document Collection",
-  "PVT LTD Document Collection",
-  "Follow up",
-  "Auto Follow-Up",
-  "Human Escalated",
-  "Not Interested",
-  "Not Picked",
-  "No Answer",
-  "Completed",
-  "Missing PanCard",
-] as const;
-type Stage = (typeof STAGES)[number];
+/**
+ * A stage is whatever the workflow says it is — a free string, never a fixed
+ * union. This used to be a hardcoded list of the 12 Business Loan stages, which
+ * broke every other industry twice over: the Board rendered lending columns a
+ * college does not have, and any case whose stage was not in the list collapsed
+ * to "Pending", so admissions cases vanished from the board entirely.
+ */
+type Stage = string;
 
-const STAGE_TONE: Record<Stage, string> = {
-  Pending: "border-border bg-muted text-muted-foreground",
-  "Proprietorship Documents Collection": "border-primary/20 bg-primary/10 text-primary",
-  "Partnership Document Collection": "border-primary/20 bg-primary/10 text-primary",
-  "PVT LTD Document Collection": "border-primary/20 bg-primary/10 text-primary",
-  "Follow up": "border-amber-200 bg-amber-50 text-amber-700",
-  "Auto Follow-Up": "border-amber-200 bg-amber-50 text-amber-700",
-  "Human Escalated": "border-orange-200 bg-orange-50 text-orange-700",
-  "Not Interested": "border-border bg-muted text-muted-foreground",
-  "Not Picked": "border-border bg-muted text-muted-foreground",
-  "No Answer": "border-border bg-muted text-muted-foreground",
-  Completed: "border-emerald-200 bg-emerald-50 text-emerald-700",
-  "Missing PanCard": "border-red-200 bg-red-50 text-red-700",
+/**
+ * Styling comes from the stage's `tone` (stored per stage, returned by the API),
+ * not from its name. A tenant can name a stage anything; the tone is the
+ * contract. Unknown tones fall back to neutral rather than rendering unstyled.
+ */
+const TONE_CLASS: Record<string, string> = {
+  muted: "border-border bg-muted text-muted-foreground",
+  teal: "border-primary/20 bg-primary/10 text-primary",
+  primary: "border-primary/20 bg-primary/10 text-primary",
+  amber: "border-amber-200 bg-amber-50 text-amber-700",
+  orange: "border-orange-200 bg-orange-50 text-orange-700",
+  green: "border-emerald-200 bg-emerald-50 text-emerald-700",
+  red: "border-red-200 bg-red-50 text-red-700",
 };
+const toneClass = (tone: string | null | undefined) =>
+  TONE_CLASS[tone ?? ""] ?? TONE_CLASS.muted;
 
 type LoanType = "SME Term Loan" | "LAP" | "Working Capital" | "Top-up";
 type EntityType =
@@ -125,14 +122,18 @@ type Lead = {
   reference: string;
   name: string;
   company: string;
-  loanType: LoanType;
-  entityType: EntityType;
-  amount: number;
   source: Source;
-  monthlyTurnover: number;
   stage: Stage;
+  /** The stage's tone, for styling. See toneClass(). */
+  stageTone: string | null;
   owner: string;
   activity: string;
+  /**
+   * The case's domain values, exactly as stored. Which of these become columns
+   * is the workflow's call (FieldDef.show_in_table) — this screen no longer
+   * knows what a "loan amount" is.
+   */
+  data: Record<string, unknown> | null;
 };
 
 // ---- API (ApiCase) -> UI (Lead) mapping --------------------------------------
@@ -141,10 +142,13 @@ type Lead = {
 // we clamp them to the UI unions with safe defaults. Owner isn't joined yet
 // (leads have no owner name) -> "Unassigned"; activity is derived from updatedAt.
 
-const STAGE_SET = new Set<string>(STAGES);
-
+/**
+ * The stage as the workflow named it. No clamping to a known list: a case whose
+ * stage is unrecognised is not "Pending", it is that stage — pretending
+ * otherwise is what hid every non-lending case from the board.
+ */
 function toStage(name: string | null): Stage {
-  return name && STAGE_SET.has(name) ? (name as Stage) : "Pending";
+  return name?.trim() || "—";
 }
 
 function relativeTime(iso: string): string {
@@ -164,32 +168,48 @@ function str(data: Record<string, unknown> | null, key: string): string | undefi
   const v = data?.[key];
   return typeof v === "string" && v.trim() !== "" ? v : undefined;
 }
-function num(data: Record<string, unknown> | null, key: string): number {
-  const v = data?.[key];
-  if (typeof v === "number") return v;
-  const n = Number(v);
-  return Number.isFinite(n) ? n : 0;
-}
 
-// Domain fields (loan type, amount, entity type) are no longer columns — they
-// live in `data`, keyed as this workflow's field config defines them. That is
-// what lets the same table serve a college or a CA firm. This screen still
-// renders the lending shape; making the columns config-driven is a later change.
+// Domain fields (loan type, amount, entity type…) are not columns here — they
+// live in `data`, keyed as this workflow's field config defines them, and the
+// table renders whichever the workflow flags with show_in_table. That is what
+// lets the same table serve a lender, a college or a CA firm.
 function toLead(a: ApiCase): Lead {
   return {
     id: a.id,
     reference: a.reference,
     name: a.subjectName ?? "—",
     company: a.subjectOrganisation ?? "—",
-    loanType: (str(a.data, "loan_type") ?? "SME Term Loan") as LoanType,
-    entityType: (str(a.data, "entity_type") ?? "Proprietorship") as EntityType,
-    amount: num(a.data, "loan_amount"),
     source: (a.source ?? str(a.data, "source") ?? "Other") as Source,
-    monthlyTurnover: num(a.data, "monthly_turnover"),
     stage: toStage(a.stageName),
+    stageTone: a.stageTone,
     owner: "Unassigned",
     activity: relativeTime(a.updatedAt),
+    data: a.data,
   };
+}
+
+/**
+ * Render one domain value for a column, per its field definition. Integers with
+ * format "inr" get Indian currency; everything else is shown as text. A missing
+ * value is an em dash, never "0" or "undefined".
+ */
+function cellValue(data: Record<string, unknown> | null, f: ApiFieldDef): string {
+  const raw = data?.[f.field_key];
+  if (raw === null || raw === undefined || raw === "") return "—";
+  if (f.field_type === "integer") {
+    const n = typeof raw === "number" ? raw : Number(raw);
+    if (!Number.isFinite(n)) return "—";
+    return f.format === "inr" ? inr(n) : String(n);
+  }
+  return String(raw);
+}
+
+/** The domain columns this workflow wants, capped so the table stays readable. */
+const MAX_DOMAIN_COLUMNS = 3;
+function tableFields(workflow: ApiWorkflow | null): ApiFieldDef[] {
+  return (workflow?.fields ?? [])
+    .filter((f) => f.show_in_table)
+    .slice(0, MAX_DOMAIN_COLUMNS);
 }
 
 /**
@@ -537,6 +557,7 @@ function AllCasesView({
   onRefresh,
   subjectLabel,
   caseLabel,
+  fields,
 }: {
   leads: Lead[];
   onRefresh: () => void;
@@ -544,6 +565,8 @@ function AllCasesView({
   subjectLabel: string;
   /** What this workflow calls one run of itself: Application, Admission… */
   caseLabel: string;
+  /** Domain columns this workflow declares (show_in_table), already capped. */
+  fields: ApiFieldDef[];
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -601,9 +624,9 @@ function AllCasesView({
           <TableHeader>
             <TableRow>
               <TableHead className="pl-4">{subjectLabel}</TableHead>
-              <TableHead>Loan Type</TableHead>
-              <TableHead>Amount</TableHead>
-              <TableHead>Entity</TableHead>
+              {fields.map((f) => (
+                <TableHead key={f.field_key}>{f.label}</TableHead>
+              ))}
               <TableHead>Source</TableHead>
               <TableHead>Owner</TableHead>
               <TableHead>Stage</TableHead>
@@ -613,7 +636,7 @@ function AllCasesView({
           <TableBody>
             {filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="py-12 text-center">
+                <TableCell colSpan={5 + fields.length} className="py-12 text-center">
                   <div className="text-sm font-medium">
                     No {plural(caseLabel).toLowerCase()} match your search
                   </div>
@@ -649,9 +672,18 @@ function AllCasesView({
                   <div className="font-medium">{l.name}</div>
                   <div className="text-xs text-muted-foreground">{l.company} · {l.reference}</div>
                 </TableCell>
-                <TableCell className="whitespace-nowrap text-muted-foreground">{l.loanType}</TableCell>
-                <TableCell className="whitespace-nowrap tabular-nums">{inr(l.amount)}</TableCell>
-                <TableCell className="whitespace-nowrap text-muted-foreground">{l.entityType}</TableCell>
+                {fields.map((f) => (
+                  <TableCell
+                    key={f.field_key}
+                    className={
+                      f.field_type === "integer"
+                        ? "whitespace-nowrap tabular-nums"
+                        : "whitespace-nowrap text-muted-foreground"
+                    }
+                  >
+                    {cellValue(l.data, f)}
+                  </TableCell>
+                ))}
                 <TableCell>
                   <Badge variant="outline" className="border-border bg-muted font-normal text-muted-foreground">
                     {l.source}
@@ -666,7 +698,7 @@ function AllCasesView({
                   </div>
                 </TableCell>
                 <TableCell>
-                  <Badge variant="outline" className={`${STAGE_TONE[l.stage]} whitespace-nowrap`}>{l.stage}</Badge>
+                  <Badge variant="outline" className={`${toneClass(l.stageTone)} whitespace-nowrap`}>{l.stage}</Badge>
                 </TableCell>
                 <TableCell className="pr-4 text-right">
                   <Button
@@ -703,32 +735,51 @@ function AllCasesView({
   );
 }
 
-/* ------------------------------- Board (12-stage kanban) ------------------------------- */
+/* ------------------------------- Board (kanban over the workflow's stages) ------------------------------- */
 
 function BoardView({
   leads,
   stages,
   onMoveStage,
   caseLabel,
+  fields,
 }: {
   leads: Lead[];
   stages: ApiStage[];
   onMoveStage: (leadId: string, toStageId: string, toStageName: Stage) => void;
   caseLabel: string;
+  /** Domain columns this workflow declares — the first one labels each card. */
+  fields: ApiFieldDef[];
 }) {
   const stageIdByName = React.useMemo(() => new Map(stages.map((s) => [s.name, s.id])), [stages]);
-  // Options come from the API's stages once loaded (so each name resolves to an
-  // id for the PATCH); before then, fall back to the static list so the current
-  // stage still renders while the move control is disabled.
-  const options: readonly string[] = stages.length ? stages.map((s) => s.name) : STAGES;
+  const options: readonly string[] = stages.map((s) => s.name);
+  // The card's headline value and its chip: the workflow's own first two
+  // table fields. A lender sees the amount and loan type it always did; a
+  // college sees the course. Neither is named in this file.
+  const [headline, chip] = fields;
+
+  // This board used to iterate a hardcoded list of the 12 Business Loan stages.
+  // On any other workflow that rendered columns the tenant does not have AND
+  // hid every case, because no case's stage matched a lending name.
+  if (stages.length === 0) {
+    return (
+      <Card className="flex flex-col items-center gap-2 border-dashed py-16 text-center">
+        <div className="text-sm font-medium">This workflow has no stages yet</div>
+        <p className="text-sm text-muted-foreground">
+          Add stages to the workflow to use the board.
+        </p>
+      </Card>
+    );
+  }
 
   return (
     <div className="overflow-x-auto pb-2">
       <div className="flex gap-3">
-        {STAGES.map((stage) => {
+        {stages.map((s) => {
+          const stage = s.name;
           const items = leads.filter((l) => l.stage === stage);
           return (
-            <div key={stage} className="flex w-72 shrink-0 flex-col rounded-xl border bg-card">
+            <div key={s.id} className="flex w-72 shrink-0 flex-col rounded-xl border bg-card">
               <div className="flex items-center justify-between gap-2 border-b px-3 py-2.5">
                 <span className="truncate text-sm font-medium">{stage}</span>
                 <span className="shrink-0 rounded-full bg-muted px-2 text-xs tabular-nums text-muted-foreground">
@@ -745,15 +796,20 @@ function BoardView({
                     <div key={l.id} className="rounded-lg border bg-background p-3 shadow-sm">
                       <div className="flex items-center justify-between gap-2">
                         <span className="truncate text-sm font-medium">{l.name}</span>
-                        <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{inr(l.amount)}</span>
+                        {headline ? (
+                          <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+                            {cellValue(l.data, headline)}
+                          </span>
+                        ) : null}
                       </div>
                       <div className="mt-0.5 truncate text-xs text-muted-foreground">{l.company} · {l.reference}</div>
-                      <div className="mt-2 flex items-center gap-1.5">
-                        <Badge variant="outline" className="border-primary/20 bg-primary/10 text-[11px] font-normal text-primary">
-                          {l.loanType}
-                        </Badge>
-                        <span className="text-[11px] text-muted-foreground">{l.entityType}</span>
-                      </div>
+                      {chip ? (
+                        <div className="mt-2 flex items-center gap-1.5">
+                          <Badge variant="outline" className="border-primary/20 bg-primary/10 text-[11px] font-normal text-primary">
+                            {cellValue(l.data, chip)}
+                          </Badge>
+                        </div>
+                      ) : null}
                       <label className="mt-2 flex items-center gap-1.5 border-t pt-2 text-[11px] text-muted-foreground">
                         <Icon name="swap_vert" size={14} className="shrink-0" />
                         <select
@@ -818,6 +874,10 @@ export default function CasesPage() {
   // Declared here, above the callbacks that read it.
   const subjectLabel = workflow?.subjectLabel ?? "Contact";
   const caseLabel = workflow?.caseLabel ?? "Case";
+  // The domain columns this workflow declares. Empty until workflows load, and
+  // legitimately empty for a workflow with no field config — both render a table
+  // with no domain columns rather than a lending guess.
+  const domainFields = React.useMemo(() => tableFields(workflow), [workflow]);
 
   const refresh = React.useCallback(async () => {
     setLoading(true);
@@ -1008,6 +1068,7 @@ export default function CasesPage() {
             onRefresh={refresh}
             subjectLabel={subjectLabel}
             caseLabel={caseLabel}
+            fields={domainFields}
           />
         </React.Suspense>
       ) : null}
@@ -1017,6 +1078,7 @@ export default function CasesPage() {
           stages={stages}
           onMoveStage={moveStage}
           caseLabel={caseLabel}
+          fields={domainFields}
         />
       ) : null}
         </>
