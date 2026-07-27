@@ -1,6 +1,6 @@
 import { Controller, Get, Injectable, Module, NotFoundException, Param, UseGuards } from "@nestjs/common";
 import { asc, eq } from "drizzle-orm";
-import { workflows, workflowStages } from "@docket/db";
+import { fieldConfigs, workflows, workflowStages, type FieldDef } from "@docket/db";
 import { DbService } from "../db/db";
 import { CurrentUser, JwtAuthGuard, type AuthUser } from "../auth/auth";
 
@@ -9,16 +9,21 @@ export class WorkflowsService {
   constructor(private readonly db: DbService) {}
 
   /**
-   * The tenant's workflows, with their vocabulary.
+   * The tenant's workflows, with their vocabulary and domain fields.
    *
    * The client needs this to know which workflow it is showing. Without it the
    * dashboard has to assume a slug, and the only slug it could assume was
    * "business-loan" — which is exactly the lending hardcode this platform is
    * being rebuilt to remove. A college tenant has no such workflow.
+   *
+   * `fields` rides along for the same reason: the Cases table's domain columns
+   * come from FieldDef.show_in_table, so the screen renders whatever THIS
+   * workflow declares instead of a hardcoded industry's picks. A workflow with
+   * no field config gets [] — the screen just shows no domain columns.
    */
   list(tenantId: string) {
-    return this.db.withTenant(tenantId, (tx) =>
-      tx
+    return this.db.withTenant(tenantId, async (tx) => {
+      const rows = await tx
         .select({
           id: workflows.id,
           name: workflows.name,
@@ -27,8 +32,24 @@ export class WorkflowsService {
           caseLabel: workflows.caseLabel,
         })
         .from(workflows)
-        .orderBy(asc(workflows.name)),
-    );
+        .orderBy(asc(workflows.name));
+
+      // One query for every config rather than one per workflow. A workflow can
+      // have several configs (they are role-scoped); fields are concatenated in
+      // creation order, first declaration of a field_key wins downstream.
+      const configs = await tx
+        .select({ workflowId: fieldConfigs.workflowId, fields: fieldConfigs.fields })
+        .from(fieldConfigs)
+        .orderBy(asc(fieldConfigs.createdAt));
+
+      return rows.map((w) => ({
+        ...w,
+        fields: configs
+          .filter((c) => c.workflowId === w.id)
+          .flatMap((c) => c.fields ?? [])
+          .filter((f): f is FieldDef => !!f && typeof f.field_key === "string"),
+      }));
+    });
   }
 
   listStages(tenantId: string, workflowSlug: string) {
