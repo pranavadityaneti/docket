@@ -521,6 +521,63 @@ export const caseMessages = pgTable(
   ],
 );
 
+/**
+ * An inbound document that matched no case — the intake's holding pen.
+ *
+ * The matchers are deliberately conservative: a wrong match files a borrower's
+ * bank statement onto someone else's loan, so anything uncertain lands here
+ * instead. Before this table, "left for a human" was a fiction — the poller's
+ * cursor advances past unmatched mail and Meta stops redelivering once we 200,
+ * so an unmatched document was simply lost. Now the bytes are stored the
+ * moment they arrive, and routing is a ten-second staff action.
+ *
+ * A row never becomes a document by mutation: assignment INSERTS a real
+ * documents row (documents.caseId stays NOT NULL, the checklist model intact)
+ * pointing at the same storage object, and marks this row assigned. Discarded
+ * rows keep their object for audit; deleting bytes is a separate, explicit act.
+ */
+export const unmatchedDocuments = pgTable(
+  "unmatched_documents",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
+    /** Which intake it arrived on. Reuses CHANNEL_KINDS. */
+    channel: text("channel", { enum: CHANNEL_KINDS }).notNull(),
+    /** The address/number it came from — the strongest routing clue. */
+    sender: text("sender"),
+    /** Email subject or WhatsApp caption — the human-readable clue. */
+    context: text("context"),
+    fileName: text("file_name").notNull(),
+    mimeType: text("mime_type"),
+    sizeBytes: bigint("size_bytes", { mode: "number" }),
+    /** SHA-256; dedupes redeliveries while the row is still pending. */
+    checksum: text("checksum"),
+    storageKey: text("storage_key").notNull(),
+    status: text("status", { enum: ["pending", "assigned", "discarded"] })
+      .notNull()
+      .default("pending"),
+    /* ---- resolution audit ---- */
+    assignedCaseId: uuid("assigned_case_id").references(() => cases.id, { onDelete: "set null" }),
+    /** The documents row this became, when assigned. */
+    assignedDocumentId: uuid("assigned_document_id").references(() => documents.id, {
+      onDelete: "set null",
+    }),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+    resolvedBy: uuid("resolved_by").references(() => users.id, { onDelete: "set null" }),
+    discardReason: text("discard_reason"),
+    receivedAt: timestamp("received_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("unmatched_documents_tenant_idx").on(t.tenantId),
+    // The queue read: this tenant's pending arrivals, newest first.
+    index("unmatched_documents_tenant_status_idx").on(t.tenantId, t.status, t.receivedAt),
+    // Redelivery dedupe scans pending rows by checksum.
+    index("unmatched_documents_tenant_checksum_idx")
+      .on(t.tenantId, t.checksum)
+      .where(sql`${t.status} = 'pending'`),
+  ],
+);
+
 /* ------------------------------- inferred types ------------------------------- */
 
 export type Tenant = typeof tenants.$inferSelect;
@@ -537,3 +594,4 @@ export type NewDocumentRequirement = typeof documentRequirements.$inferInsert;
 export type DocumentRow = typeof documents.$inferSelect;
 export type NewDocumentRow = typeof documents.$inferInsert;
 export type CaseMessage = typeof caseMessages.$inferSelect;
+export type UnmatchedDocument = typeof unmatchedDocuments.$inferSelect;
