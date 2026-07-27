@@ -310,7 +310,9 @@ export class DocumentsService {
    * `excludeDocumentId` is the document being changed — it must not be counted
    * against itself.
    */
-  private async assertSlotFree(
+  // Public because assigning an unmatched arrival files a document too, and the
+  // slot rule must have exactly one implementation (see the checklist comment).
+  async assertSlotFree(
     tx: Parameters<Parameters<DbService["withTenant"]>[1]>[0],
     caseId: string,
     requirementId: string,

@@ -12,6 +12,7 @@ import { WorkflowsModule } from "./workflows/workflows";
 import { OverviewModule } from "./overview/overview";
 import { ChannelsModule } from "./channels/channels";
 import { NudgesModule } from "./nudges/nudges";
+import { UnmatchedModule } from "./unmatched/unmatched";
 
 @Controller("health")
 class HealthController {
@@ -42,6 +43,7 @@ class HealthController {
     OverviewModule,
     ChannelsModule,
     NudgesModule,
+    UnmatchedModule,
   ],
   controllers: [HealthController],
 })
