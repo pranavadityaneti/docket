@@ -57,9 +57,9 @@ const ADMISSIONS = {
     { key: "migration_certificate", label: "Migration certificate", required: false },
   ],
   fields: [
-    { field_key: "course_applied", label: "Course applied", field_type: "string", input_type: "text", required: true },
-    { field_key: "entrance_exam", label: "Entrance exam", field_type: "string", input_type: "text", required: false },
-    { field_key: "previous_school", label: "Previous school / college", field_type: "string", input_type: "text", required: false },
+    { field_key: "course_applied", label: "Course applied", field_type: "string", input_type: "text", required: true, order: 0, show_in_table: true },
+    { field_key: "entrance_exam", label: "Entrance exam", field_type: "string", input_type: "text", required: false, order: 1, show_in_table: true },
+    { field_key: "previous_school", label: "Previous school / college", field_type: "string", input_type: "text", required: false, order: 2 },
   ],
 };
 

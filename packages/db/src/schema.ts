@@ -40,6 +40,15 @@ export type FieldDef = {
   validation?: Record<string, unknown>;
   placeholder?: string;
   order: number;
+  /**
+   * Show this field as a column on the Cases table. Config, not code: which
+   * domain values earn a column is the tenant's call ("Loan Type" for a lender,
+   * "Course" for a college), and hardcoding one industry's picks is exactly the
+   * leak this flag closes. The UI caps how many it renders.
+   */
+  show_in_table?: boolean;
+  /** Display hint. "inr" renders an integer as Indian-format currency. */
+  format?: "inr";
 };
 
 /** A subject is the party documents are collected FROM: a person or an organisation. */
