@@ -112,8 +112,23 @@ function when(iso: string) {
     : d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
 }
 
-function StatusBadge({ status }: { status: ChecklistItemStatus }) {
-  const m = STATUS_META[status];
+/** Shown for a row whose bytes never landed — it is not "Received". */
+const INCOMPLETE_META = {
+  label: "Incomplete",
+  tone: "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300",
+  icon: "error_outline",
+};
+
+function StatusBadge({
+  status,
+  landed = true,
+}: {
+  status: ChecklistItemStatus;
+  /** False for an abandoned upload: a reservation carries status "received"
+      even though nothing arrived, and showing that word is the lie. */
+  landed?: boolean;
+}) {
+  const m = landed ? STATUS_META[status] : INCOMPLETE_META;
   return (
     <Badge variant="outline" className={`${m.tone} gap-1 whitespace-nowrap font-normal`}>
       <Icon name={m.icon} size={13} />
@@ -214,7 +229,7 @@ function DocumentRow({
         ) : null}
       </div>
 
-      <StatusBadge status={doc.status} />
+      <StatusBadge status={doc.status} landed={doc.uploaded} />
 
       {/* Review is offered only where it means something: an accepted or
           rejected file is already decided, and a row with no bytes has nothing

@@ -131,8 +131,17 @@ export function occupiesSlot(doc: {
  * accepted means done; otherwise something waiting on a human outranks
  * something merely received, and a rejection outranks nothing at all. The one
  * a human should act on is the one that surfaces.
+ *
+ * Takes whole documents, NOT bare statuses, deliberately: a reservation whose
+ * bytes never landed still carries status "received", so a status-only
+ * signature let every caller quietly report that a file had arrived when
+ * nothing had — on the checklist AND on the Overview counts. Requiring
+ * storageKey makes that mistake impossible to express.
  */
-export function rollUpStatus(docStatuses: DocumentStatus[]): ChecklistItemStatus {
+export function rollUpStatus(
+  docs: Array<{ status: DocumentStatus; storageKey: string | null }>,
+): ChecklistItemStatus {
+  const docStatuses = docs.filter(hasLanded).map((d) => d.status);
   if (docStatuses.length === 0) return "missing";
   if (docStatuses.includes("accepted")) return "accepted";
   if (docStatuses.includes("needs_review")) return "needs_review";
@@ -246,7 +255,7 @@ export class DocumentsService {
           canUpload: slotsUsed < r.maxFiles,
           reusable: r.reusable,
           validityDays: r.validityDays,
-          status: rollUpStatus(mine.map((d) => d.status)),
+          status: rollUpStatus(mine),
           documents: mine.map((d) => ({
             id: d.id,
             fileName: d.fileName,

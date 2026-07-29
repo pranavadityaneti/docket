@@ -86,6 +86,10 @@ export class OverviewService {
           requirementId: documents.requirementId,
           status: documents.status,
           sourceChannel: documents.sourceChannel,
+          // Required by rollUpStatus: without it an abandoned upload (a row
+          // with no bytes behind it) counted as "awaiting review" and inflated
+          // the dashboard with work that does not exist.
+          storageKey: documents.storageKey,
         })
         .from(documents)
         .where(isNull(documents.deletedAt));
@@ -125,9 +129,7 @@ export class OverviewService {
         let outstanding = 0;
         let awaitingReview = 0;
         for (const r of applicable) {
-          const status = rollUpStatus(
-            mine.filter((d) => d.requirementId === r.id).map((d) => d.status),
-          );
+          const status = rollUpStatus(mine.filter((d) => d.requirementId === r.id));
           if (status === "received" || status === "needs_review") awaitingReview++;
           // Only REQUIRED items count as outstanding. An optional document
           // nobody sent is not a case sitting still.
