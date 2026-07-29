@@ -741,19 +741,32 @@ export default function CaseDetailPage() {
         </Link>
 
         <div className="mt-2 flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0">
-            <h1 className="truncate text-2xl font-semibold tracking-tight">
+          {/* flex-1 is load-bearing, not decoration: `truncate` needs a
+              constrained width, and min-w-0 alone leaves this box sized to its
+              content — so a long subject or organisation name pushed straight
+              through the header instead of ellipsing. title= keeps the full
+              value reachable on hover once it is clipped. */}
+          <div className="min-w-0 flex-1">
+            <h1
+              className="truncate text-2xl font-semibold tracking-tight"
+              title={detail.subjectName ?? undefined}
+            >
               {detail.subjectName ?? "Unnamed"}
             </h1>
-            <p className="mt-0.5 text-sm text-muted-foreground">
-              {[
+            {(() => {
+              const subtitle = [
                 detail.subjectOrganisation,
                 detail.reference,
                 `${detail.workflowName} ${detail.caseLabel.toLowerCase()}`,
               ]
                 .filter(Boolean)
-                .join(" · ")}
-            </p>
+                .join(" · ");
+              return (
+                <p className="mt-0.5 truncate text-sm text-muted-foreground" title={subtitle}>
+                  {subtitle}
+                </p>
+              );
+            })()}
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {detail.stageName ? (
