@@ -27,6 +27,8 @@ import {
   pauseNudges,
   resumeNudges,
   getCaseMessages,
+  confirmSuggestion,
+  dismissSuggestion,
   AuthRequiredError,
   type ApiCaseDetail,
   type ApiChecklist,
@@ -220,6 +222,14 @@ function DocumentRow({
               support call. */}
           {!doc.uploaded ? (
             <span className="ml-1 text-amber-600 dark:text-amber-400">· upload incomplete</span>
+          ) : null}
+          {/* A machine put this here. Say so plainly — staff reviewing a
+              document deserve to know a classifier chose the slot, not a
+              colleague, and what it thought the document was. */}
+          {doc.autoFiled ? (
+            <span className="ml-1 text-violet-600 dark:text-violet-400">
+              · filed by AI{doc.classifiedType ? ` as ${doc.classifiedType}` : ""}
+            </span>
           ) : null}
         </div>
         {doc.status === "rejected" && doc.rejectionReason ? (
@@ -641,6 +651,36 @@ export default function CaseDetailPage() {
     }
   }
 
+  async function handleConfirmSuggestion(documentId: string) {
+    setActionError(null);
+    setBusyId(documentId);
+    try {
+      await confirmSuggestion(documentId);
+      await refresh();
+    } catch (e) {
+      if (e instanceof AuthRequiredError) return;
+      // The server's message is the useful one here: "already has N files",
+      // "item no longer exists". Showing it beats a generic apology.
+      setActionError(e instanceof Error ? e.message : "Couldn't file the document.");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function handleDismissSuggestion(documentId: string) {
+    setActionError(null);
+    setBusyId(documentId);
+    try {
+      await dismissSuggestion(documentId);
+      await refresh();
+    } catch (e) {
+      if (e instanceof AuthRequiredError) return;
+      setActionError(e instanceof Error ? e.message : "Couldn't dismiss the suggestion.");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   // Turn a NudgeResult into one plain-English line for the staff notice.
   function describeNudge(r: NudgeResult): string {
     if (r.sent.length === 0) {
@@ -871,7 +911,7 @@ export default function CaseDetailPage() {
           <div className="border-b p-4">
             <div className="font-medium">Unmatched files</div>
             <p className="text-sm text-muted-foreground">
-              These arrived but don&rsquo;t match anything on the checklist.
+              These arrived but aren&rsquo;t on a checklist item yet.
             </p>
           </div>
           <div className="flex flex-col gap-1.5 p-4">
@@ -880,19 +920,60 @@ export default function CaseDetailPage() {
                 key={d.id}
                 className="flex flex-wrap items-center gap-2 rounded-md border bg-background px-3 py-2"
               >
-                <Icon name="help" size={16} className="shrink-0 text-muted-foreground" />
+                <Icon
+                  name={d.suggestedLabel ? "auto_awesome" : "help"}
+                  size={16}
+                  className={`shrink-0 ${d.suggestedLabel ? "text-violet-600 dark:text-violet-400" : "text-muted-foreground"}`}
+                />
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-sm">{d.fileName}</div>
-                  <div className="text-xs text-muted-foreground">
+                  <div className="truncate text-xs text-muted-foreground">
                     {[
                       d.sourceChannel ? CHANNEL_LABEL[d.sourceChannel] ?? d.sourceChannel : null,
                       when(d.receivedAt),
+                      // What the classifier read, even when it proposed nothing:
+                      // "looks like a utility bill" is useful to a human placing
+                      // it by hand.
+                      d.classifiedType ? `looks like ${d.classifiedType}` : null,
                     ]
                       .filter(Boolean)
                       .join(" · ")}
                   </div>
                 </div>
-                <StatusBadge status={d.status} />
+
+                {/* A proposal the classifier was not confident enough to act on.
+                    One click files it (through the same capacity check every
+                    other placement runs); one click makes it stop asking. */}
+                {d.suggestedLabel ? (
+                  <>
+                    <Badge
+                      variant="outline"
+                      className="whitespace-nowrap border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-900 dark:bg-violet-950 dark:text-violet-300"
+                    >
+                      {d.suggestedLabel}?
+                    </Badge>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 gap-1 px-2 text-xs"
+                      disabled={busyId === d.id}
+                      onClick={() => handleConfirmSuggestion(d.id)}
+                    >
+                      <Icon name="check" size={14} /> File it
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 px-2 text-xs"
+                      disabled={busyId === d.id}
+                      onClick={() => handleDismissSuggestion(d.id)}
+                    >
+                      Not this
+                    </Button>
+                  </>
+                ) : (
+                  <StatusBadge status={d.status} landed={d.uploaded} />
+                )}
               </div>
             ))}
           </div>

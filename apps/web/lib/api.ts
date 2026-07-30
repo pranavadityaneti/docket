@@ -134,7 +134,25 @@ async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
   }
   if (!res.ok) {
     const body = await res.text().catch(() => "");
-    throw new Error(`${init.method ?? "GET"} ${path} failed (${res.status}) ${body}`.trim());
+    // The API's own message is the one worth showing: "PAN Card already has 1
+    // file. Reject the existing one first…" tells staff what to do, where
+    // `POST /documents/… failed (400) {"message":…}` makes them read JSON in a
+    // toast. Fall back to the raw form only when there is no message to find.
+    let friendly: string | null = null;
+    try {
+      const parsed = JSON.parse(body) as { message?: unknown };
+      if (typeof parsed.message === "string" && parsed.message.trim() !== "") {
+        friendly = parsed.message;
+      } else if (Array.isArray(parsed.message) && parsed.message.length > 0) {
+        // class-validator returns an array of field errors.
+        friendly = parsed.message.join(". ");
+      }
+    } catch {
+      // Not JSON — keep the diagnostic form below.
+    }
+    throw new Error(
+      friendly ?? `${init.method ?? "GET"} ${path} failed (${res.status}) ${body}`.trim(),
+    );
   }
   return (await res.json()) as T;
 }
@@ -378,6 +396,8 @@ export function getOverview(): Promise<ApiOverview> {
 export type DocumentStatus = "received" | "needs_review" | "accepted" | "rejected" | "expired";
 export type ChecklistItemStatus = DocumentStatus | "missing";
 
+export type ClassificationConfidence = "high" | "medium" | "low";
+
 export type ApiDocument = {
   id: string;
   fileName: string;
@@ -388,6 +408,24 @@ export type ApiDocument = {
   receivedAt: string;
   /** False while a row is reserved but the bytes have not landed. */
   uploaded: boolean;
+  /** True when the classifier filed this document, not a person. */
+  autoFiled: boolean;
+  /** What the classifier read the document as ("Aadhaar card"). */
+  classifiedType: string | null;
+  classificationConfidence: ClassificationConfidence | null;
+};
+
+/**
+ * An arrival with no checklist slot yet. When the classifier recognised it but
+ * was not confident enough to file it, `suggestedLabel` carries the proposal
+ * for a one-click confirmation.
+ */
+export type ApiUnclassifiedDocument = Pick<
+  ApiDocument,
+  "id" | "fileName" | "status" | "sourceChannel" | "receivedAt" | "uploaded" | "classifiedType" | "classificationConfidence"
+> & {
+  suggestedRequirementId: string | null;
+  suggestedLabel: string | null;
 };
 
 export type ApiChecklistItem = {
@@ -418,7 +456,7 @@ export type ApiChecklist = {
   caseId: string;
   items: ApiChecklistItem[];
   /** Arrived but matching no requirement — for a human to place. */
-  unclassified: Pick<ApiDocument, "id" | "fileName" | "status" | "sourceChannel" | "receivedAt">[];
+  unclassified: ApiUnclassifiedDocument[];
   summary: { required: number; accepted: number; outstanding: number; awaitingReview: number };
 };
 
@@ -431,6 +469,20 @@ export type ApiChecklist = {
  */
 export function getChecklist(caseId: string): Promise<ApiChecklist> {
   return apiFetch<ApiChecklist>(`/cases/${encodeURIComponent(caseId)}/checklist`);
+}
+
+/** Accept the classifier's proposal — files the document onto the suggested item. */
+export function confirmSuggestion(documentId: string): Promise<{ id: string }> {
+  return apiFetch(`/documents/${encodeURIComponent(documentId)}/suggestion/confirm`, {
+    method: "POST",
+  });
+}
+
+/** Reject the proposal. The document stays unfiled; the wrong answer stops being offered. */
+export function dismissSuggestion(documentId: string): Promise<{ id: string }> {
+  return apiFetch(`/documents/${encodeURIComponent(documentId)}/suggestion/dismiss`, {
+    method: "POST",
+  });
 }
 
 type UploadTarget = { url: string; method: string; headers: Record<string, string>; expiresIn: number };

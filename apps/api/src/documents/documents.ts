@@ -265,6 +265,11 @@ export class DocumentsService {
             sourceChannel: d.sourceChannel,
             receivedAt: d.receivedAt,
             uploaded: d.storageKey !== null,
+            // Who put it here, and what the classifier read it as. Staff must
+            // be able to see that a machine made this placement.
+            autoFiled: d.autoFiled,
+            classifiedType: d.classifiedType,
+            classificationConfidence: d.classificationConfidence,
           })),
         };
       });
@@ -272,15 +277,33 @@ export class DocumentsService {
       // Files that arrived but match no requirement — a borrower sending
       // something unexpected, or the classifier declining to guess. Surfaced
       // separately so a human can place them; never silently dropped.
+      //
+      // A document the classifier recognised but was not confident enough to
+      // file carries a SUGGESTION: the label rides along so the screen can
+      // offer "looks like Aadhaar — confirm?" without a second lookup. The
+      // suggestion is resolved against `applicable`, so a suggestion for a
+      // requirement that no longer applies to this case simply does not
+      // appear rather than offering staff a slot that is not on the checklist.
+      const labelByRequirementId = new Map(applicable.map((r) => [r.id, r.label]));
       const unclassified = docs
         .filter((d) => d.requirementId === null)
-        .map((d) => ({
-          id: d.id,
-          fileName: d.fileName,
-          status: d.status,
-          sourceChannel: d.sourceChannel,
-          receivedAt: d.receivedAt,
-        }));
+        .map((d) => {
+          const suggestedLabel = d.suggestedRequirementId
+            ? (labelByRequirementId.get(d.suggestedRequirementId) ?? null)
+            : null;
+          return {
+            id: d.id,
+            fileName: d.fileName,
+            status: d.status,
+            sourceChannel: d.sourceChannel,
+            receivedAt: d.receivedAt,
+            uploaded: d.storageKey !== null,
+            classifiedType: d.classifiedType,
+            classificationConfidence: d.classificationConfidence,
+            suggestedRequirementId: suggestedLabel ? d.suggestedRequirementId : null,
+            suggestedLabel,
+          };
+        });
 
       const requiredItems = items.filter((i) => i.required);
       return {
@@ -505,6 +528,87 @@ export class DocumentsService {
   }
 
   /** Staff review. The AI will drive this later; the human path exists first. */
+  /**
+   * Accept the classifier's suggestion: file the document onto the slot it
+   * proposed. This is the human confirmation the auto-file path skips, so it
+   * runs the SAME capacity check every other placement runs — a suggestion is
+   * a proposal, never a licence to overflow an item.
+   *
+   * autoFiled stays false: a person made this placement, on advice. The audit
+   * trail must not later claim the machine filed it.
+   */
+  confirmSuggestion(tenantId: string, documentId: string) {
+    return this.db.withTenant(tenantId, async (tx) => {
+      const [doc] = await tx
+        .select({
+          id: documents.id,
+          caseId: documents.caseId,
+          requirementId: documents.requirementId,
+          suggestedRequirementId: documents.suggestedRequirementId,
+          status: documents.status,
+          storageKey: documents.storageKey,
+        })
+        .from(documents)
+        .where(and(eq(documents.id, documentId), isNull(documents.deletedAt)))
+        .for("update")
+        .limit(1);
+      if (!doc) throw new NotFoundException("Document not found");
+      if (doc.requirementId) {
+        throw new BadRequestException("This document is already filed against a checklist item");
+      }
+      if (!doc.suggestedRequirementId) {
+        throw new BadRequestException("There is no suggestion to confirm for this document");
+      }
+
+      // The suggestion must still belong to this case's workflow — a workflow
+      // can be edited between the suggestion and the click.
+      const [row] = await tx
+        .select({ workflowId: cases.workflowId })
+        .from(cases)
+        .where(eq(cases.id, doc.caseId))
+        .limit(1);
+      if (!row) throw new NotFoundException("Case not found");
+      const [req] = await tx
+        .select({ id: documentRequirements.id })
+        .from(documentRequirements)
+        .where(
+          and(
+            eq(documentRequirements.id, doc.suggestedRequirementId),
+            eq(documentRequirements.workflowId, row.workflowId),
+          ),
+        )
+        .limit(1);
+      if (!req) throw new BadRequestException("The suggested item no longer exists on this workflow");
+
+      await this.assertSlotFree(tx, doc.caseId, doc.suggestedRequirementId, doc.id);
+
+      const [updated] = await tx
+        .update(documents)
+        .set({ requirementId: doc.suggestedRequirementId, suggestedRequirementId: null })
+        .where(eq(documents.id, documentId))
+        .returning({ id: documents.id, requirementId: documents.requirementId });
+      return updated;
+    });
+  }
+
+  /**
+   * Reject the classifier's suggestion. The document stays unfiled and the
+   * proposal is cleared, so the queue does not keep offering a wrong answer.
+   * What the classifier READ is deliberately kept (classifiedType) — that is
+   * evidence about the document, not the discarded proposal.
+   */
+  dismissSuggestion(tenantId: string, documentId: string) {
+    return this.db.withTenant(tenantId, async (tx) => {
+      const [updated] = await tx
+        .update(documents)
+        .set({ suggestedRequirementId: null })
+        .where(and(eq(documents.id, documentId), isNull(documents.deletedAt)))
+        .returning({ id: documents.id });
+      if (!updated) throw new NotFoundException("Document not found");
+      return updated;
+    });
+  }
+
   review(tenantId: string, userId: string, documentId: string, input: ReviewDocumentDto) {
     if (input.status === "rejected" && !input.rejectionReason?.trim()) {
       throw new BadRequestException("A reason is required when rejecting a document");
@@ -604,6 +708,16 @@ export class DocumentsController {
     @Body() body: ReviewDocumentDto,
   ) {
     return this.docs.review(u.tenantId, u.userId, id, body);
+  }
+
+  @Post("documents/:id/suggestion/confirm")
+  confirmSuggestion(@CurrentUser() u: AuthUser, @Param("id", ParseUUIDPipe) id: string) {
+    return this.docs.confirmSuggestion(u.tenantId, id);
+  }
+
+  @Post("documents/:id/suggestion/dismiss")
+  dismissSuggestion(@CurrentUser() u: AuthUser, @Param("id", ParseUUIDPipe) id: string) {
+    return this.docs.dismissSuggestion(u.tenantId, id);
   }
 }
 
