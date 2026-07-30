@@ -438,6 +438,28 @@ export const documents = pgTable(
     sourceChannel: text("source_channel", { enum: DOCUMENT_CHANNELS }),
     /** The WhatsApp number / email address it actually came from, for audit. */
     sourceIdentifier: text("source_identifier"),
+
+    /* ---- AI classification (see classify.ts) ---- */
+    /**
+     * The slot the classifier believes this document satisfies, when it was
+     * NOT confident enough to file it there itself. A human confirms or
+     * ignores; confirming copies this into requirementId.
+     */
+    suggestedRequirementId: uuid("suggested_requirement_id").references(
+      () => documentRequirements.id,
+      { onDelete: "set null" },
+    ),
+    /** What the classifier read the document AS ("Aadhaar card", "bank statement"). */
+    classifiedType: text("classified_type"),
+    classificationConfidence: text("classification_confidence", {
+      enum: ["high", "medium", "low"],
+    }),
+    classifiedAt: timestamp("classified_at", { withTimezone: true }),
+    /**
+     * True when requirementId was set by the classifier rather than a person.
+     * The audit question "who filed this here?" must always be answerable.
+     */
+    autoFiled: boolean("auto_filed").notNull().default(false),
     /**
      * Set when this document was carried over from another case of the same
      * subject rather than collected again. Keeps the audit trail honest: staff

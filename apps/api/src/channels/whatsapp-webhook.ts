@@ -25,6 +25,7 @@ import {
   unmatchedDocuments,
 } from "@docket/db";
 import { DbService } from "../db/db";
+import { ClassifyApplier } from "../classify/classify";
 import { STORAGE, type StorageDriver, documentKey, unmatchedKey } from "../storage/storage";
 import { env } from "../config/env";
 
@@ -99,6 +100,7 @@ export class WhatsappService {
   constructor(
     private readonly db: DbService,
     @Inject(STORAGE) private readonly storage: StorageDriver,
+    private readonly classify: ClassifyApplier,
   ) {}
 
   /**
@@ -216,7 +218,7 @@ export class WhatsappService {
     const fileName = media.filename ?? fallbackName(message, media);
     const mimeType = media.mime_type ?? null;
 
-    await this.db.withTenant(channel.tenantId, async (tx) => {
+    const landedCaseId = await this.db.withTenant(channel.tenantId, async (tx) => {
       const caseId = await this.matchCase(tx, caption, message.from);
       if (!caseId) {
         // Never guess — but never lose it either. Meta stops redelivering the
@@ -233,7 +235,7 @@ export class WhatsappService {
         this.log.warn(
           `WhatsApp: message ${message.id} from ${message.from} matched no case — ${held ? "held for review" : "duplicate of a pending arrival, skipped"}`,
         );
-        return;
+        return null;
       }
 
       // Idempotency: Meta re-delivers on any missed 200. The same file already on
@@ -252,7 +254,7 @@ export class WhatsappService {
         .limit(1);
       if (dupe) {
         this.log.log(`WhatsApp: message ${message.id} already on case ${caseId} — skipped`);
-        return;
+        return null;
       }
 
       const [doc] = await tx
@@ -277,7 +279,14 @@ export class WhatsappService {
         .where(eq(documents.id, doc.id));
 
       this.log.log(`WhatsApp: imported ${fileName} onto case ${caseId}`);
+      return caseId;
     });
+
+    // Post-commit: sort the arrival into a checklist slot. Fire-and-forget —
+    // Meta's 200 must never wait on a model call.
+    if (landedCaseId) {
+      void this.classify.processCase(channel.tenantId, landedCaseId).catch(() => {});
+    }
 
     await this.db.admin
       .update(channels)

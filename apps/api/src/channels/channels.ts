@@ -18,6 +18,7 @@ import { channels, sealSecret, type ChannelConfig } from "@docket/db";
 import { DbService } from "../db/db";
 import { CurrentUser, JwtAuthGuard, type AuthUser } from "../auth/auth";
 import { StorageModule } from "../storage/storage";
+import { ClassifyModule } from "../classify/classify";
 import { EmailPollerService, type PollResult } from "./email-poller";
 import { WhatsappService, WhatsappWebhookController } from "./whatsapp-webhook";
 import { env } from "../config/env";
@@ -223,7 +224,7 @@ export class ChannelsController {
 }
 
 @Module({
-  imports: [ScheduleModule.forRoot(), StorageModule],
+  imports: [ScheduleModule.forRoot(), StorageModule, ClassifyModule],
   controllers: [ChannelsController, WhatsappWebhookController],
   providers: [ChannelsService, EmailPollerService, WhatsappService],
   exports: [ChannelsService],

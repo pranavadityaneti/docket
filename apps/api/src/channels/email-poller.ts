@@ -13,6 +13,7 @@ import {
   unmatchedDocuments,
 } from "@docket/db";
 import { DbService } from "../db/db";
+import { ClassifyApplier } from "../classify/classify";
 import { STORAGE, type StorageDriver, documentKey, unmatchedKey } from "../storage/storage";
 import { env } from "../config/env";
 
@@ -46,6 +47,7 @@ export class EmailPollerService {
   constructor(
     private readonly db: DbService,
     @Inject(STORAGE) private readonly storage: StorageDriver,
+    private readonly classify: ClassifyApplier,
   ) {}
 
   /** Poll one email channel. Never throws — failures are returned and recorded. */
@@ -130,6 +132,14 @@ export class EmailPollerService {
           const r = await this.ingestMessage(channel, message);
           imported += r.imported;
           if (r.imported === 0) unmatched++;
+          // After the ingest transaction has committed: sort what just landed
+          // into checklist slots. Fire-and-forget — a classifier hiccup must
+          // never stall the poll loop or the cursor.
+          if (r.imported > 0 && r.caseId) {
+            void this.classify
+              .processCase(channel.tenantId, r.caseId)
+              .catch(() => {});
+          }
         }
 
         await this.saveCursor(channel.id, `${uidValidity}:${maxUid}`);
@@ -152,14 +162,14 @@ export class EmailPollerService {
   private async ingestMessage(
     channel: ChannelRow,
     message: FetchMessageObject,
-  ): Promise<{ imported: number }> {
-    if (!message.source) return { imported: 0 };
+  ): Promise<{ imported: number; caseId: string | null }> {
+    if (!message.source) return { imported: 0, caseId: null };
     const parsed = await simpleParser(message.source);
 
     const attachments = (parsed.attachments ?? []).filter(
       (a) => a.content && a.content.length > 0 && a.contentDisposition !== "inline",
     );
-    if (attachments.length === 0) return { imported: 0 };
+    if (attachments.length === 0) return { imported: 0, caseId: null };
 
     const subject = parsed.subject ?? "";
     const fromEmail = parsed.from?.value?.[0]?.address?.toLowerCase() ?? null;
@@ -190,7 +200,7 @@ export class EmailPollerService {
         this.log.warn(
           `Channel ${channel.id}: message uid ${message.uid} from ${fromEmail ?? "?"} matched no case — ${held} attachment(s) held for review`,
         );
-        return { imported: 0 };
+        return { imported: 0, caseId: null };
       }
 
       let imported = 0;
@@ -224,7 +234,7 @@ export class EmailPollerService {
           .where(eq(documents.id, doc.id));
         imported++;
       }
-      return { imported };
+      return { imported, caseId };
     });
   }
 

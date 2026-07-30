@@ -1,5 +1,9 @@
 import { Inject, Injectable, Logger, Module } from "@nestjs/common";
 import OpenAI from "openai";
+import { and, asc, eq, isNull } from "drizzle-orm";
+import { cases, documentRequirements, documents } from "@docket/db";
+import { DbService } from "../db/db";
+import { DocumentsModule, DocumentsService, requirementApplies } from "../documents/documents";
 import { STORAGE, StorageModule, type StorageDriver } from "../storage/storage";
 import { env } from "../config/env";
 
@@ -291,13 +295,179 @@ export class ClassifyService {
   }
 }
 
+/* ------------------------------- the applier ------------------------------- */
+
+/**
+ * Runs the classifier over a landed document and applies the outcome:
+ *
+ *   high confidence   -> files it onto the slot (requirementId set,
+ *                        autoFiled=true) — unless the slot is full, in which
+ *                        case it downgrades to a suggestion rather than
+ *                        breaking the capacity rule;
+ *   medium/low        -> records a suggestion for a human to confirm;
+ *   no match / error  -> records what it read (when anything) and leaves the
+ *                        document exactly where it was.
+ *
+ * Called fire-and-forget AFTER the ingesting transaction commits: an OpenAI
+ * round-trip has no business inside a DB transaction, and a classifier failure
+ * must never take an already-landed document down with it. Never throws.
+ */
+@Injectable()
+export class ClassifyApplier {
+  private readonly log = new Logger(ClassifyApplier.name);
+
+  constructor(
+    private readonly db: DbService,
+    private readonly classifier: ClassifyService,
+    private readonly documents: DocumentsService,
+  ) {}
+
+  async process(tenantId: string, documentId: string): Promise<void> {
+    if (!this.classifier.enabled()) return;
+    try {
+      await this.run(tenantId, documentId);
+    } catch (e) {
+      this.log.error(`Classification of ${documentId} failed: ${msg(e)}`);
+    }
+  }
+
+  private async run(tenantId: string, documentId: string): Promise<void> {
+    // Load the document + its case's applicable, unfilled-only-if-full context.
+    const ctx = await this.db.withTenant(tenantId, async (tx) => {
+      const [doc] = await tx
+        .select({
+          id: documents.id,
+          caseId: documents.caseId,
+          fileName: documents.fileName,
+          mimeType: documents.mimeType,
+          storageKey: documents.storageKey,
+          requirementId: documents.requirementId,
+          deletedAt: documents.deletedAt,
+        })
+        .from(documents)
+        .where(eq(documents.id, documentId))
+        .limit(1);
+      // Only unplaced, landed, live documents are classified. A document a
+      // human (or an earlier run) already placed is not second-guessed.
+      if (!doc || doc.deletedAt || doc.requirementId || !doc.storageKey) return null;
+
+      const [c] = await tx
+        .select({ id: cases.id, workflowId: cases.workflowId, data: cases.data })
+        .from(cases)
+        .where(eq(cases.id, doc.caseId))
+        .limit(1);
+      if (!c) return null;
+
+      const reqs = await tx
+        .select()
+        .from(documentRequirements)
+        .where(eq(documentRequirements.workflowId, c.workflowId))
+        .orderBy(asc(documentRequirements.position));
+      // The closed list is the checklist the subject actually sees: only
+      // requirements whose conditions apply to this case.
+      const options = reqs
+        .filter((r) => requirementApplies(r.condition, c.data))
+        .map((r) => ({ key: r.key, label: r.label, description: r.description, id: r.id }));
+      return { doc, caseId: c.id, options };
+    });
+    if (!ctx) return;
+
+    const result = await this.classifier.classify({
+      storageKey: ctx.doc.storageKey!,
+      fileName: ctx.doc.fileName,
+      mimeType: ctx.doc.mimeType,
+      options: ctx.options.map(({ key, label, description }) => ({ key, label, description })),
+    });
+    if (result.outcome !== "classified") {
+      if (result.outcome === "error") this.log.warn(`${ctx.doc.fileName}: ${result.reason}`);
+      return;
+    }
+
+    const matched = result.requirementKey
+      ? (ctx.options.find((o) => o.key === result.requirementKey) ?? null)
+      : null;
+
+    await this.db.withTenant(tenantId, async (tx) => {
+      // Re-check under a lock: a human may have placed or deleted the document
+      // while the model was thinking. Their action wins, always.
+      const [fresh] = await tx
+        .select({ id: documents.id, requirementId: documents.requirementId, deletedAt: documents.deletedAt })
+        .from(documents)
+        .where(eq(documents.id, documentId))
+        .for("update")
+        .limit(1);
+      if (!fresh || fresh.deletedAt || fresh.requirementId) return;
+
+      const stamp = {
+        classifiedType: result.documentType,
+        classificationConfidence: result.confidence,
+        classifiedAt: new Date(),
+      };
+
+      if (matched && result.confidence === "high") {
+        // File it — unless the slot is already full, where the honest move is
+        // a suggestion, not an overflow or a bump.
+        try {
+          await this.documents.assertSlotFree(tx, ctx.caseId, matched.id, null);
+        } catch {
+          await tx
+            .update(documents)
+            .set({ ...stamp, suggestedRequirementId: matched.id })
+            .where(eq(documents.id, documentId));
+          this.log.log(`${ctx.doc.fileName}: slot "${matched.key}" full — left as suggestion`);
+          return;
+        }
+        await tx
+          .update(documents)
+          .set({ ...stamp, requirementId: matched.id, autoFiled: true })
+          .where(eq(documents.id, documentId));
+        this.log.log(`${ctx.doc.fileName}: auto-filed as "${matched.key}" (${result.documentType})`);
+        return;
+      }
+
+      await tx
+        .update(documents)
+        .set({ ...stamp, suggestedRequirementId: matched?.id ?? null })
+        .where(eq(documents.id, documentId));
+      this.log.log(
+        `${ctx.doc.fileName}: ${matched ? `suggested "${matched.key}"` : "no match"} [${result.confidence}]`,
+      );
+    });
+  }
+
+  /**
+   * Classify every unplaced, landed document on a case. Used after an inbound
+   * message lands several attachments at once.
+   */
+  async processCase(tenantId: string, caseId: string): Promise<void> {
+    if (!this.classifier.enabled()) return;
+    try {
+      const ids = await this.db.withTenant(tenantId, (tx) =>
+        tx
+          .select({ id: documents.id })
+          .from(documents)
+          .where(
+            and(
+              eq(documents.caseId, caseId),
+              isNull(documents.requirementId),
+              isNull(documents.deletedAt),
+            ),
+          ),
+      );
+      for (const { id } of ids) await this.process(tenantId, id);
+    } catch (e) {
+      this.log.error(`Case classification sweep failed: ${msg(e)}`);
+    }
+  }
+}
+
 function msg(e: unknown): string {
   return e instanceof Error ? e.message : String(e);
 }
 
 @Module({
-  imports: [StorageModule],
-  providers: [ClassifyService],
-  exports: [ClassifyService],
+  imports: [StorageModule, DocumentsModule],
+  providers: [ClassifyService, ClassifyApplier],
+  exports: [ClassifyService, ClassifyApplier],
 })
 export class ClassifyModule {}

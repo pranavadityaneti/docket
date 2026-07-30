@@ -18,6 +18,7 @@ import { cases, documentRequirements, documents, unmatchedDocuments } from "@doc
 import { DbService } from "../db/db";
 import { CurrentUser, JwtAuthGuard, type AuthUser } from "../auth/auth";
 import { DocumentsModule, DocumentsService } from "../documents/documents";
+import { ClassifyApplier, ClassifyModule } from "../classify/classify";
 
 /**
  * Triage for inbound documents that matched no case — the human half of the
@@ -53,6 +54,7 @@ export class UnmatchedService {
   constructor(
     private readonly db: DbService,
     private readonly documents: DocumentsService,
+    private readonly classify: ClassifyApplier,
   ) {}
 
   /** The tenant's pending arrivals, newest first. */
@@ -155,6 +157,14 @@ export class UnmatchedService {
         .where(eq(unmatchedDocuments.id, row.id));
 
       return { documentId: doc.id, caseId: target.id };
+    }).then((result) => {
+      // Staff chose "no specific item": let the classifier propose one, after
+      // the assignment has committed. An explicit slot choice is never
+      // second-guessed — this runs only when they declined to pick.
+      if (!input.requirementId) {
+        void this.classify.process(tenantId, result.documentId).catch(() => {});
+      }
+      return result;
     });
   }
 
@@ -217,7 +227,7 @@ export class UnmatchedController {
 }
 
 @Module({
-  imports: [DocumentsModule],
+  imports: [DocumentsModule, ClassifyModule],
   controllers: [UnmatchedController],
   providers: [UnmatchedService],
 })
