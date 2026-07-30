@@ -40,6 +40,30 @@ const ALLOWED = new Set([
   "OPENAI_MODEL",
 ]);
 
+/**
+ * Strip terminal artefacts from a secret value.
+ *
+ * A key pasted into a shell prompt can arrive wrapped in bracketed-paste
+ * markers (ESC[200~ … ESC[201~). ESC is not whitespace, so .trim() leaves it,
+ * the value still *looks* right in a console, and everything downstream that
+ * merely reads it works — until it is used as an HTTP header, where undici
+ * refuses it with "invalid authorization header" and the SDK reports the
+ * useless "Connection error." That cost an afternoon once; it should not cost
+ * anyone another one.
+ *
+ * No legitimate secret we consume contains control characters, so removing
+ * them is safe for every key, not just the one that was bitten.
+ */
+export function sanitiseSecret(raw: string): string {
+  return raw
+    // ANSI CSI sequences (covers the bracketed-paste wrapper).
+    .replace(/\x1b\[[0-9;]*[A-Za-z~]/g, "")
+    // Any remaining C0/C1 control characters, wherever they sit.
+    // eslint-disable-next-line no-control-regex
+    .replace(/[\x00-\x1f\x7f]/g, "")
+    .trim();
+}
+
 export async function hydrateSecrets(): Promise<string[]> {
   const secretId = process.env.APP_SECRET_ID?.trim();
   if (!secretId) return [];
@@ -64,7 +88,17 @@ export async function hydrateSecrets(): Promise<string[]> {
     // An explicitly-set environment variable wins, so a deploy can override
     // one value without editing the secret.
     if (process.env[key]?.trim()) continue;
-    process.env[key] = value;
+    const clean = sanitiseSecret(value);
+    if (clean === "") continue;
+    if (clean !== value.trim()) {
+      // Loud, and by name only: a secret that needed repairing is a secret
+      // that was stored wrong, and the operator should fix it at the source
+      // rather than rely on this rescue forever.
+      console.warn(
+        `Secret ${key} contained control characters (likely a terminal paste artefact) and was sanitised. Re-store it cleanly.`,
+      );
+    }
+    process.env[key] = clean;
     loaded.push(key);
   }
   // Names only. The values are the entire point of this module.

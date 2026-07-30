@@ -532,8 +532,25 @@ export class ClassifyApplier {
   }
 }
 
+/**
+ * Flatten an error INCLUDING its cause chain.
+ *
+ * The OpenAI SDK reports every transport failure as the identical, useless
+ * "Connection error." — the actual reason ("invalid authorization header",
+ * a DNS failure, a TLS error) lives two levels down in `cause`. Logging only
+ * `message` turned a five-minute diagnosis into an afternoon of testing
+ * networking that was never broken.
+ */
 function msg(e: unknown): string {
-  return e instanceof Error ? e.message : String(e);
+  if (!(e instanceof Error)) return String(e);
+  const parts = [e.message];
+  let cause: unknown = (e as { cause?: unknown }).cause;
+  for (let depth = 0; cause instanceof Error && depth < 3; depth++) {
+    const code = (cause as { code?: string }).code;
+    parts.push(`caused by: ${cause.message}${code ? ` (${code})` : ""}`);
+    cause = (cause as { cause?: unknown }).cause;
+  }
+  return parts.join(" | ");
 }
 
 @Module({
