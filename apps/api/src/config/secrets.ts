@@ -35,6 +35,9 @@ const ALLOWED = new Set([
   "CHANNEL_SECRET_KEY",
   "WHATSAPP_VERIFY_TOKEN",
   "OPENAI_API_KEY",
+  // Without this the advertised "swap the model with an env var" is only half
+  // true: env.ts reads it, but nothing in prod could supply it.
+  "OPENAI_MODEL",
 ]);
 
 export async function hydrateSecrets(): Promise<string[]> {
