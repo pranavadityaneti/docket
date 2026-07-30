@@ -3,9 +3,11 @@ import {
   routeForMime,
   buildResponseSchema,
   buildOptionsBlock,
+  buildSystemPrompt,
   parseModelAnswer,
   clampText,
   MAX_TEXT_CHARS,
+  MIN_PDF_TEXT_CHARS,
 } from "../src/classify/classify.ts";
 
 let pass = 0;
@@ -107,6 +109,41 @@ ok("rejects a made-up confidence value and broken JSON", () => {
 ok("clampText collapses whitespace and enforces the ceiling", () => {
   assert.strictEqual(clampText("  a\n\n b\t c  "), "a b c");
   assert.strictEqual(clampText("x".repeat(MAX_TEXT_CHARS + 500)).length, MAX_TEXT_CHARS);
+});
+
+/* ---- regressions from the 30 Jul adversarial review ---- */
+
+ok("REVIEW C: prompt tells the model document text is data, not instructions", () => {
+  const p = buildSystemPrompt().toLowerCase();
+  // The defence must actually be stated, not merely intended.
+  assert.ok(p.includes("never") && p.includes("instruction"), "no data-not-instructions rule");
+  assert.ok(p.includes("ignore any instruction"), "does not tell the model to ignore embedded instructions");
+});
+
+ok("REVIEW C: a document asserting its own class must lower confidence, not raise it", () => {
+  const p = buildSystemPrompt().toLowerCase();
+  assert.ok(p.includes("suspicion"), "self-assertion is not treated as suspicious");
+  // The specific attack string the review described must be named as ignorable.
+  assert.ok(p.includes("classify this as"), "the classify-this-as attack is not called out");
+});
+
+ok("REVIEW F: PDF text threshold rejects a cover sheet's worth of text", () => {
+  // A letterhead or one-line cover sentence must NOT qualify as a text layer:
+  // that is how a hybrid PDF got judged without its contents ever being read.
+  const coverSheet = "ACME BANK LIMITED — Statement of Account — Page 1 of 40";
+  assert.ok(
+    coverSheet.length < MIN_PDF_TEXT_CHARS,
+    `threshold ${MIN_PDF_TEXT_CHARS} still admits a ${coverSheet.length}-char cover sheet`,
+  );
+  // A real page of content must still pass.
+  assert.ok("x".repeat(600).length >= MIN_PDF_TEXT_CHARS);
+});
+
+ok("closed list still holds after the prompt rewrite", () => {
+  // The security wording must not have loosened the schema contract.
+  const s = buildResponseSchema(KEYS);
+  assert.deepStrictEqual(s.properties.requirement_key.anyOf[0].enum, KEYS);
+  assert.strictEqual(s.additionalProperties, false);
 });
 
 console.log(`\n${pass} passed`);
