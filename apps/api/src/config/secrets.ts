@@ -34,6 +34,7 @@ const ALLOWED = new Set([
   "RESEND_FROM_EMAIL",
   "CHANNEL_SECRET_KEY",
   "WHATSAPP_VERIFY_TOKEN",
+  "OPENAI_API_KEY",
 ]);
 
 export async function hydrateSecrets(): Promise<string[]> {
