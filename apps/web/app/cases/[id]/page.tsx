@@ -288,6 +288,24 @@ function DocumentRow({
   );
 }
 
+/**
+ * A refused action must explain itself WHERE THE CLICK HAPPENED. The old
+ * single page-top banner meant that on a long checklist the server's perfectly
+ * good explanation ("already has 1 file") rendered off-screen and the button
+ * read as dead. `id` is the document (or requirement, for uploads) the error
+ * belongs to; null = a page-level failure, which still uses the top banner.
+ */
+type ActionError = { id: string | null; message: string };
+
+function InlineActionError({ error, forId }: { error: ActionError | null; forId: string }) {
+  if (!error || error.id !== forId) return null;
+  return (
+    <div className="w-full rounded-md border border-red-200 bg-red-50 px-2.5 py-1.5 text-xs text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
+      {error.message}
+    </div>
+  );
+}
+
 function ChecklistRow({
   item,
   onUpload,
@@ -295,6 +313,7 @@ function ChecklistRow({
   onRemove,
   busyId,
   uploading,
+  actionError,
 }: {
   item: ApiChecklistItem;
   onUpload: (item: ApiChecklistItem, file: File) => void;
@@ -302,6 +321,7 @@ function ChecklistRow({
   onRemove: (doc: ApiDocument) => void;
   busyId: string | null;
   uploading: string | null;
+  actionError: ActionError | null;
 }) {
   const inputRef = React.useRef<HTMLInputElement>(null);
   const isUploading = uploading === item.requirementId;
@@ -370,16 +390,21 @@ function ChecklistRow({
         </div>
       </div>
 
+      {/* An upload refused for this item (e.g. slot already full) explains
+          itself right here, under the Upload button it belongs to. */}
+      {actionError?.id === item.requirementId ? (
+        <div className="mt-2">
+          <InlineActionError error={actionError} forId={item.requirementId} />
+        </div>
+      ) : null}
+
       {item.documents.length > 0 ? (
         <div className="mt-3 flex flex-col gap-1.5">
           {item.documents.map((d) => (
-            <DocumentRow
-              key={d.id}
-              doc={d}
-              onReview={onReview}
-              onRemove={onRemove}
-              busy={busyId === d.id}
-            />
+            <React.Fragment key={d.id}>
+              <DocumentRow doc={d} onReview={onReview} onRemove={onRemove} busy={busyId === d.id} />
+              <InlineActionError error={actionError} forId={d.id} />
+            </React.Fragment>
           ))}
         </div>
       ) : null}
@@ -535,7 +560,7 @@ export default function CaseDetailPage() {
   const [checklist, setChecklist] = React.useState<ApiChecklist | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
-  const [actionError, setActionError] = React.useState<string | null>(null);
+  const [actionError, setActionError] = React.useState<ActionError | null>(null);
   const [uploading, setUploading] = React.useState<string | null>(null);
   const [busyId, setBusyId] = React.useState<string | null>(null);
   const [rejecting, setRejecting] = React.useState<ApiDocument | null>(null);
@@ -566,7 +591,7 @@ export default function CaseDetailPage() {
       if (e instanceof AuthRequiredError) return;
       const msg = e instanceof Error ? e.message : "Couldn't load this case.";
       setHasData((had) => {
-        if (had) setActionError(msg);
+        if (had) setActionError({ id: null, message: msg });
         else setError(msg);
         return had;
       });
@@ -593,7 +618,7 @@ export default function CaseDetailPage() {
       await refresh();
     } catch (e) {
       if (e instanceof AuthRequiredError) return;
-      setActionError(e instanceof Error ? e.message : "Upload failed. Please try again.");
+      setActionError({ id: item.requirementId, message: e instanceof Error ? e.message : "Upload failed. Please try again." });
     } finally {
       setUploading(null);
     }
@@ -612,7 +637,7 @@ export default function CaseDetailPage() {
       await refresh();
     } catch (e) {
       if (e instanceof AuthRequiredError) return;
-      setActionError(e instanceof Error ? e.message : "Couldn't accept the document.");
+      setActionError({ id: doc.id, message: e instanceof Error ? e.message : "Couldn't accept the document." });
     } finally {
       setBusyId(null);
     }
@@ -629,7 +654,7 @@ export default function CaseDetailPage() {
       await refresh();
     } catch (e) {
       if (e instanceof AuthRequiredError) return;
-      setActionError(e instanceof Error ? e.message : "Couldn't reject the document.");
+      setActionError({ id: doc.id, message: e instanceof Error ? e.message : "Couldn't reject the document." });
     } finally {
       setBusyId(null);
     }
@@ -646,7 +671,7 @@ export default function CaseDetailPage() {
       await refresh();
     } catch (e) {
       if (e instanceof AuthRequiredError) return;
-      setActionError(e instanceof Error ? e.message : "Couldn't remove the document.");
+      setActionError({ id: doc.id, message: e instanceof Error ? e.message : "Couldn't remove the document." });
     } finally {
       setBusyId(null);
     }
@@ -662,7 +687,7 @@ export default function CaseDetailPage() {
       if (e instanceof AuthRequiredError) return;
       // The server's message is the useful one here: "already has N files",
       // "item no longer exists". Showing it beats a generic apology.
-      setActionError(e instanceof Error ? e.message : "Couldn't file the document.");
+      setActionError({ id: documentId, message: e instanceof Error ? e.message : "Couldn't file the document." });
     } finally {
       setBusyId(null);
     }
@@ -676,7 +701,7 @@ export default function CaseDetailPage() {
       await refresh();
     } catch (e) {
       if (e instanceof AuthRequiredError) return;
-      setActionError(e instanceof Error ? e.message : "Couldn't dismiss the suggestion.");
+      setActionError({ id: documentId, message: e instanceof Error ? e.message : "Couldn't dismiss the suggestion." });
     } finally {
       setBusyId(null);
     }
@@ -692,7 +717,7 @@ export default function CaseDetailPage() {
       await refresh();
     } catch (e) {
       if (e instanceof AuthRequiredError) return;
-      setActionError(e instanceof Error ? e.message : "Couldn't reclassify the document.");
+      setActionError({ id: documentId, message: e instanceof Error ? e.message : "Couldn't reclassify the document." });
     } finally {
       setBusyId(null);
     }
@@ -730,7 +755,7 @@ export default function CaseDetailPage() {
       await refresh();
     } catch (e) {
       if (e instanceof AuthRequiredError) return;
-      setActionError(e instanceof Error ? e.message : "Couldn't send the request.");
+      setActionError({ id: null, message: e instanceof Error ? e.message : "Couldn't send the request." });
     } finally {
       setNudging(false);
     }
@@ -745,7 +770,7 @@ export default function CaseDetailPage() {
       await refresh();
     } catch (e) {
       if (e instanceof AuthRequiredError) return;
-      setActionError(e instanceof Error ? e.message : "Couldn't update reminders.");
+      setActionError({ id: null, message: e instanceof Error ? e.message : "Couldn't update reminders." });
     } finally {
       setPausing(false);
     }
@@ -873,9 +898,9 @@ export default function CaseDetailPage() {
 
       <ProgressCard summary={checklist.summary} subjectLabel={subject} />
 
-      {actionError ? (
+      {actionError && actionError.id === null ? (
         <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
-          {actionError}
+          {actionError.message}
         </div>
       ) : null}
 
@@ -915,6 +940,7 @@ export default function CaseDetailPage() {
               onRemove={setRemoving}
               busyId={busyId}
               uploading={uploading}
+              actionError={actionError}
             />
           ))
         )}
@@ -1010,6 +1036,7 @@ export default function CaseDetailPage() {
                     ) : null}
                   </>
                 )}
+                <InlineActionError error={actionError} forId={d.id} />
               </div>
             ))}
           </div>
