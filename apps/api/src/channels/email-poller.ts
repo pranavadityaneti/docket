@@ -2,7 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import { ImapFlow, type FetchMessageObject } from "imapflow";
 import { simpleParser } from "mailparser";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, isNull } from "drizzle-orm";
 import {
   cases,
   channels,
@@ -50,8 +50,37 @@ export class EmailPollerService {
     private readonly classify: ClassifyApplier,
   ) {}
 
+  /**
+   * Channels currently being polled, by id.
+   *
+   * The overlap guard belongs HERE, not in the cron: the cron protected itself
+   * with its own flag, but the manual "poll now" endpoint called straight into
+   * this method and bypassed it. Two concurrent polls of one mailbox both read
+   * the same cursor, both fetch the same UID, and both ingest — which is
+   * exactly how nine real documents were duplicated on a live case. Guarding
+   * the operation instead of one of its callers means a future caller cannot
+   * reintroduce it.
+   *
+   * In-process, so it covers the single instance this runs on today; the
+   * checksum check in ingestMessage is what holds if that ever changes.
+   */
+  private readonly inFlight = new Set<string>();
+
   /** Poll one email channel. Never throws — failures are returned and recorded. */
   async pollChannel(channel: ChannelRow): Promise<PollResult> {
+    if (this.inFlight.has(channel.id)) {
+      this.log.log(`Channel ${channel.id}: poll already in progress — skipped`);
+      return { fetched: 0, imported: 0, unmatched: 0 };
+    }
+    this.inFlight.add(channel.id);
+    try {
+      return await this.pollChannelLocked(channel);
+    } finally {
+      this.inFlight.delete(channel.id);
+    }
+  }
+
+  private async pollChannelLocked(channel: ChannelRow): Promise<PollResult> {
     if (!env.channelSecretKey) {
       return this.fail(channel, "CHANNEL_SECRET_KEY is not configured");
     }
@@ -212,6 +241,33 @@ export class EmailPollerService {
           continue;
         }
         const fileName = att.filename ?? `attachment-${message.uid}`;
+
+        // Same bytes already on this case? Skip. The WhatsApp path has always
+        // deduped this way; the email path did not, and it showed: a manual
+        // poll overlapping the cron ingested one message twice, putting nine
+        // duplicate documents on a real case and paying to classify each one
+        // twice. The per-channel lock below prevents that overlap, but this is
+        // the check that holds regardless of HOW a message is seen twice —
+        // a second instance, a replayed cursor, a forwarded copy.
+        const checksum = createHash("sha256").update(att.content).digest("hex");
+        const [dupe] = await tx
+          .select({ id: documents.id })
+          .from(documents)
+          .where(
+            and(
+              eq(documents.caseId, caseId),
+              eq(documents.checksum, checksum),
+              isNull(documents.deletedAt),
+            ),
+          )
+          .limit(1);
+        if (dupe) {
+          this.log.log(
+            `Channel ${channel.id}: ${fileName} already on case ${caseId} — skipped as duplicate`,
+          );
+          continue;
+        }
+
         const [doc] = await tx
           .insert(documents)
           .values({

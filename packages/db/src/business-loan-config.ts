@@ -72,23 +72,23 @@ export const DOCUMENT_REQUIREMENTS: Omit<
   "tenantId" | "workflowId"
 >[] = [
   // ---- identity: the same document forever, so reusable with no expiry ----
-  { key: "applicant_pan", label: "PAN Card", description: "Of the proprietor, partners or directors", required: true, reusable: true, position: 0 },
-  { key: "applicant_aadhaar", label: "Aadhaar", description: "Both sides, clearly legible", required: true, reusable: true, position: 1 },
-  { key: "photograph", label: "Passport photograph", required: true, reusable: true, validityDays: 1095, position: 2 },
+  { key: "applicant_pan", label: "PAN Card", description: "The PAN card itself, for the proprietor, partners or directors. NOT a tax return, Form 26AS, annual tax statement or any other document that merely quotes a PAN number.", required: true, reusable: true, position: 0 },
+  { key: "applicant_aadhaar", label: "Aadhaar", description: "The Aadhaar card issued by UIDAI, both sides, clearly legible. File an Aadhaar here even though it also shows an address — it is not the residence address proof.", required: true, reusable: true, position: 1 },
+  { key: "photograph", label: "Passport photograph", description: "A standalone passport-size headshot of the applicant, on a plain background. NOT a passport, and NOT a form, bank record or other document that happens to contain a photograph.", required: true, reusable: true, validityDays: 1095, position: 2 },
 
   // ---- address: stable, but re-verified yearly ----
-  { key: "residence_address_proof", label: "Residence address proof", description: "Utility bill, rent agreement or passport", required: true, reusable: true, validityDays: 365, position: 3 },
-  { key: "office_address_proof", label: "Office address proof", required: true, reusable: true, validityDays: 365, position: 4 },
+  { key: "residence_address_proof", label: "Residence address proof", description: "Proof of where the applicant LIVES: a utility bill, rent or lease agreement, or passport in their name for their home address. If the document is for business or commercial premises, it belongs to Office address proof instead. Do not file Aadhaar here.", required: true, reusable: true, validityDays: 365, position: 3 },
+  { key: "office_address_proof", label: "Office address proof", description: "Proof of where the BUSINESS operates: a utility bill, rent or lease agreement, or ownership document for the shop, office or commercial premises. If the document is for the applicant's home, it belongs to Residence address proof instead. When a bill or agreement gives no indication whether the address is a home or a business, do not choose between these two with high confidence.", required: true, reusable: true, validityDays: 365, position: 4 },
 
   // ---- the business ----
-  { key: "business_proof", label: "Business proof", description: "Shop Act licence, Udyam registration or equivalent", required: true, reusable: true, validityDays: 365, position: 5 },
-  { key: "gst_certificate", label: "GST certificate", required: false, reusable: true, validityDays: 365, position: 6 },
+  { key: "business_proof", label: "Business proof", description: "Registration proving the business exists: Shop Act licence, Udyam/MSME registration, or trade licence. A GST certificate has its own item — do not file one here.", required: true, reusable: true, validityDays: 365, position: 5 },
+  { key: "gst_certificate", label: "GST certificate", description: "The GST registration certificate (Form GST REG-06) showing the GSTIN. NOT a GST return such as GSTR-3B, which has its own item.", required: false, reusable: true, validityDays: 365, position: 6 },
 
   // ---- financials: reusable ONLY while current ----
-  { key: "itr_computation", label: "ITR + computation", description: "Last 2 assessment years", required: true, reusable: true, validityDays: 365, position: 7 },
-  { key: "audited_financials", label: "Audited financials", description: "Form 3CB/3CD with balance sheet, last 2 years", required: true, reusable: true, validityDays: 365, position: 8 },
-  { key: "bank_statements", label: "Current account statements", description: "Last 12 months, all business accounts", required: true, maxFiles: 12, reusable: true, validityDays: 90, position: 9 },
-  { key: "gstr_3b", label: "GSTR-3B returns", description: "Last 12 months", required: false, maxFiles: 12, reusable: true, validityDays: 90, position: 10 },
+  { key: "itr_computation", label: "ITR + computation", description: "The filed income tax return (ITR-V / acknowledgement) with its computation of income, last 2 assessment years. A Form 26AS or annual tax statement is NOT an ITR.", required: true, reusable: true, validityDays: 365, position: 7 },
+  { key: "audited_financials", label: "Audited financials", description: "The auditor's report and audited statements — Form 3CB/3CD with balance sheet and profit-and-loss, last 2 years. Not the income tax return itself, which has its own item.", required: true, reusable: true, validityDays: 365, position: 8 },
+  { key: "bank_statements", label: "Current account statements", description: "Bank statements for the business current account(s), showing transactions, last 12 months. NOT a passbook photo, cheque, or a savings-scheme record such as PPF.", required: true, maxFiles: 12, reusable: true, validityDays: 90, position: 9 },
+  { key: "gstr_3b", label: "GSTR-3B returns", description: "Filed GSTR-3B monthly return forms, last 12 months. NOT the GST registration certificate, which has its own item.", required: false, maxFiles: 12, reusable: true, validityDays: 90, position: 10 },
 
   // ---- constitution: gated on entity_type, and never reusable across cases ----
   {
