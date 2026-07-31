@@ -485,6 +485,18 @@ export function dismissSuggestion(documentId: string): Promise<{ id: string }> {
   });
 }
 
+/**
+ * Ask the classifier to look at an unfiled document again — the manual
+ * counterpart to the one-shot automatic look. Clears the previous reading and
+ * classifies immediately; the response returns once the new look is done, so
+ * a refresh straight after shows the outcome.
+ */
+export function reclassifyDocument(documentId: string): Promise<{ id: string }> {
+  return apiFetch(`/documents/${encodeURIComponent(documentId)}/reclassify`, {
+    method: "POST",
+  });
+}
+
 type UploadTarget = { url: string; method: string; headers: Record<string, string>; expiresIn: number };
 
 /**

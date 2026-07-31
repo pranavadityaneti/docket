@@ -1,8 +1,21 @@
-import { Inject, Injectable, Logger, Module } from "@nestjs/common";
+import {
+  Controller,
+  Inject,
+  Injectable,
+  Logger,
+  Module,
+  NotFoundException,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  UseGuards,
+} from "@nestjs/common";
 import OpenAI from "openai";
-import { and, asc, eq, isNotNull, isNull } from "drizzle-orm";
+import { Throttle, ThrottlerGuard } from "@nestjs/throttler";
+import { and, asc, eq, isNotNull, isNull, ne } from "drizzle-orm";
 import { cases, documentRequirements, documents } from "@docket/db";
 import { DbService } from "../db/db";
+import { CurrentUser, JwtAuthGuard, type AuthUser } from "../auth/auth";
 import { DocumentsModule, DocumentsService, requirementApplies } from "../documents/documents";
 import { STORAGE, StorageModule, type StorageDriver } from "../storage/storage";
 import { env } from "../config/env";
@@ -24,9 +37,10 @@ import { env } from "../config/env";
  *                   OCR, especially on skewed bilingual phone photos);
  *   native PDF   -> the embedded text layer is extracted locally — free, exact,
  *                   and the document image itself never leaves the box;
- *   scanned PDF  -> not classified in this tier (no text layer, needs real
- *                   OCR); deliberately left for the Textract follow-up rather
- *                   than half-done here.
+ *   scanned PDF  -> its first pages are rasterised to PNG (unpdf +
+ *                   @napi-rs/canvas) and read by the vision route like any
+ *                   photo; a PDF that cannot be rendered is refused, not
+ *                   guessed at.
  *
  * Fail-soft everywhere: no key configured, an API error, an unsupported type,
  * an oversized file — every one returns a non-answer and the document stays
@@ -88,6 +102,31 @@ export const MIN_PDF_TEXT_CHARS = 250;
  * covers back sides and wasted cover pages. More pages add cost, not signal.
  */
 export const MAX_RASTER_PAGES = 2;
+
+/**
+ * Hard ceiling on rendered pixels per page (16MP ≈ 4000×4000).
+ *
+ * The canvas allocates width×height×4 bytes, and the page SIZE comes from the
+ * document — a 450-byte PDF declaring an 8000pt MediaBox measured 138MB→1.2GB
+ * of process RSS at a fixed scale 2, which on the production instance is not
+ * a slow render but an OOM kill. The input-size cap cannot catch this: the
+ * bomb is in a declared dimension, not in the bytes. So the scale ADAPTS —
+ * normal pages (A4 at scale 2 ≈ 8MP) are untouched, oversized pages render
+ * smaller instead of bigger, and memory is bounded at ~64MB per page
+ * regardless of what the document claims about itself.
+ */
+export const MAX_RASTER_PIXELS = 16_000_000;
+
+/** Preferred render scale (≈150dpi for A4) — reduced per page when the page is huge. */
+const RASTER_SCALE = 2;
+
+/** Scale that keeps width×height inside the pixel budget. Pure. */
+export function rasterScaleFor(width: number, height: number): number {
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+    return RASTER_SCALE;
+  }
+  return Math.min(RASTER_SCALE, Math.sqrt(MAX_RASTER_PIXELS / (width * height)));
+}
 
 export type InputRoute =
   | { route: "vision" }
@@ -394,20 +433,30 @@ export class ClassifyService {
       const images: Buffer[] = [];
       let total = 0;
       for (let pageNumber = 1; pageNumber <= pageCount; pageNumber++) {
-        const png = await renderPageAsImage(new Uint8Array(bytes), pageNumber, {
-          // unpdf's own resolver cannot see our node_modules from inside its
-          // bundle; hand it the canvas module explicitly.
-          canvasImport: () => import("@napi-rs/canvas"),
-          // Scale 2 ≈ 150dpi for an A4 scan: enough to read card text under
-          // detail:"high" without ballooning the upload.
-          scale: 2,
-        });
-        const buf = Buffer.from(new Uint8Array(png));
-        total += buf.length;
-        // The same ceiling the original file was admitted under; a render
-        // that balloons past it is refused, not sent.
-        if (total > MAX_CLASSIFY_BYTES) return null;
-        images.push(buf);
+        // Per-page try/catch: one unrenderable page must not throw away a
+        // readable one — a 2-page scan with a corrupt back side still has an
+        // identifiable front. Refusal happens only when NOTHING rendered.
+        try {
+          // The page dictates its own size, so the scale is derived from it
+          // (see MAX_RASTER_PIXELS) — never trust a document's claim about
+          // its dimensions with a memory allocation.
+          const page = await pdf.getPage(pageNumber);
+          const { width, height } = page.getViewport({ scale: 1 });
+          const png = await renderPageAsImage(new Uint8Array(bytes), pageNumber, {
+            // unpdf's own resolver cannot see our node_modules from inside its
+            // bundle; hand it the canvas module explicitly.
+            canvasImport: () => import("@napi-rs/canvas"),
+            scale: rasterScaleFor(width, height),
+          });
+          const buf = Buffer.from(new Uint8Array(png));
+          total += buf.length;
+          // The same ceiling the original file was admitted under; renders
+          // past it are dropped, not sent.
+          if (total > MAX_CLASSIFY_BYTES) break;
+          images.push(buf);
+        } catch (e) {
+          this.log.warn(`PDF page ${pageNumber} rasterisation failed: ${msg(e)}`);
+        }
       }
       return images.length > 0 ? images : null;
     } catch (e) {
@@ -534,10 +583,15 @@ export class ClassifyApplier {
       : null;
 
     await this.db.withTenant(tenantId, async (tx) => {
-      // Re-check under a lock: a human may have placed or deleted the document
-      // while the model was thinking. Their action wins, always.
+      // Re-check under a lock: a human may have placed, deleted or REJECTED
+      // the document while the model was thinking. Their action wins, always.
       const [fresh] = await tx
-        .select({ id: documents.id, requirementId: documents.requirementId, deletedAt: documents.deletedAt })
+        .select({
+          id: documents.id,
+          requirementId: documents.requirementId,
+          deletedAt: documents.deletedAt,
+          status: documents.status,
+        })
         .from(documents)
         .where(eq(documents.id, documentId))
         .for("update")
@@ -549,6 +603,15 @@ export class ClassifyApplier {
         classifiedType: result.documentType,
         classificationConfidence: result.confidence,
       };
+
+      if (fresh.status === "rejected") {
+        // Staff have marked this file unusable. Filing it — or even proposing
+        // it — would put a human verdict up for re-litigation by a machine.
+        // Keep only the reading: "what this is" stays useful evidence.
+        await tx.update(documents).set(stamp).where(eq(documents.id, documentId));
+        this.log.log(`${ctx.doc.fileName}: rejected by staff — reading recorded, not filed`);
+        return;
+      }
 
       if (matched && result.confidence === "high") {
         // File it — unless the slot is already full, where the honest move is
@@ -616,6 +679,86 @@ export class ClassifyApplier {
       this.log.error(`Case classification sweep failed: ${msg(e)}`);
     }
   }
+
+  /**
+   * The manual second look — the counterpart the permanent claim was designed
+   * around (see run()): automatic retry is the unbounded loop, so the ONLY way
+   * a document gets back in front of the model is a person asking.
+   *
+   * One guarded UPDATE clears the claim and the previous reading together
+   * (suggestion, type, confidence) so a stale answer can't outlive the request
+   * for a fresh one. The guards mirror the claim's: unfiled, not deleted,
+   * bytes present. A filed document is NOT eligible — unfile it first; a
+   * placement, human or auto, is never silently re-litigated.
+   *
+   * Classification then runs IMMEDIATELY rather than being left for "the next
+   * sweep" — there is no periodic sweep; classification is arrival-driven, and
+   * the whole point of the button is "look again now". The await also means
+   * the caller's refresh sees the outcome in the common case.
+   *
+   * Known, accepted race: if a first-look classification is in flight when
+   * this clears the claim, both results land — writes are serialised under
+   * row locks and a human placement still wins, so the cost is one redundant
+   * model call in a seconds-wide window reachable only by a deliberate click.
+   */
+  async reclassify(tenantId: string, documentId: string): Promise<{ id: string }> {
+    const [doc] = await this.db.withTenant(tenantId, (tx) =>
+      tx
+        .update(documents)
+        .set({
+          classifiedAt: null,
+          suggestedRequirementId: null,
+          classifiedType: null,
+          classificationConfidence: null,
+        })
+        .where(
+          and(
+            eq(documents.id, documentId),
+            isNull(documents.requirementId),
+            isNull(documents.deletedAt),
+            isNotNull(documents.storageKey),
+            // A rejected document is a closed human verdict: a second look
+            // could only re-file something staff already ruled out. (The
+            // stamp phase enforces the same rule for looks already in
+            // flight — see run().)
+            ne(documents.status, "rejected"),
+          ),
+        )
+        .returning({ id: documents.id }),
+    );
+    if (!doc) {
+      throw new NotFoundException(
+        "Document not found, already filed against a checklist item, rejected, or has no stored file",
+      );
+    }
+    // process() never throws — an OpenAI failure leaves the document exactly
+    // where a failed first look leaves it: unfiled, visible, reclassifiable.
+    await this.process(tenantId, documentId);
+    return { id: doc.id };
+  }
+}
+
+/**
+ * The one HTTP surface of this module. Lives here rather than in documents.ts
+ * because classification is this module's feature and DocumentsModule is
+ * already imported by ClassifyModule — the reverse import would be a cycle.
+ *
+ * Throttled, unlike the other document actions: this is the only button in
+ * the product where one authenticated click spends real money on an external
+ * API and holds a worker for up to a minute. 10/min is far above any honest
+ * use of a per-document second look, and far below what a stuck retry loop
+ * in a client would generate.
+ */
+@UseGuards(JwtAuthGuard, ThrottlerGuard)
+@Controller()
+export class ClassifyController {
+  constructor(private readonly applier: ClassifyApplier) {}
+
+  @Throttle({ default: { ttl: 60_000, limit: 10 } })
+  @Post("documents/:id/reclassify")
+  reclassify(@CurrentUser() u: AuthUser, @Param("id", ParseUUIDPipe) id: string) {
+    return this.applier.reclassify(u.tenantId, id);
+  }
 }
 
 /**
@@ -641,6 +784,7 @@ function msg(e: unknown): string {
 
 @Module({
   imports: [StorageModule, DocumentsModule],
+  controllers: [ClassifyController],
   providers: [ClassifyService, ClassifyApplier],
   exports: [ClassifyService, ClassifyApplier],
 })

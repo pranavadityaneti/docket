@@ -29,6 +29,7 @@ import {
   getCaseMessages,
   confirmSuggestion,
   dismissSuggestion,
+  reclassifyDocument,
   AuthRequiredError,
   type ApiCaseDetail,
   type ApiChecklist,
@@ -681,6 +682,22 @@ export default function CaseDetailPage() {
     }
   }
 
+  // The await spans the model call itself (typically 5–15s) — the button
+  // shows "Looking…" for the duration and the refresh lands the verdict.
+  async function handleReclassify(documentId: string) {
+    setActionError(null);
+    setBusyId(documentId);
+    try {
+      await reclassifyDocument(documentId);
+      await refresh();
+    } catch (e) {
+      if (e instanceof AuthRequiredError) return;
+      setActionError(e instanceof Error ? e.message : "Couldn't reclassify the document.");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   // Turn a NudgeResult into one plain-English line for the staff notice.
   function describeNudge(r: NudgeResult): string {
     if (r.sent.length === 0) {
@@ -972,7 +989,26 @@ export default function CaseDetailPage() {
                     </Button>
                   </>
                 ) : (
-                  <StatusBadge status={d.status} landed={d.uploaded} />
+                  <>
+                    <StatusBadge status={d.status} landed={d.uploaded} />
+                    {/* The manual second look. Only for files whose bytes have
+                        actually landed — there is nothing to read otherwise —
+                        and only when no suggestion is pending (a pending
+                        proposal has its own two buttons; dismissing it brings
+                        this one back). */}
+                    {d.uploaded ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 gap-1 px-2 text-xs"
+                        disabled={busyId === d.id}
+                        onClick={() => handleReclassify(d.id)}
+                      >
+                        <Icon name="auto_awesome" size={14} />
+                        {busyId === d.id ? "Looking…" : "Reclassify"}
+                      </Button>
+                    ) : null}
+                  </>
                 )}
               </div>
             ))}
