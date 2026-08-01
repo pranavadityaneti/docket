@@ -402,7 +402,7 @@ export class EmailPollerService {
       const [c] = await tx
         .select({ id: cases.id })
         .from(cases)
-        .where(eq(cases.reference, ref))
+        .where(and(eq(cases.reference, ref), isNull(cases.deletedAt)))
         .limit(1);
       if (c) return c.id;
     }
@@ -413,7 +413,13 @@ export class EmailPollerService {
         .select({ id: cases.id })
         .from(cases)
         .innerJoin(contacts, eq(cases.contactId, contacts.id))
-        .where(eq(contacts.email, fromEmail))
+        .where(
+          and(
+            eq(contacts.email, fromEmail),
+            isNull(cases.deletedAt),
+            isNull(contacts.deletedAt),
+          ),
+        )
         .orderBy(desc(cases.createdAt))
         .limit(1);
       if (c) return c.id;

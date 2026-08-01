@@ -13,7 +13,7 @@ import {
   UseGuards,
 } from "@nestjs/common";
 import { IsOptional, IsString, IsUUID, MaxLength } from "class-validator";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, isNull } from "drizzle-orm";
 import { cases, documentRequirements, documents, unmatchedDocuments } from "@docket/db";
 import { DbService } from "../db/db";
 import { CurrentUser, JwtAuthGuard, type AuthUser } from "../auth/auth";
@@ -103,7 +103,7 @@ export class UnmatchedService {
       const [target] = await tx
         .select({ id: cases.id, workflowId: cases.workflowId })
         .from(cases)
-        .where(eq(cases.id, input.caseId))
+        .where(and(eq(cases.id, input.caseId), isNull(cases.deletedAt)))
         .limit(1);
       if (!target) throw new NotFoundException("Case not found");
 

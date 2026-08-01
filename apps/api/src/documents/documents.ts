@@ -218,7 +218,7 @@ export class DocumentsService {
       const [row] = await tx
         .select({ id: cases.id, workflowId: cases.workflowId, data: cases.data })
         .from(cases)
-        .where(eq(cases.id, caseId))
+        .where(and(eq(cases.id, caseId), isNull(cases.deletedAt)))
         .limit(1);
       if (!row) throw new NotFoundException("Case not found");
 
@@ -387,7 +387,7 @@ export class DocumentsService {
       const [row] = await tx
         .select({ id: cases.id, workflowId: cases.workflowId })
         .from(cases)
-        .where(eq(cases.id, caseId))
+        .where(and(eq(cases.id, caseId), isNull(cases.deletedAt)))
         .limit(1);
       if (!row) throw new NotFoundException("Case not found");
 
@@ -567,7 +567,7 @@ export class DocumentsService {
       const [row] = await tx
         .select({ workflowId: cases.workflowId })
         .from(cases)
-        .where(eq(cases.id, doc.caseId))
+        .where(and(eq(cases.id, doc.caseId), isNull(cases.deletedAt)))
         .limit(1);
       if (!row) throw new NotFoundException("Case not found");
       const [req] = await tx

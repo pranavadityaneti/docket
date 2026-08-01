@@ -90,7 +90,14 @@ export type ChannelKind = (typeof CHANNEL_KINDS)[number];
 export const MESSAGE_KINDS = ["initial", "reminder", "manual"] as const;
 export type MessageKind = (typeof MESSAGE_KINDS)[number];
 
-export const CASE_EVENT_KINDS = ["comment", "stage_changed", "document_reviewed", "details_changed"] as const;
+export const CASE_EVENT_KINDS = [
+  "comment",
+  "stage_changed",
+  "document_reviewed",
+  "details_changed",
+  "deleted",
+  "restored",
+] as const;
 export type CaseEventKind = (typeof CASE_EVENT_KINDS)[number];
 
 /** One item Docket is (still) asking a subject for, captured on each message. */
@@ -300,6 +307,9 @@ export const contacts = pgTable(
     email: text("email"),
     phone: text("phone"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    /** Soft delete — see migration 0019 on why this is not a DELETE. */
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    deletedBy: uuid("deleted_by").references(() => users.id, { onDelete: "set null" }),
   },
   (t) => [
     index("contacts_tenant_idx").on(t.tenantId),
@@ -340,6 +350,13 @@ export const cases = pgTable(
     nudgesPausedAt: timestamp("nudges_paused_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    /**
+     * Soft delete. Every case artifact cascades from this row, so a real
+     * DELETE would take the borrower's documents and the audit trail with it
+     * — including the record of the deletion. See migration 0019.
+     */
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    deletedBy: uuid("deleted_by").references(() => users.id, { onDelete: "set null" }),
   },
   (t) => [
     index("cases_tenant_idx").on(t.tenantId),

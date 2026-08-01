@@ -14,7 +14,7 @@ import {
   Req,
 } from "@nestjs/common";
 import type { Request } from "express";
-import { and, desc, eq, isNotNull, sql } from "drizzle-orm";
+import { and, desc, eq, isNotNull, isNull, sql } from "drizzle-orm";
 import {
   cases,
   channels,
@@ -417,7 +417,7 @@ export class WhatsappService {
       const [c] = await tx
         .select({ id: cases.id })
         .from(cases)
-        .where(eq(cases.reference, ref))
+        .where(and(eq(cases.reference, ref), isNull(cases.deletedAt)))
         .limit(1);
       if (c) return c.id;
     }
@@ -435,6 +435,8 @@ export class WhatsappService {
         .where(
           and(
             isNotNull(contacts.phone),
+            isNull(cases.deletedAt),
+            isNull(contacts.deletedAt),
             sql`right(regexp_replace(${contacts.phone}, '\\D', '', 'g'), 10) = ${last10}`,
           ),
         )

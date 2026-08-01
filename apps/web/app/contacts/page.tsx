@@ -15,7 +15,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { listContacts, AuthRequiredError, type ApiContact } from "@/lib/api";
+import {
+  listContacts,
+  previewDeleteContacts,
+  deleteContacts,
+  AuthRequiredError,
+  type ApiContact,
+} from "@/lib/api";
+import { DeleteDialog, type DeleteLine } from "@/components/delete-dialog";
 import {
   SelectCheckbox,
   SelectionBar,
@@ -103,6 +110,56 @@ export default function ContactsPage() {
     downloadCsv(csvFilename("contacts"), toCsv(list, csvColumns));
   }
 
+  /* ------------------------------- delete ------------------------------- */
+  const [deleteOpen, setDeleteOpen] = React.useState(false);
+  const [deleteLines, setDeleteLines] = React.useState<DeleteLine[]>([]);
+  const [previewing, setPreviewing] = React.useState(false);
+
+  /**
+   * Ask the server what these contacts hold BEFORE showing the confirmation:
+   * the case counts decide which are refusable, and guessing them client-side
+   * would mean a dialog that promises something the API then declines.
+   */
+  async function openDelete() {
+    const ids = filtered.filter((c) => sel.isSelected(c.id)).map((c) => c.id);
+    if (ids.length === 0) return;
+    setDeleteLines([]);
+    setPreviewing(true);
+    setDeleteOpen(true);
+    try {
+      const preview = await previewDeleteContacts(ids);
+      setDeleteLines(
+        preview.map((p) => ({
+          id: p.id,
+          label: p.name,
+          detail: p.caseCount === 0 ? "no cases" : undefined,
+          blocked:
+            p.caseCount > 0
+              ? `Still has ${p.caseCount} case${p.caseCount === 1 ? "" : "s"} — delete or reassign those first`
+              : undefined,
+        })),
+      );
+    } catch (e) {
+      if (e instanceof AuthRequiredError) return;
+      setError(e instanceof Error ? e.message : "Couldn't check those contacts.");
+      setDeleteOpen(false);
+    } finally {
+      setPreviewing(false);
+    }
+  }
+
+  async function confirmDelete() {
+    const ids = deleteLines.filter((l) => !l.blocked).map((l) => l.id);
+    const result = await deleteContacts(ids);
+    sel.clear();
+    await load();
+    if (result.refused.length > 0) {
+      setError(
+        `${result.deleted.length} deleted. ${result.refused.length} refused: ${result.refused[0].reason}`,
+      );
+    }
+  }
+
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -165,6 +222,14 @@ export default function ContactsPage() {
             onClick={() => exportCsv(filtered.filter((c) => sel.isSelected(c.id)))}
           >
             <Icon name="download" size={14} /> Download CSV
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 gap-1.5 text-red-600 hover:text-red-700 dark:text-red-400"
+            onClick={() => void openDelete()}
+          >
+            <Icon name="delete" size={14} /> Delete
           </Button>
         </SelectionBar>
 
@@ -253,6 +318,22 @@ export default function ContactsPage() {
           </div>
         )}
       </Card>
+
+      <DeleteDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        title={`Delete ${deleteLines.length === 1 ? "contact" : "contacts"}?`}
+        loading={previewing}
+        lines={deleteLines}
+        consequences={
+          <>
+            The contact is hidden from every list. Their past cases and documents are{" "}
+            <strong>not</strong> deleted, and nothing they have already sent is lost — but any
+            future email or WhatsApp from them will no longer be matched to them automatically.
+          </>
+        }
+        onConfirm={confirmDelete}
+      />
     </div>
   );
 }

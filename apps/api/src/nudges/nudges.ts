@@ -79,7 +79,7 @@ export class NudgeService {
       const [lock] = await tx
         .select({ id: cases.id, pausedAt: cases.nudgesPausedAt })
         .from(cases)
-        .where(eq(cases.id, caseId))
+        .where(and(eq(cases.id, caseId), isNull(cases.deletedAt)))
         .for("update")
         .limit(1);
       if (!lock) throw new NotFoundException("Case not found");
@@ -137,7 +137,7 @@ export class NudgeService {
       .from(cases)
       .innerJoin(tenants, eq(cases.tenantId, tenants.id))
       .leftJoin(contacts, eq(cases.contactId, contacts.id))
-      .where(eq(cases.id, caseId))
+      .where(and(eq(cases.id, caseId), isNull(cases.deletedAt)))
       .limit(1);
     return row ?? null;
   }
@@ -254,6 +254,10 @@ export class NudgeService {
         .where(
           and(
             isNull(cases.nudgesPausedAt),
+            // A deleted case must never be chased — the borrower would get a
+            // reminder for an application nobody can open.
+            isNull(cases.deletedAt),
+            isNull(contacts.deletedAt),
             sql`(${contacts.email} is not null or ${contacts.phone} is not null)`,
           ),
         );

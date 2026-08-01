@@ -230,6 +230,50 @@ export function listContacts(): Promise<ApiContact[]> {
   return apiFetch<ApiContact[]>("/contacts");
 }
 
+/* ------------------------------ delete ------------------------------ */
+
+/** Per-id outcome: deleting fifty and hearing "one failed" helps nobody. */
+export type BulkDeleteResult = {
+  deleted: string[];
+  refused: { id: string; reason: string }[];
+};
+
+/** What deleting these cases would affect — for the confirmation, before it happens. */
+export type CaseDeletePreview = {
+  cases: { id: string; reference: string; subjectName: string | null; documentCount: number }[];
+  documentCount: number;
+};
+
+export function previewDeleteCases(ids: string[]): Promise<CaseDeletePreview> {
+  return apiFetch<CaseDeletePreview>("/cases/delete-preview", {
+    method: "POST",
+    body: JSON.stringify({ ids }),
+  });
+}
+
+export function deleteCases(ids: string[]): Promise<BulkDeleteResult> {
+  return apiFetch<BulkDeleteResult>("/cases/delete", {
+    method: "POST",
+    body: JSON.stringify({ ids }),
+  });
+}
+
+export type ContactDeletePreview = { id: string; name: string; caseCount: number }[];
+
+export function previewDeleteContacts(ids: string[]): Promise<ContactDeletePreview> {
+  return apiFetch<ContactDeletePreview>("/contacts/delete-preview", {
+    method: "POST",
+    body: JSON.stringify({ ids }),
+  });
+}
+
+export function deleteContacts(ids: string[]): Promise<BulkDeleteResult> {
+  return apiFetch<BulkDeleteResult>("/contacts/delete", {
+    method: "POST",
+    body: JSON.stringify({ ids }),
+  });
+}
+
 /* ------------------------------ cross-case activity ------------------------------ */
 
 /** One case's most recent message, for the workspace-wide inbox. */

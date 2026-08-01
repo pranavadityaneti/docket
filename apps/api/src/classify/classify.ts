@@ -549,7 +549,7 @@ export class ClassifyApplier {
       const [c] = await tx
         .select({ id: cases.id, workflowId: cases.workflowId, data: cases.data })
         .from(cases)
-        .where(eq(cases.id, doc.caseId))
+        .where(and(eq(cases.id, doc.caseId), isNull(cases.deletedAt)))
         .limit(1);
       if (!c) return null;
 

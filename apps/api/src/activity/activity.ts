@@ -108,7 +108,8 @@ export class ActivityService {
             subjectOrganisation: contacts.organisation,
           })
           .from(cases)
-          .leftJoin(contacts, eq(cases.contactId, contacts.id)),
+          .leftJoin(contacts, eq(cases.contactId, contacts.id))
+          .where(isNull(cases.deletedAt)),
       ]);
 
       const byCase = new Map<string, ConversationThread>();
@@ -181,7 +182,8 @@ export class ActivityService {
           .from(cases)
           .innerJoin(workflows, eq(cases.workflowId, workflows.id))
           .leftJoin(contacts, eq(cases.contactId, contacts.id))
-          .leftJoin(workflowStages, eq(cases.stageId, workflowStages.id)),
+          .leftJoin(workflowStages, eq(cases.stageId, workflowStages.id))
+          .where(isNull(cases.deletedAt)),
         tx.select().from(documentRequirements),
         tx
           .select()

@@ -73,6 +73,7 @@ export class OverviewService {
         .from(cases)
         .leftJoin(contacts, eq(cases.contactId, contacts.id))
         .leftJoin(workflowStages, eq(cases.stageId, workflowStages.id))
+        .where(isNull(cases.deletedAt))
         .orderBy(desc(cases.updatedAt));
 
       const reqs = await tx

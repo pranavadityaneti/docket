@@ -15,6 +15,8 @@ import {
   UseGuards,
 } from "@nestjs/common";
 import {
+  ArrayMaxSize,
+  IsArray,
   IsEmail,
   IsIn,
   IsObject,
@@ -24,12 +26,13 @@ import {
   MaxLength,
   MinLength,
 } from "class-validator";
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import {
   caseEvents,
   caseMessages,
   cases,
   conversationMessages,
+  documents,
   contacts,
   documentRequirements,
   generateCaseReference,
@@ -161,6 +164,13 @@ export class UpdateStageDto {
   stageId!: string;
 }
 
+export class BulkIdsDto {
+  @IsArray()
+  @ArrayMaxSize(200)
+  @IsUUID("4", { each: true })
+  ids!: string[];
+}
+
 export class AddCommentDto {
   @IsString()
   @MinLength(1)
@@ -222,7 +232,7 @@ export class CasesService {
         .from(cases)
         .leftJoin(contacts, eq(cases.contactId, contacts.id))
         .leftJoin(workflowStages, eq(cases.stageId, workflowStages.id))
-        .where(eq(cases.workflowId, wf.id))
+        .where(and(eq(cases.workflowId, wf.id), isNull(cases.deletedAt)))
         .orderBy(desc(cases.createdAt));
     });
   }
@@ -263,7 +273,7 @@ export class CasesService {
         .innerJoin(workflows, eq(cases.workflowId, workflows.id))
         .leftJoin(contacts, eq(cases.contactId, contacts.id))
         .leftJoin(workflowStages, eq(cases.stageId, workflowStages.id))
-        .where(eq(cases.id, caseId))
+        .where(and(eq(cases.id, caseId), isNull(cases.deletedAt)))
         .limit(1);
       // RLS already confines this to the tenant, so a miss is genuinely "not
       // here" — there is no path by which this returns another tenant's case.
@@ -368,7 +378,7 @@ export class CasesService {
       const [row] = await tx
         .select({ id: cases.id, contactId: cases.contactId, data: cases.data })
         .from(cases)
-        .where(eq(cases.id, caseId))
+        .where(and(eq(cases.id, caseId), isNull(cases.deletedAt)))
         .limit(1);
       if (!row) throw new NotFoundException("Case not found");
 
@@ -381,7 +391,7 @@ export class CasesService {
         const [contact] = await tx
           .select()
           .from(contacts)
-          .where(eq(contacts.id, row.contactId))
+          .where(and(eq(contacts.id, row.contactId), isNull(contacts.deletedAt)))
           .limit(1);
         if (contact) {
           const next: Partial<typeof contact> = {};
@@ -425,7 +435,7 @@ export class CasesService {
           if (show(current[key]) === show(value)) continue;
           changes.push({ field: key, from: show(current[key]), to: show(value) });
         }
-        await tx.update(cases).set({ data: merged, updatedAt: new Date() }).where(eq(cases.id, caseId));
+        await tx.update(cases).set({ data: merged, updatedAt: new Date() }).where(and(eq(cases.id, caseId), isNull(cases.deletedAt)));
       }
 
       // A no-op edit writes no journal line — an audit trail full of "changed
@@ -441,7 +451,7 @@ export class CasesService {
         });
       }
 
-      const [updated] = await tx.select().from(cases).where(eq(cases.id, caseId)).limit(1);
+      const [updated] = await tx.select().from(cases).where(and(eq(cases.id, caseId), isNull(cases.deletedAt))).limit(1);
       return updated;
     });
   }
@@ -454,7 +464,7 @@ export class CasesService {
       const [row] = await tx
         .select({ id: cases.id, workflowId: cases.workflowId, stageId: cases.stageId })
         .from(cases)
-        .where(eq(cases.id, caseId))
+        .where(and(eq(cases.id, caseId), isNull(cases.deletedAt)))
         .limit(1);
       if (!row) throw new NotFoundException("Case not found");
 
@@ -472,7 +482,7 @@ export class CasesService {
       const [updated] = await tx
         .update(cases)
         .set({ stageId, updatedAt: new Date() })
-        .where(eq(cases.id, caseId))
+        .where(and(eq(cases.id, caseId), isNull(cases.deletedAt)))
         .returning();
 
       // The journal line — written in the SAME transaction as the move, so
@@ -505,7 +515,7 @@ export class CasesService {
       const [row] = await tx
         .select({ id: cases.id })
         .from(cases)
-        .where(eq(cases.id, caseId))
+        .where(and(eq(cases.id, caseId), isNull(cases.deletedAt)))
         .limit(1);
       if (!row) throw new NotFoundException("Case not found");
       return tx
@@ -527,7 +537,7 @@ export class CasesService {
       const [row] = await tx
         .select({ id: cases.id })
         .from(cases)
-        .where(eq(cases.id, caseId))
+        .where(and(eq(cases.id, caseId), isNull(cases.deletedAt)))
         .limit(1);
       if (!row) throw new NotFoundException("Case not found");
 
@@ -579,7 +589,7 @@ export class CasesService {
       const [row] = await tx
         .select({ id: cases.id, workflowId: cases.workflowId })
         .from(cases)
-        .where(eq(cases.id, caseId))
+        .where(and(eq(cases.id, caseId), isNull(cases.deletedAt)))
         .limit(1);
       if (!row) throw new NotFoundException("Case not found");
 
@@ -611,6 +621,100 @@ export class CasesService {
         })
         .returning();
       return created;
+    });
+  }
+
+  /**
+   * Soft-delete cases. Returns what happened per id rather than throwing on
+   * the first problem: deleting fifty and being told only that "one failed"
+   * is not an answer anybody can act on.
+   *
+   * Never a DELETE. Documents, messages and the journal all cascade from the
+   * case row, so removing it would destroy the borrower's KYC files and the
+   * audit trail at once — including the record of this very deletion.
+   */
+  async deleteMany(tenantId: string, userId: string, ids: string[]) {
+    const authorName = await this.authorName(userId);
+    return this.db.withTenant(tenantId, async (tx) => {
+      const deleted: string[] = [];
+      const refused: { id: string; reason: string }[] = [];
+      const now = new Date();
+
+      for (const id of ids) {
+        // The UPDATE is both the eligibility test and the write: a case
+        // already deleted (or another tenant's, invisible under RLS) simply
+        // matches nothing, so a double-click cannot delete twice.
+        const [row] = await tx
+          .update(cases)
+          .set({ deletedAt: now, deletedBy: userId })
+          .where(and(eq(cases.id, id), isNull(cases.deletedAt)))
+          .returning({ id: cases.id, reference: cases.reference });
+        if (!row) {
+          refused.push({ id, reason: "Not found, or already deleted" });
+          continue;
+        }
+        await tx.insert(caseEvents).values({
+          tenantId,
+          caseId: id,
+          kind: "deleted",
+          authorId: userId,
+          authorName,
+          data: { reference: row.reference },
+        });
+        deleted.push(id);
+      }
+      return { deleted, refused };
+    });
+  }
+
+  /** Undo a soft delete. The journal keeps both acts. */
+  async restore(tenantId: string, userId: string, caseId: string) {
+    const authorName = await this.authorName(userId);
+    return this.db.withTenant(tenantId, async (tx) => {
+      const [row] = await tx
+        .update(cases)
+        .set({ deletedAt: null, deletedBy: null })
+        .where(eq(cases.id, caseId))
+        .returning({ id: cases.id });
+      if (!row) throw new NotFoundException("Case not found");
+      await tx.insert(caseEvents).values({
+        tenantId,
+        caseId,
+        kind: "restored",
+        authorId: userId,
+        authorName,
+        data: {},
+      });
+      return row;
+    });
+  }
+
+  /**
+   * What deleting these cases would destroy, so the confirmation can say it
+   * in specifics rather than "are you sure?".
+   */
+  deletePreview(tenantId: string, ids: string[]) {
+    return this.db.withTenant(tenantId, async (tx) => {
+      if (ids.length === 0) return { cases: [] as unknown[], documentCount: 0 };
+      const rows = await tx
+        .select({
+          id: cases.id,
+          reference: cases.reference,
+          subjectName: contacts.name,
+          documentCount: sql<number>`count(${documents.id})::int`,
+        })
+        .from(cases)
+        .leftJoin(contacts, eq(cases.contactId, contacts.id))
+        .leftJoin(
+          documents,
+          and(eq(documents.caseId, cases.id), isNull(documents.deletedAt)),
+        )
+        .where(and(inArray(cases.id, ids), isNull(cases.deletedAt)))
+        .groupBy(cases.id, contacts.name);
+      return {
+        cases: rows,
+        documentCount: rows.reduce((n, r) => n + r.documentCount, 0),
+      };
     });
   }
 
@@ -665,6 +769,25 @@ export class CasesController {
     @Body() body: UpdateStageDto,
   ) {
     return this.cases.updateStage(u.tenantId, u.userId, id, body.stageId);
+  }
+
+  /**
+   * POST, not DELETE-with-a-body: bodies on DELETE are poorly supported by
+   * proxies and clients, and this needs a list of ids.
+   */
+  @Post("delete-preview")
+  deletePreview(@CurrentUser() u: AuthUser, @Body() body: BulkIdsDto) {
+    return this.cases.deletePreview(u.tenantId, body.ids);
+  }
+
+  @Post("delete")
+  deleteMany(@CurrentUser() u: AuthUser, @Body() body: BulkIdsDto) {
+    return this.cases.deleteMany(u.tenantId, u.userId, body.ids);
+  }
+
+  @Post(":id/restore")
+  restore(@CurrentUser() u: AuthUser, @Param("id", ParseUUIDPipe) id: string) {
+    return this.cases.restore(u.tenantId, u.userId, id);
   }
 
   @Get(":id/events")

@@ -32,6 +32,7 @@ import {
   useSelection,
   type CsvColumn,
 } from "@/components/bulk-select";
+import { DeleteDialog, type DeleteLine } from "@/components/delete-dialog";
 import {
   Dialog,
   DialogContent,
@@ -43,6 +44,8 @@ import {
 import {
   listCases,
   createCase,
+  previewDeleteCases,
+  deleteCases,
   listStages,
   listWorkflows,
   updateCaseStage,
@@ -609,6 +612,46 @@ function AllCasesView({
     downloadCsv(csvFilename(plural(caseLabel).toLowerCase()), toCsv(rows, csvColumns));
   }
 
+  /* ------------------------------- delete ------------------------------- */
+  const [deleteOpen, setDeleteOpen] = React.useState(false);
+  const [deleteLines, setDeleteLines] = React.useState<DeleteLine[]>([]);
+  const [previewing, setPreviewing] = React.useState(false);
+  const [deleteError, setDeleteError] = React.useState<string | null>(null);
+
+  /** Load the real document counts before confirming — see DeleteDialog. */
+  async function openDelete() {
+    const ids = filtered.filter((l) => sel.isSelected(l.id)).map((l) => l.id);
+    if (ids.length === 0) return;
+    setDeleteLines([]);
+    setPreviewing(true);
+    setDeleteOpen(true);
+    try {
+      const preview = await previewDeleteCases(ids);
+      setDeleteLines(
+        preview.cases.map((c) => ({
+          id: c.id,
+          label: `${c.subjectName ?? "Unnamed"} · ${c.reference}`,
+          detail:
+            c.documentCount === 0
+              ? "no documents"
+              : `${c.documentCount} document${c.documentCount === 1 ? "" : "s"}`,
+        })),
+      );
+    } catch (e) {
+      if (e instanceof AuthRequiredError) return;
+      setDeleteError(e instanceof Error ? e.message : "Couldn't check those cases.");
+      setDeleteOpen(false);
+    } finally {
+      setPreviewing(false);
+    }
+  }
+
+  async function confirmDelete() {
+    await deleteCases(deleteLines.filter((l) => !l.blocked).map((l) => l.id));
+    sel.clear();
+    onRefresh();
+  }
+
   return (
     <Card className="gap-0 overflow-hidden py-0">
       <div className="flex flex-wrap items-center gap-2 border-b p-3">
@@ -644,6 +687,14 @@ function AllCasesView({
           onClick={() => exportCsv(filtered.filter((l) => sel.isSelected(l.id)))}
         >
           <Icon name="download" size={14} /> Download CSV
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-8 gap-1.5 text-red-600 hover:text-red-700 dark:text-red-400"
+          onClick={() => void openDelete()}
+        >
+          <Icon name="delete" size={14} /> Delete
         </Button>
       </SelectionBar>
 
@@ -774,6 +825,30 @@ function AllCasesView({
           <Button variant="outline" size="sm" disabled>Next</Button>
         </div>
       </div>
+
+      <DeleteDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        title={`Delete ${deleteLines.length === 1 ? caseLabel.toLowerCase() : plural(caseLabel).toLowerCase()}?`}
+        loading={previewing}
+        lines={deleteLines}
+        consequences={
+          <>
+            The {deleteLines.length === 1 ? caseLabel.toLowerCase() : plural(caseLabel).toLowerCase()}{" "}
+            and every document on {deleteLines.length === 1 ? "it" : "them"} will be hidden from
+            every screen, and any reply the {subjectLabel.toLowerCase()} sends will no longer be
+            matched. Nothing is destroyed — the files, messages and history are kept, and we can
+            restore {deleteLines.length === 1 ? "it" : "them"} for you.
+          </>
+        }
+        onConfirm={confirmDelete}
+      />
+
+      {deleteError ? (
+        <div className="border-t bg-red-50 px-4 py-2 text-sm text-red-600 dark:bg-red-950 dark:text-red-300">
+          {deleteError}
+        </div>
+      ) : null}
     </Card>
   );
 }

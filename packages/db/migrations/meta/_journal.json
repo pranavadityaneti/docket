@@ -134,6 +134,13 @@
       "when": 1785760000000,
       "tag": "0018_case_event_details_changed",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1785820000000,
+      "tag": "0019_soft_delete_cases_contacts",
+      "breakpoints": true
     }
   ]
 }
