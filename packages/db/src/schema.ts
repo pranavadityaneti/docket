@@ -90,6 +90,9 @@ export type ChannelKind = (typeof CHANNEL_KINDS)[number];
 export const MESSAGE_KINDS = ["initial", "reminder", "manual"] as const;
 export type MessageKind = (typeof MESSAGE_KINDS)[number];
 
+export const CASE_EVENT_KINDS = ["comment", "stage_changed", "document_reviewed"] as const;
+export type CaseEventKind = (typeof CASE_EVENT_KINDS)[number];
+
 /** One item Docket is (still) asking a subject for, captured on each message. */
 export type NudgeSnapshotItem = {
   key: string;
@@ -549,6 +552,45 @@ export const caseMessages = pgTable(
     // The reminder cron and the case screen both read "this case's messages,
     // newest first".
     index("case_messages_case_sent_idx").on(t.caseId, t.sentAt),
+  ],
+);
+
+/**
+ * The case's written journal — notes people leave and things that happened.
+ *
+ * One table serves both because they are the same thing to a reader: "what
+ * went on here, and who did it". `kind` says which; comments carry `body`
+ * (optionally pinned to a checklist item via requirement_id — "special
+ * instructions on THIS document"), events carry a small `data` payload
+ * (stage from/to, review verdicts).
+ *
+ * author_name is denormalised on purpose: the journal is an audit trail, and
+ * "who said this" must survive the author's account being deleted. author_id
+ * stays for joins while the account lives; the name is what history keeps.
+ */
+export const caseEvents = pgTable(
+  "case_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
+    caseId: uuid("case_id").notNull().references(() => cases.id, { onDelete: "cascade" }),
+    /** Set when a comment is pinned to one checklist item. */
+    requirementId: uuid("requirement_id").references(() => documentRequirements.id, {
+      onDelete: "set null",
+    }),
+    kind: text("kind", { enum: CASE_EVENT_KINDS }).notNull(),
+    /** Null for system-written events. */
+    authorId: uuid("author_id").references(() => users.id, { onDelete: "set null" }),
+    authorName: text("author_name"),
+    /** Comment text; null for events. */
+    body: text("body"),
+    data: jsonb("data").$type<Record<string, unknown>>().notNull().default(sql`'{}'::jsonb`),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("case_events_tenant_idx").on(t.tenantId),
+    // The journal is always read "this case, newest first".
+    index("case_events_case_created_idx").on(t.caseId, t.createdAt),
   ],
 );
 

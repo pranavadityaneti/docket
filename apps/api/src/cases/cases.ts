@@ -26,10 +26,13 @@ import {
 } from "class-validator";
 import { and, asc, desc, eq } from "drizzle-orm";
 import {
+  caseEvents,
   cases,
   contacts,
+  documentRequirements,
   generateCaseReference,
   SUBJECT_KINDS,
+  users,
   workflows,
   workflowStages,
   type SubjectKind,
@@ -115,6 +118,18 @@ export class CreateCaseDto {
 export class UpdateStageDto {
   @IsUUID()
   stageId!: string;
+}
+
+export class AddCommentDto {
+  @IsString()
+  @MinLength(1)
+  @MaxLength(2000)
+  body!: string;
+
+  /** Pin the note to one checklist item — "special instructions on THIS document". */
+  @IsOptional()
+  @IsUUID()
+  requirementId?: string;
 }
 
 @Injectable()
@@ -299,12 +314,13 @@ export class CasesService {
       });
   }
 
-  updateStage(tenantId: string, caseId: string, stageId: string) {
+  async updateStage(tenantId: string, userId: string, caseId: string, stageId: string) {
     if (!stageId) throw new BadRequestException("stageId is required");
+    const authorName = await this.authorName(userId);
     return this.db.withTenant(tenantId, async (tx) => {
       // Load the case (RLS-scoped to this tenant) to learn its workflow.
       const [row] = await tx
-        .select({ id: cases.id, workflowId: cases.workflowId })
+        .select({ id: cases.id, workflowId: cases.workflowId, stageId: cases.stageId })
         .from(cases)
         .where(eq(cases.id, caseId))
         .limit(1);
@@ -315,7 +331,7 @@ export class CasesService {
       // stage owned by another tenant is invisible here; the workflowId match
       // additionally blocks cross-workflow stage references within the tenant.
       const [stage] = await tx
-        .select({ id: workflowStages.id })
+        .select({ id: workflowStages.id, name: workflowStages.name })
         .from(workflowStages)
         .where(and(eq(workflowStages.id, stageId), eq(workflowStages.workflowId, row.workflowId)))
         .limit(1);
@@ -326,8 +342,105 @@ export class CasesService {
         .set({ stageId, updatedAt: new Date() })
         .where(eq(cases.id, caseId))
         .returning();
+
+      // The journal line — written in the SAME transaction as the move, so
+      // the two can never disagree. A move to the stage the case is already
+      // in changes nothing and writes nothing.
+      if (row.stageId !== stageId) {
+        const [from] = row.stageId
+          ? await tx
+              .select({ name: workflowStages.name })
+              .from(workflowStages)
+              .where(eq(workflowStages.id, row.stageId))
+              .limit(1)
+          : [undefined];
+        await tx.insert(caseEvents).values({
+          tenantId,
+          caseId,
+          kind: "stage_changed",
+          authorId: userId,
+          authorName,
+          data: { from: from?.name ?? null, to: stage.name },
+        });
+      }
       return updated;
     });
+  }
+
+  /** The case's journal, newest first. 404 mirrors get(): a miss is "not here". */
+  listEvents(tenantId: string, caseId: string) {
+    return this.db.withTenant(tenantId, async (tx) => {
+      const [row] = await tx
+        .select({ id: cases.id })
+        .from(cases)
+        .where(eq(cases.id, caseId))
+        .limit(1);
+      if (!row) throw new NotFoundException("Case not found");
+      return tx
+        .select()
+        .from(caseEvents)
+        .where(eq(caseEvents.caseId, caseId))
+        .orderBy(desc(caseEvents.createdAt));
+    });
+  }
+
+  async addComment(tenantId: string, user: AuthUser, caseId: string, input: AddCommentDto) {
+    const body = input.body.trim();
+    // The DB CHECK would refuse an all-whitespace comment anyway; refusing it
+    // here turns a 500 into an honest 400.
+    if (!body) throw new BadRequestException("A note needs some text");
+    const authorName = await this.authorName(user.userId);
+    return this.db.withTenant(tenantId, async (tx) => {
+      const [row] = await tx
+        .select({ id: cases.id, workflowId: cases.workflowId })
+        .from(cases)
+        .where(eq(cases.id, caseId))
+        .limit(1);
+      if (!row) throw new NotFoundException("Case not found");
+
+      if (input.requirementId) {
+        // The pin must be one of THIS case's checklist items.
+        const [req] = await tx
+          .select({ id: documentRequirements.id })
+          .from(documentRequirements)
+          .where(
+            and(
+              eq(documentRequirements.id, input.requirementId),
+              eq(documentRequirements.workflowId, row.workflowId),
+            ),
+          )
+          .limit(1);
+        if (!req) throw new BadRequestException("That checklist item does not belong to this case");
+      }
+
+      const [created] = await tx
+        .insert(caseEvents)
+        .values({
+          tenantId,
+          caseId,
+          requirementId: input.requirementId ?? null,
+          kind: "comment",
+          authorId: user.userId,
+          authorName,
+          body,
+        })
+        .returning();
+      return created;
+    });
+  }
+
+  /**
+   * The name history keeps. Read via admin — `users` is global, not
+   * tenant-scoped, exactly as auth reads it — and denormalised onto the event
+   * so the journal survives the account being deleted.
+   */
+  private async authorName(userId: string): Promise<string> {
+    const [u] = await this.db.admin
+      .select({ name: users.name })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+    return u?.name ?? "Unknown";
   }
 }
 
@@ -357,7 +470,21 @@ export class CasesController {
     @Param("id", ParseUUIDPipe) id: string,
     @Body() body: UpdateStageDto,
   ) {
-    return this.cases.updateStage(u.tenantId, id, body.stageId);
+    return this.cases.updateStage(u.tenantId, u.userId, id, body.stageId);
+  }
+
+  @Get(":id/events")
+  events(@CurrentUser() u: AuthUser, @Param("id", ParseUUIDPipe) id: string) {
+    return this.cases.listEvents(u.tenantId, id);
+  }
+
+  @Post(":id/comments")
+  addComment(
+    @CurrentUser() u: AuthUser,
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body() body: AddCommentDto,
+  ) {
+    return this.cases.addComment(u.tenantId, u, id, body);
   }
 }
 

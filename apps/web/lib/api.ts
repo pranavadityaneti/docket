@@ -206,6 +206,42 @@ export type ApiCaseMessage = {
   sentAt: string;
 };
 
+/* ------------------------------ case journal (events + comments) ------------------------------ */
+
+/**
+ * One line of the case's written journal: a note someone left (kind
+ * "comment", optionally pinned to a checklist item) or something that
+ * happened (stage moves, document reviews) with its payload in `data`.
+ */
+export type ApiCaseEvent = {
+  id: string;
+  kind: "comment" | "stage_changed" | "document_reviewed";
+  requirementId: string | null;
+  authorId: string | null;
+  /** Denormalised at write time — survives the author's account. Null = system. */
+  authorName: string | null;
+  body: string | null;
+  data: Record<string, unknown>;
+  createdAt: string;
+};
+
+/** GET /cases/:id/events — the journal, newest first. */
+export function getCaseEvents(caseId: string): Promise<ApiCaseEvent[]> {
+  return apiFetch<ApiCaseEvent[]>(`/cases/${encodeURIComponent(caseId)}/events`);
+}
+
+/** POST /cases/:id/comments — leave a note, optionally pinned to one checklist item. */
+export function addCaseComment(
+  caseId: string,
+  body: string,
+  requirementId?: string,
+): Promise<ApiCaseEvent> {
+  return apiFetch<ApiCaseEvent>(`/cases/${encodeURIComponent(caseId)}/comments`, {
+    method: "POST",
+    body: JSON.stringify(requirementId ? { body, requirementId } : { body }),
+  });
+}
+
 /** POST /cases/:id/nudge — send a document request now (manual). */
 export function requestDocuments(caseId: string): Promise<NudgeResult> {
   return apiFetch<NudgeResult>(`/cases/${encodeURIComponent(caseId)}/nudge`, { method: "POST" });

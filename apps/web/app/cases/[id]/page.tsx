@@ -27,6 +27,8 @@ import {
   pauseNudges,
   resumeNudges,
   getCaseMessages,
+  getCaseEvents,
+  addCaseComment,
   confirmSuggestion,
   dismissSuggestion,
   reclassifyDocument,
@@ -36,6 +38,7 @@ import {
   type ApiChecklistItem,
   type ApiDocument,
   type ApiCaseMessage,
+  type ApiCaseEvent,
   type NudgeResult,
   type ChecklistItemStatus,
 } from "@/lib/api";
@@ -314,6 +317,8 @@ function ChecklistRow({
   busyId,
   uploading,
   actionError,
+  notes,
+  onAddNote,
 }: {
   item: ApiChecklistItem;
   onUpload: (item: ApiChecklistItem, file: File) => void;
@@ -322,8 +327,12 @@ function ChecklistRow({
   busyId: string | null;
   uploading: string | null;
   actionError: ActionError | null;
+  /** Comments pinned to THIS item — special instructions for the team. */
+  notes: ApiCaseEvent[];
+  onAddNote: (requirementId: string, body: string) => Promise<void>;
 }) {
   const inputRef = React.useRef<HTMLInputElement>(null);
+  const [notesOpen, setNotesOpen] = React.useState(false);
   const isUploading = uploading === item.requirementId;
   // The API decides this — see ApiChecklistItem.canUpload. Counting
   // item.documents here would grey out the button on a rejected item that the
@@ -358,6 +367,16 @@ function ChecklistRow({
         </div>
 
         <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="ghost"
+            className={`h-8 gap-1 px-2 text-xs ${notes.length > 0 ? "text-foreground" : "text-muted-foreground"}`}
+            onClick={() => setNotesOpen((o) => !o)}
+            title="Notes for teammates about this item"
+          >
+            <Icon name="sticky_note_2" size={15} />
+            {notes.length > 0 ? `Notes (${notes.length})` : "Notes"}
+          </Button>
           <StatusBadge status={item.status} />
           <input
             ref={inputRef}
@@ -389,6 +408,21 @@ function ChecklistRow({
           </Button>
         </div>
       </div>
+
+      {/* Special instructions live ON the item they are about — "certified
+          copy only", "waiting on the CA" — where the teammate handling the
+          document will actually see them. */}
+      {notesOpen ? (
+        <div className="mt-3 flex flex-col gap-1.5">
+          {notes.map((n) => (
+            <NoteLine key={n.id} note={n} />
+          ))}
+          <NoteComposer
+            placeholder={`Add a note about ${item.label}…`}
+            onSubmit={(body) => onAddNote(item.requirementId, body)}
+          />
+        </div>
+      ) : null}
 
       {/* An upload refused for this item (e.g. slot already full) explains
           itself right here, under the Upload button it belongs to. */}
@@ -550,6 +584,69 @@ function RemoveDialog({
 }
 
 /* ------------------------------- page ------------------------------- */
+
+/* ------------------------------- notes ------------------------------- */
+
+/** One-line note input. Clears itself on success; the caller refreshes. */
+function NoteComposer({
+  placeholder,
+  onSubmit,
+}: {
+  placeholder: string;
+  onSubmit: (body: string) => Promise<void>;
+}) {
+  const [text, setText] = React.useState("");
+  const [busy, setBusy] = React.useState(false);
+
+  async function submit() {
+    const body = text.trim();
+    if (!body || busy) return;
+    setBusy(true);
+    try {
+      await onSubmit(body);
+      setText("");
+    } catch {
+      // The caller has already surfaced the error (inline or banner); the
+      // text stays in the box so nothing typed is lost.
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="flex w-full items-center gap-2">
+      <Input
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") void submit();
+        }}
+        placeholder={placeholder}
+        className="h-8 text-sm"
+      />
+      <Button
+        size="sm"
+        variant="outline"
+        className="h-8 shrink-0"
+        disabled={busy || !text.trim()}
+        onClick={() => void submit()}
+      >
+        {busy ? "Posting…" : "Add note"}
+      </Button>
+    </div>
+  );
+}
+
+function NoteLine({ note }: { note: ApiCaseEvent }) {
+  return (
+    <div className="rounded-md border bg-muted/40 px-3 py-2 text-sm">
+      <div className="whitespace-pre-wrap break-words">{note.body}</div>
+      <div className="mt-1 text-xs text-muted-foreground">
+        {note.authorName ?? "Unknown"} · {whenExact(note.createdAt)}
+      </div>
+    </div>
+  );
+}
 
 /* ------------------------------- tabs ------------------------------- */
 
@@ -715,8 +812,46 @@ function buildActivity(
   detail: ApiCaseDetail,
   checklist: ApiChecklist,
   messages: ApiCaseMessage[],
+  journal: ApiCaseEvent[],
 ): ActivityEvent[] {
   const events: ActivityEvent[] = [];
+
+  // The written journal: notes and recorded events, each with a real author
+  // and a real timestamp — no derivation needed.
+  const itemLabel = new Map(checklist.items.map((i) => [i.requirementId, i.label]));
+  for (const ev of journal) {
+    if (ev.kind === "comment") {
+      const pin = ev.requirementId ? itemLabel.get(ev.requirementId) : null;
+      events.push({
+        at: ev.createdAt,
+        icon: "sticky_note_2",
+        title: `Note by ${ev.authorName ?? "Unknown"}${pin ? ` on “${pin}”` : ""}`,
+        detail: ev.body ?? undefined,
+      });
+    } else if (ev.kind === "stage_changed") {
+      const d = ev.data as { from?: string | null; to?: string };
+      events.push({
+        at: ev.createdAt,
+        icon: "arrow_forward",
+        title: `Stage: ${d.from ?? "—"} → ${d.to ?? "?"}`,
+        detail: `by ${ev.authorName ?? "Unknown"}`,
+      });
+    } else if (ev.kind === "document_reviewed") {
+      const d = ev.data as { fileName?: string; status?: string; reason?: string | null };
+      events.push({
+        at: ev.createdAt,
+        icon:
+          d.status === "accepted"
+            ? "check_circle"
+            : d.status === "rejected"
+              ? "cancel"
+              : "pending_actions",
+        title: `${d.fileName ?? "Document"} ${d.status ?? "reviewed"}`,
+        detail: `by ${ev.authorName ?? "Unknown"}${d.reason ? ` — ${d.reason}` : ""}`,
+        failed: d.status === "rejected",
+      });
+    }
+  }
 
   events.push({
     at: detail.createdAt,
@@ -842,6 +977,7 @@ export default function CaseDetailPage() {
   const [removing, setRemoving] = React.useState<ApiDocument | null>(null);
   const [hasData, setHasData] = React.useState(false);
   const [messages, setMessages] = React.useState<ApiCaseMessage[]>([]);
+  const [events, setEvents] = React.useState<ApiCaseEvent[]>([]);
   const [nudging, setNudging] = React.useState(false);
   const [pausing, setPausing] = React.useState(false);
   const [nudgeNotice, setNudgeNotice] = React.useState<string | null>(null);
@@ -852,14 +988,16 @@ export default function CaseDetailPage() {
   // than showing slightly stale data next to the error.
   const refresh = React.useCallback(async () => {
     try {
-      const [c, cl, msgs] = await Promise.all([
+      const [c, cl, msgs, evs] = await Promise.all([
         getCase(caseId),
         getChecklist(caseId),
         getCaseMessages(caseId),
+        getCaseEvents(caseId),
       ]);
       setDetail(c);
       setChecklist(cl);
       setMessages(msgs);
+      setEvents(evs);
       setError(null);
       setActionError(null);
     } catch (e) {
@@ -995,6 +1133,23 @@ export default function CaseDetailPage() {
       setActionError({ id: documentId, message: e instanceof Error ? e.message : "Couldn't reclassify the document." });
     } finally {
       setBusyId(null);
+    }
+  }
+
+  async function handleAddNote(body: string, requirementId?: string) {
+    setActionError(null);
+    try {
+      await addCaseComment(caseId, body, requirementId);
+      await refresh();
+    } catch (e) {
+      if (e instanceof AuthRequiredError) return;
+      // NoteComposer keeps the unsent text; the message lands on the item
+      // (or the page banner for a case-level note).
+      setActionError({
+        id: requirementId ?? null,
+        message: e instanceof Error ? e.message : "Couldn't add the note.",
+      });
+      throw e;
     }
   }
 
@@ -1187,7 +1342,17 @@ export default function CaseDetailPage() {
 
       {tab === "overview" ? <OverviewTab detail={detail} subject={subject} /> : null}
 
-      {tab === "activity" ? <ActivityTab events={buildActivity(detail, checklist, messages)} /> : null}
+      {tab === "activity" ? (
+        <>
+          <Card className="p-3">
+            <NoteComposer
+              placeholder="Add a note to this case…"
+              onSubmit={(body) => handleAddNote(body)}
+            />
+          </Card>
+          <ActivityTab events={buildActivity(detail, checklist, messages, events)} />
+        </>
+      ) : null}
 
       {tab === "calls" ? <CallsPlaceholder subject={subject} /> : null}
 
@@ -1226,6 +1391,10 @@ export default function CaseDetailPage() {
               busyId={busyId}
               uploading={uploading}
               actionError={actionError}
+              notes={events.filter(
+                (ev) => ev.kind === "comment" && ev.requirementId === item.requirementId,
+              )}
+              onAddNote={(requirementId, body) => handleAddNote(body, requirementId)}
             />
           ))
         )}

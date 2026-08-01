@@ -20,9 +20,11 @@ import { IsIn, IsOptional, IsString, IsUUID, MaxLength, MinLength } from "class-
 import { and, asc, eq, isNull } from "drizzle-orm";
 import type { Request } from "express";
 import {
+  caseEvents,
   cases,
   documentRequirements,
   documents,
+  users,
   type DocumentStatus,
   type RequirementCondition,
 } from "@docket/db";
@@ -621,6 +623,7 @@ export class DocumentsService {
           requirementId: documents.requirementId,
           status: documents.status,
           storageKey: documents.storageKey,
+          fileName: documents.fileName,
         })
         .from(documents)
         .where(and(eq(documents.id, documentId), isNull(documents.deletedAt)))
@@ -663,8 +666,35 @@ export class DocumentsService {
         })
         .where(eq(documents.id, documentId))
         .returning();
+
+      // The journal line — same transaction as the verdict, so the two can
+      // never disagree. Pinned to the document's checklist item, which lets
+      // the item's own history answer "why was this rejected?".
+      await tx.insert(caseEvents).values({
+        tenantId,
+        caseId: doc.caseId,
+        requirementId: doc.requirementId,
+        kind: "document_reviewed",
+        authorId: userId,
+        authorName: await this.authorName(userId),
+        data: {
+          fileName: doc.fileName,
+          status: input.status,
+          reason: input.status === "rejected" ? input.rejectionReason!.trim() : null,
+        },
+      });
       return updated;
     });
+  }
+
+  /** The name history keeps — read via admin exactly as auth reads users. */
+  private async authorName(userId: string): Promise<string> {
+    const [u] = await this.db.admin
+      .select({ name: users.name })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+    return u?.name ?? "Unknown";
   }
 }
 
