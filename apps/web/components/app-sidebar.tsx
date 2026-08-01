@@ -75,8 +75,8 @@ const NAV: NavGroup[] = [
     items: [
       // One thread per case with WhatsApp and email interleaved. Deliberately
       // not two menu items.
-      { title: "Conversations", symbol: "forum" },
-      { title: "Follow-ups", symbol: "campaign" },
+      { title: "Conversations", symbol: "forum", href: "/conversations" },
+      { title: "Follow-ups", symbol: "campaign", href: "/follow-ups" },
       { title: "Calls", symbol: "call" },
     ],
   },

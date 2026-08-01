@@ -14,6 +14,7 @@ import { ChannelsModule } from "./channels/channels";
 import { NudgesModule } from "./nudges/nudges";
 import { UnmatchedModule } from "./unmatched/unmatched";
 import { IntakeModule } from "./intake/intake";
+import { ActivityModule } from "./activity/activity";
 
 @Controller("health")
 class HealthController {
@@ -46,6 +47,7 @@ class HealthController {
     NudgesModule,
     UnmatchedModule,
     IntakeModule,
+    ActivityModule,
   ],
   controllers: [HealthController],
 })

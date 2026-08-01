@@ -230,6 +230,49 @@ export function listContacts(): Promise<ApiContact[]> {
   return apiFetch<ApiContact[]>("/contacts");
 }
 
+/* ------------------------------ cross-case activity ------------------------------ */
+
+/** One case's most recent message, for the workspace-wide inbox. */
+export type ApiConversationThread = {
+  caseId: string;
+  reference: string;
+  subjectName: string | null;
+  subjectOrganisation: string | null;
+  channel: "email" | "whatsapp";
+  direction: "inbound" | "outbound";
+  preview: string;
+  at: string;
+  inboundCount: number;
+};
+
+/** GET /conversations — every case with any message, newest first. */
+export function listConversations(): Promise<ApiConversationThread[]> {
+  return apiFetch<ApiConversationThread[]>("/conversations");
+}
+
+/** A case still owing documents, with its chase history. */
+export type ApiFollowUp = {
+  caseId: string;
+  reference: string;
+  subjectName: string | null;
+  subjectOrganisation: string | null;
+  stageName: string | null;
+  workflowName: string;
+  outstanding: number;
+  requestsSent: number;
+  remindersSent: number;
+  lastRequestAt: string | null;
+  daysSinceLastRequest: number | null;
+  paused: boolean;
+  reminderDue: boolean;
+  unreachable: boolean;
+};
+
+/** GET /follow-ups — who owes documents, longest-waiting first. */
+export function listFollowUps(): Promise<ApiFollowUp[]> {
+  return apiFetch<ApiFollowUp[]>("/follow-ups");
+}
+
 /* ------------------------------ channels ------------------------------ */
 
 /**
