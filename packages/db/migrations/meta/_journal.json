@@ -148,6 +148,13 @@
       "when": 1785880000000,
       "tag": "0020_identity_proof_not_aadhaar",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1785940000000,
+      "tag": "0021_college_admissions_config",
+      "breakpoints": true
     }
   ]
 }
