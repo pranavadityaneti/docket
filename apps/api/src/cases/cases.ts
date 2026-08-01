@@ -117,6 +117,45 @@ export class CreateCaseDto {
   data?: Record<string, unknown>;
 }
 
+/**
+ * Edit a case's own details. Every field optional: the client sends only what
+ * changed. `data` is MERGED into the existing object, so one screen editing
+ * two fields cannot wipe values another screen wrote.
+ *
+ * Deliberately NOT editable here: reference (the handle quoted in every email
+ * the subject has), workflow (its checklist is already built and its
+ * requirements already reference it), stage and reminders — each of those has
+ * its own endpoint and its own audit line.
+ */
+export class UpdateCaseDto {
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(200)
+  name?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  organisation?: string;
+
+  // Nullable so a wrong address can be CLEARED, not just replaced — an empty
+  // string arrives as null rather than an address of "".
+  @IsOptional()
+  @IsEmail()
+  @MaxLength(320)
+  email?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(32)
+  phone?: string | null;
+
+  @IsOptional()
+  @IsObject()
+  data?: Record<string, unknown>;
+}
+
 export class UpdateStageDto {
   @IsUUID()
   stageId!: string;
@@ -314,6 +353,97 @@ export class CasesService {
           .catch((e) => this.log.error(`initial nudge for case ${created.id} failed: ${e}`));
         return created;
       });
+  }
+
+  /**
+   * Edit a case's details, journaling exactly what changed.
+   *
+   * Contact fields and case data live in two tables, so both writes and the
+   * journal line share ONE transaction: a half-applied edit that still claims
+   * in the audit trail to have happened fully is worse than a failed one.
+   */
+  async update(tenantId: string, userId: string, caseId: string, input: UpdateCaseDto) {
+    const authorName = await this.authorName(userId);
+    return this.db.withTenant(tenantId, async (tx) => {
+      const [row] = await tx
+        .select({ id: cases.id, contactId: cases.contactId, data: cases.data })
+        .from(cases)
+        .where(eq(cases.id, caseId))
+        .limit(1);
+      if (!row) throw new NotFoundException("Case not found");
+
+      const changes: { field: string; from: string | null; to: string | null }[] = [];
+      const show = (v: unknown) =>
+        v === undefined || v === null || v === "" ? null : String(v);
+
+      // ---- the subject's own fields -------------------------------------
+      if (row.contactId) {
+        const [contact] = await tx
+          .select()
+          .from(contacts)
+          .where(eq(contacts.id, row.contactId))
+          .limit(1);
+        if (contact) {
+          const next: Partial<typeof contact> = {};
+          const track = (field: string, current: string | null, incoming: string | null | undefined) => {
+            if (incoming === undefined) return; // not sent = not touched
+            const to = incoming === null || incoming.trim() === "" ? null : incoming.trim();
+            if (to === current) return;
+            changes.push({ field, from: show(current), to: show(to) });
+            return to;
+          };
+          const name = track("Name", contact.name, input.name);
+          // name is NOT NULL — an explicit blank is refused rather than stored.
+          if (name !== undefined) {
+            if (name === null) throw new BadRequestException("Name cannot be empty");
+            next.name = name;
+          }
+          const org = track("Organisation", contact.organisation, input.organisation);
+          if (org !== undefined) next.organisation = org;
+          const email = track("Email", contact.email, input.email);
+          if (email !== undefined) next.email = email;
+          const phone = track("Phone", contact.phone, input.phone);
+          if (phone !== undefined) next.phone = phone;
+
+          if (Object.keys(next).length > 0) {
+            await tx.update(contacts).set(next).where(eq(contacts.id, contact.id));
+          }
+        }
+      }
+
+      // ---- the workflow's own data fields --------------------------------
+      if (input.data) {
+        const current = (row.data ?? {}) as Record<string, unknown>;
+        // MERGE, never replace: two people editing different fields on the
+        // same case must not erase each other.
+        const merged = { ...current, ...input.data };
+        // Same ceiling as create, and byte length not string length — see create().
+        if (Buffer.byteLength(JSON.stringify(merged), "utf8") > MAX_DATA_BYTES) {
+          throw new BadRequestException("data is too large");
+        }
+        for (const [key, value] of Object.entries(input.data)) {
+          if (show(current[key]) === show(value)) continue;
+          changes.push({ field: key, from: show(current[key]), to: show(value) });
+        }
+        await tx.update(cases).set({ data: merged, updatedAt: new Date() }).where(eq(cases.id, caseId));
+      }
+
+      // A no-op edit writes no journal line — an audit trail full of "changed
+      // nothing" is an audit trail nobody reads.
+      if (changes.length > 0) {
+        await tx.insert(caseEvents).values({
+          tenantId,
+          caseId,
+          kind: "details_changed",
+          authorId: userId,
+          authorName,
+          data: { changes },
+        });
+      }
+
+      const [updated] = await tx.select().from(cases).where(eq(cases.id, caseId)).limit(1);
+      return updated;
+    });
   }
 
   async updateStage(tenantId: string, userId: string, caseId: string, stageId: string) {
@@ -517,6 +647,15 @@ export class CasesController {
   @Post()
   create(@CurrentUser() u: AuthUser, @Body() body: CreateCaseDto) {
     return this.cases.create(u.tenantId, body);
+  }
+
+  @Patch(":id")
+  update(
+    @CurrentUser() u: AuthUser,
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body() body: UpdateCaseDto,
+  ) {
+    return this.cases.update(u.tenantId, u.userId, id, body);
   }
 
   @Patch(":id/stage")

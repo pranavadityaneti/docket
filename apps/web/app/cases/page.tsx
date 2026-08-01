@@ -17,6 +17,13 @@ import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Icon } from "@/components/ui/icon";
 import {
+  DynamicField,
+  Field,
+  FIELD_CLASS,
+  FormSection,
+  validateField,
+} from "@/components/case-fields";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -46,9 +53,9 @@ import {
  * fields it flags with show_in_table. Nothing here names an industry, so the
  * same screen serves a lender, a college or a CA firm.
  *
- * Still lending-shaped: the create-case dialog's fields (PAN, entity type,
- * loan amount…), which are hardcoded rather than rendered from the field
- * config. Tracked — it is the last surface in this class.
+ * The create dialog is workflow-driven too: its fields, labels, options and
+ * validation all come from the field config, shared with the case Overview's
+ * edit form so the two can never disagree about what a field is.
  * ------------------------------------------------------------------ */
 
 /** localStorage key remembering which workflow the Cases screen is showing. */
@@ -282,139 +289,6 @@ function WorkflowSelect({
 }
 
 /* ------------------------------- Create-lead slide-over ------------------------------- */
-
-const FIELD_CLASS =
-  "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50";
-
-function FormSection({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div className="mb-5">
-      <div className="mb-2.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-        {title}
-      </div>
-      <div className="flex flex-col gap-3">{children}</div>
-    </div>
-  );
-}
-
-function Field({
-  label,
-  error,
-  required,
-  children,
-}: {
-  label: string;
-  error?: string;
-  required?: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="flex min-w-0 flex-col gap-1.5">
-      <span className="text-sm font-medium">
-        {label}
-        {required ? <span className="text-red-500"> *</span> : null}
-      </span>
-      {children}
-      {error ? <span className="text-xs text-red-600">{error}</span> : null}
-    </div>
-  );
-}
-
-/**
- * One field, rendered from the workflow's own field config.
- *
- * The dialog used to hardcode PAN / entity type / loan amount — one industry's
- * vocabulary baked into a screen meant to serve a college and a CA firm too.
- * Everything domain-specific now comes from FieldDef, which the API already
- * returned and this screen already used for its table columns.
- */
-function DynamicField({
-  field,
-  value,
-  error,
-  onChange,
-}: {
-  field: ApiFieldDef;
-  value: string;
-  error?: string;
-  onChange: (v: string) => void;
-}) {
-  return (
-    <Field label={field.label} error={error} required={field.required}>
-      {field.input_type === "dropdown" ? (
-        <select value={value} onChange={(e) => onChange(e.target.value)} className={FIELD_CLASS}>
-          {/* An optional dropdown needs an empty choice, or its first option
-              silently becomes an answer nobody gave. */}
-          {!field.required ? <option value="">—</option> : null}
-          {(field.options ?? []).map((o) => (
-            <option key={o} value={o}>
-              {o}
-            </option>
-          ))}
-        </select>
-      ) : field.input_type === "textarea" ? (
-        <textarea
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          rows={3}
-          placeholder={field.placeholder}
-          className={`${FIELD_CLASS} h-auto resize-none py-2`}
-        />
-      ) : (
-        <Input
-          type={field.input_type === "number" ? "number" : "text"}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder={field.placeholder}
-        />
-      )}
-    </Field>
-  );
-}
-
-/**
- * Validate one value against its FieldDef. Returns a message, or null.
- *
- * `minimum`/`maximum` mean VALUE for integers and LENGTH for strings — that is
- * how the config uses them (PAN carries minimum 10, maximum 10 alongside its
- * regex).
- */
-function validateField(field: ApiFieldDef, raw: string): string | null {
-  const value = raw.trim();
-  if (!value) return field.required ? `${field.label} is required.` : null;
-
-  const v = field.validation ?? {};
-  const num = (x: unknown) => {
-    if (x === undefined || x === null || x === "") return null;
-    const n = Number(x);
-    return Number.isFinite(n) ? n : null;
-  };
-
-  if (typeof v.regex === "string" && v.regex) {
-    try {
-      if (!new RegExp(v.regex).test(value)) return `${field.label} is not in the expected format.`;
-    } catch {
-      // A malformed regex in config must never block data entry.
-    }
-  }
-
-  const min = num(v.minimum);
-  const max = num(v.maximum);
-  if (field.field_type === "integer") {
-    const n = Number(value);
-    if (!Number.isFinite(n)) return `${field.label} must be a number.`;
-    if (min !== null && n < min) return `${field.label} must be at least ${min}.`;
-    if (max !== null && n > max) return `${field.label} must be at most ${max}.`;
-  } else {
-    if (min !== null && value.length < min) {
-      return `${field.label} must be at least ${min} characters.`;
-    }
-    if (max !== null && value.length > max) {
-      return `${field.label} must be at most ${max} characters.`;
-    }
-  }
-  return null;
-}
 
 function CreateLeadDialog({
   open,

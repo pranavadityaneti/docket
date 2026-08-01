@@ -188,6 +188,28 @@ export function getCase(caseId: string): Promise<ApiCaseDetail> {
   return apiFetch<ApiCaseDetail>(`/cases/${encodeURIComponent(caseId)}`);
 }
 
+/**
+ * Fields of a case a person may edit. Send only what changed; `data` is merged
+ * server-side. Reference, workflow and created date are deliberately absent —
+ * the reference is quoted in every email the subject already has, and the
+ * workflow's checklist is already built.
+ */
+export type UpdateCaseInput = {
+  name?: string;
+  organisation?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  data?: Record<string, unknown>;
+};
+
+/** PATCH /cases/:id — edit details. Journals what changed. */
+export function updateCase(caseId: string, input: UpdateCaseInput): Promise<ApiCase> {
+  return apiFetch<ApiCase>(`/cases/${encodeURIComponent(caseId)}`, {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
+}
+
 /* ------------------------------ document requests (nudges) ------------------------------ */
 
 /** Per-channel result of one send attempt (see apps/api NudgeService). */

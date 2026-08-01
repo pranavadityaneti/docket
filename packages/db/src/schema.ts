@@ -90,7 +90,7 @@ export type ChannelKind = (typeof CHANNEL_KINDS)[number];
 export const MESSAGE_KINDS = ["initial", "reminder", "manual"] as const;
 export type MessageKind = (typeof MESSAGE_KINDS)[number];
 
-export const CASE_EVENT_KINDS = ["comment", "stage_changed", "document_reviewed"] as const;
+export const CASE_EVENT_KINDS = ["comment", "stage_changed", "document_reviewed", "details_changed"] as const;
 export type CaseEventKind = (typeof CASE_EVENT_KINDS)[number];
 
 /** One item Docket is (still) asking a subject for, captured on each message. */

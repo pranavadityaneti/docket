@@ -10,6 +10,13 @@ import { Input } from "@/components/ui/input";
 import { Icon } from "@/components/ui/icon";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
+  DynamicField,
+  Field,
+  fieldToInput,
+  inputsToData,
+  validateField,
+} from "@/components/case-fields";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -30,6 +37,8 @@ import {
   getCaseEvents,
   getCaseConversation,
   addCaseComment,
+  updateCase,
+  listWorkflows,
   confirmSuggestion,
   dismissSuggestion,
   reclassifyDocument,
@@ -41,6 +50,7 @@ import {
   type ApiCaseMessage,
   type ApiCaseEvent,
   type ApiConversationEntry,
+  type ApiFieldDef,
   type NudgeResult,
   type ChecklistItemStatus,
 } from "@/lib/api";
@@ -751,77 +761,253 @@ function formatValue(key: string, value: unknown): string {
   return String(value);
 }
 
-function OverviewTab({ detail, subject }: { detail: ApiCaseDetail; subject: string }) {
-  // data.source duplicates the case's own source column (both written by
-  // intake); the case column is the authority, so the data copy is skipped.
-  const fields = Object.entries(detail.data ?? {}).filter(([k]) => k !== "source");
+/** One label/value pair in the read view. */
+function ReadRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <dt className="text-muted-foreground">{label}</dt>
+      <dd className="mt-0.5 break-words">{value || "—"}</dd>
+    </div>
+  );
+}
+
+/**
+ * The case's own details, readable and editable in place.
+ *
+ * Domain fields render from the workflow's field config — the same definitions
+ * and the same validation the New Case dialog uses, imported rather than
+ * re-implemented, so a value that is valid on create cannot be invalid on edit.
+ *
+ * What is deliberately NOT editable here: the reference (it is quoted in every
+ * email the subject already holds, and in their replies — changing it would
+ * strand the thread), the workflow (its checklist is already built), the
+ * created date, and stage/reminders, which have their own controls and their
+ * own audit lines.
+ */
+function OverviewTab({
+  detail,
+  subject,
+  fields,
+  onSaved,
+}: {
+  detail: ApiCaseDetail;
+  subject: string;
+  /** This workflow's own field definitions; empty until they load. */
+  fields: ApiFieldDef[];
+  onSaved: () => Promise<void>;
+}) {
+  const [editing, setEditing] = React.useState(false);
+  const [name, setName] = React.useState("");
+  const [organisation, setOrganisation] = React.useState("");
+  const [email, setEmail] = React.useState("");
+  const [phone, setPhone] = React.useState("");
+  const [values, setValues] = React.useState<Record<string, string>>({});
+  const [errors, setErrors] = React.useState<Record<string, string>>({});
+  const [saving, setSaving] = React.useState(false);
+  const [saveError, setSaveError] = React.useState<string | null>(null);
+
+  const sorted = React.useMemo(() => [...fields].sort((a, b) => a.order - b.order), [fields]);
+
+  /** Seed the form from what is on screen at the moment editing starts. */
+  function beginEdit() {
+    setName(detail.subjectName ?? "");
+    setOrganisation(detail.subjectOrganisation ?? "");
+    setEmail(detail.subjectEmail ?? "");
+    setPhone(detail.subjectPhone ?? "");
+    const seeded: Record<string, string> = {};
+    for (const f of sorted) seeded[f.field_key] = fieldToInput((detail.data ?? {})[f.field_key]);
+    setValues(seeded);
+    setErrors({});
+    setSaveError(null);
+    setEditing(true);
+  }
+
+  async function save() {
+    const errs: Record<string, string> = {};
+    if (!name.trim()) errs.__name = `${subject} name is required.`;
+    if (email.trim() && !email.includes("@")) errs.__email = "That does not look like an email.";
+    for (const f of sorted) {
+      const msg = validateField(f, values[f.field_key] ?? "");
+      if (msg) errs[f.field_key] = msg;
+    }
+    setErrors(errs);
+    if (Object.keys(errs).length) return;
+
+    setSaving(true);
+    setSaveError(null);
+    try {
+      await updateCase(detail.id, {
+        name: name.trim(),
+        organisation: organisation.trim() || null,
+        email: email.trim() || null,
+        phone: phone.trim() || null,
+        data: inputsToData(sorted, values),
+      });
+      // Refetch rather than patch local state: the server decides what was
+      // stored, and the journal line this edit just wrote belongs on Activity.
+      await onSaved();
+      setEditing(false);
+    } catch (e) {
+      if (e instanceof AuthRequiredError) return;
+      setSaveError(e instanceof Error ? e.message : "Couldn't save the changes.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  /* ------------------------------- read view ------------------------------- */
+  if (!editing) {
+    // Fields the workflow declares come first, labelled as it names them; any
+    // stray key in `data` that no longer has a definition is still shown
+    // rather than hidden, because silently dropping stored data is worse.
+    const known = new Set(sorted.map((f) => f.field_key));
+    const extra = Object.entries(detail.data ?? {}).filter(
+      ([k]) => k !== "source" && !known.has(k),
+    );
+
+    return (
+      <div className="flex flex-col gap-4">
+        <Card className="gap-0 overflow-hidden py-0">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b p-4">
+            <div className="font-medium">{subject}</div>
+            <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={beginEdit}>
+              <Icon name="edit" size={15} /> Edit details
+            </Button>
+          </div>
+          <dl className="grid grid-cols-1 gap-x-8 gap-y-3 p-4 text-sm sm:grid-cols-2">
+            <ReadRow label="Name" value={detail.subjectName ?? ""} />
+            <ReadRow label="Organisation" value={detail.subjectOrganisation ?? ""} />
+            <ReadRow label="Email" value={detail.subjectEmail ?? ""} />
+            <ReadRow label="Phone" value={detail.subjectPhone ?? ""} />
+          </dl>
+        </Card>
+
+        <Card className="gap-0 overflow-hidden py-0">
+          <div className="border-b p-4 font-medium">{detail.caseLabel}</div>
+          <dl className="grid grid-cols-1 gap-x-8 gap-y-3 p-4 text-sm sm:grid-cols-2">
+            <div>
+              <dt className="text-muted-foreground">Reference</dt>
+              <dd className="mt-0.5 font-mono text-[13px]">{detail.reference}</dd>
+            </div>
+            <ReadRow label="Workflow" value={detail.workflowName} />
+            <ReadRow label="Stage" value={detail.stageName ?? ""} />
+            <ReadRow label="Source" value={detail.source ?? ""} />
+            <ReadRow label="Created" value={when(detail.createdAt)} />
+            <ReadRow label="Reminders" value={detail.nudgesPausedAt ? "Paused" : "Active"} />
+          </dl>
+        </Card>
+
+        {sorted.length > 0 || extra.length > 0 ? (
+          <Card className="gap-0 overflow-hidden py-0">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b p-4">
+              <div className="font-medium">Details</div>
+              <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={beginEdit}>
+                <Icon name="edit" size={15} /> Edit details
+              </Button>
+            </div>
+            <dl className="grid grid-cols-1 gap-x-8 gap-y-3 p-4 text-sm sm:grid-cols-2">
+              {sorted.map((f) => (
+                <ReadRow
+                  key={f.field_key}
+                  label={f.label}
+                  value={formatValue(f.field_key, (detail.data ?? {})[f.field_key])}
+                />
+              ))}
+              {extra.map(([k, v]) => (
+                <ReadRow key={k} label={humanise(k)} value={formatValue(k, v)} />
+              ))}
+            </dl>
+          </Card>
+        ) : null}
+      </div>
+    );
+  }
+
+  /* ------------------------------- edit view ------------------------------- */
   return (
     <div className="flex flex-col gap-4">
       <Card className="gap-0 overflow-hidden py-0">
         <div className="border-b p-4 font-medium">{subject}</div>
-        <dl className="grid grid-cols-1 gap-x-8 gap-y-3 p-4 text-sm sm:grid-cols-2">
-          <div>
-            <dt className="text-muted-foreground">Name</dt>
-            <dd className="mt-0.5">{detail.subjectName ?? "—"}</dd>
+        <div className="p-4">
+          <Field label="Full name" error={errors.__name} required>
+            <Input value={name} onChange={(e) => setName(e.target.value)} />
+          </Field>
+          <div className="mt-3">
+            <Field label="Organisation">
+              <Input value={organisation} onChange={(e) => setOrganisation(e.target.value)} />
+            </Field>
           </div>
-          <div>
-            <dt className="text-muted-foreground">Organisation</dt>
-            <dd className="mt-0.5">{detail.subjectOrganisation ?? "—"}</dd>
+          <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Field label="Email" error={errors.__email}>
+              <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+            </Field>
+            <Field label="Phone">
+              <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
+            </Field>
           </div>
-          <div>
-            <dt className="text-muted-foreground">Email</dt>
-            <dd className="mt-0.5 break-all">{detail.subjectEmail ?? "—"}</dd>
+          {/* Not a decoration: these two fields are how every inbound email and
+              WhatsApp message is matched back to this case, so changing them
+              changes where the subject's documents land. */}
+          <div className="mt-3 flex items-start gap-1.5 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300">
+            <Icon name="info" size={14} className="mt-0.5 shrink-0" />
+            <span>
+              Email and phone decide which documents reach this{" "}
+              {detail.caseLabel.toLowerCase()}. Changing them changes what the{" "}
+              {subject.toLowerCase()} can send to.
+            </span>
           </div>
-          <div>
-            <dt className="text-muted-foreground">Phone</dt>
-            <dd className="mt-0.5">{detail.subjectPhone ?? "—"}</dd>
-          </div>
-        </dl>
+        </div>
       </Card>
 
-      <Card className="gap-0 overflow-hidden py-0">
-        <div className="border-b p-4 font-medium">{detail.caseLabel}</div>
-        <dl className="grid grid-cols-1 gap-x-8 gap-y-3 p-4 text-sm sm:grid-cols-2">
-          <div>
-            <dt className="text-muted-foreground">Reference</dt>
-            <dd className="mt-0.5 font-mono text-[13px]">{detail.reference}</dd>
-          </div>
-          <div>
-            <dt className="text-muted-foreground">Workflow</dt>
-            <dd className="mt-0.5">{detail.workflowName}</dd>
-          </div>
-          <div>
-            <dt className="text-muted-foreground">Stage</dt>
-            <dd className="mt-0.5">{detail.stageName ?? "—"}</dd>
-          </div>
-          <div>
-            <dt className="text-muted-foreground">Source</dt>
-            <dd className="mt-0.5">{detail.source ?? "—"}</dd>
-          </div>
-          <div>
-            <dt className="text-muted-foreground">Created</dt>
-            <dd className="mt-0.5">{when(detail.createdAt)}</dd>
-          </div>
-          <div>
-            <dt className="text-muted-foreground">Reminders</dt>
-            <dd className="mt-0.5">{detail.nudgesPausedAt ? "Paused" : "Active"}</dd>
-          </div>
-        </dl>
-      </Card>
-
-      {fields.length > 0 ? (
+      {sorted.length > 0 ? (
         <Card className="gap-0 overflow-hidden py-0">
           <div className="border-b p-4 font-medium">Details</div>
-          <dl className="grid grid-cols-1 gap-x-8 gap-y-3 p-4 text-sm sm:grid-cols-2">
-            {fields.map(([k, v]) => (
-              <div key={k}>
-                <dt className="text-muted-foreground">{humanise(k)}</dt>
-                <dd className="mt-0.5 break-words">{formatValue(k, v)}</dd>
-              </div>
+          <div className="flex flex-col gap-3 p-4">
+            {sorted.map((f) => (
+              <DynamicField
+                key={f.field_key}
+                field={f}
+                value={values[f.field_key] ?? ""}
+                error={errors[f.field_key]}
+                onChange={(v) => setValues((prev) => ({ ...prev, [f.field_key]: v }))}
+              />
             ))}
-          </dl>
+            {/* Changing a value the checklist keys off (entity type, loan type)
+                changes which documents are required — the checklist rebuilds
+                from these answers, so say so before they save. */}
+            <div className="flex items-start gap-1.5 rounded-md border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+              <Icon name="fact_check" size={14} className="mt-0.5 shrink-0" />
+              <span>
+                The document checklist is built from these answers — changing them can add or
+                remove required documents.
+              </span>
+            </div>
+          </div>
         </Card>
       ) : null}
+
+      {saveError ? (
+        <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
+          {saveError}
+        </div>
+      ) : null}
+
+      <div className="flex justify-end gap-2">
+        <Button variant="outline" onClick={() => setEditing(false)} disabled={saving}>
+          Cancel
+        </Button>
+        <Button onClick={() => void save()} disabled={saving} className="gap-1.5">
+          {saving ? (
+            <>
+              <Icon name="progress_activity" size={16} className="animate-spin" /> Saving…
+            </>
+          ) : (
+            <>
+              <Icon name="check" size={16} /> Save changes
+            </>
+          )}
+        </Button>
+      </div>
     </div>
   );
 }
@@ -1128,6 +1314,13 @@ export default function CaseDetailPage() {
   const [messages, setMessages] = React.useState<ApiCaseMessage[]>([]);
   const [events, setEvents] = React.useState<ApiCaseEvent[]>([]);
   const [conversation, setConversation] = React.useState<ApiConversationEntry[]>([]);
+  /**
+   * This workflow's field definitions — labels, types, options, validation.
+   * Fetched separately from the case because /cases/:id returns the values,
+   * not the schema, and the Overview needs the schema to both label a value
+   * properly ("Loan Amount (₹)", not "Loan amount") and edit it correctly.
+   */
+  const [fields, setFields] = React.useState<ApiFieldDef[]>([]);
   const [nudging, setNudging] = React.useState(false);
   const [pausing, setPausing] = React.useState(false);
   const [nudgeNotice, setNudgeNotice] = React.useState<string | null>(null);
@@ -1181,6 +1374,23 @@ export default function CaseDetailPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     refresh();
   }, [refresh]);
+
+  // Field definitions change only when a workflow is reconfigured, so they are
+  // loaded once rather than on every auto-refresh. A failure here is not fatal:
+  // Overview still renders the values, just with humanised keys.
+  React.useEffect(() => {
+    let cancelled = false;
+    void listWorkflows()
+      .then((ws) => {
+        if (cancelled) return;
+        const mine = ws.find((w) => w.id === detail?.workflowId);
+        if (mine) setFields(mine.fields ?? []);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [detail?.workflowId]);
 
   /** Manual refresh: same fetch, plus the in-flight state the buttons show. */
   const manualRefresh = React.useCallback(async () => {
@@ -1561,7 +1771,14 @@ export default function CaseDetailPage() {
 
       <TabBar tab={tab} onChange={setTab} />
 
-      {tab === "overview" ? <OverviewTab detail={detail} subject={subject} /> : null}
+      {tab === "overview" ? (
+        <OverviewTab
+          detail={detail}
+          subject={subject}
+          fields={fields}
+          onSaved={manualRefresh}
+        />
+      ) : null}
 
       {tab === "activity" ? (
         <>

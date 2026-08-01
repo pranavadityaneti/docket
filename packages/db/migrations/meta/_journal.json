@@ -127,6 +127,13 @@
       "when": 1785700000000,
       "tag": "0017_conversation_messages",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1785760000000,
+      "tag": "0018_case_event_details_changed",
+      "breakpoints": true
     }
   ]
 }
