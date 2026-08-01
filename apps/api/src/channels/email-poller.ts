@@ -7,6 +7,7 @@ import {
   cases,
   channels,
   contacts,
+  conversationMessages,
   documents,
   normaliseCaseReference,
   openSecret,
@@ -25,6 +26,9 @@ export type PollResult = {
 };
 
 type ChannelRow = typeof channels.$inferSelect;
+
+/** Ceiling on stored message text — a pasted contract is a document, not a chat line. */
+const MAX_CONVERSATION_CHARS = 8_000;
 
 /**
  * Pulls a tenant's mailbox and turns inbound attachments into case documents.
@@ -198,13 +202,48 @@ export class EmailPollerService {
     const attachments = (parsed.attachments ?? []).filter(
       (a) => a.content && a.content.length > 0 && a.contentDisposition !== "inline",
     );
-    if (attachments.length === 0) return { imported: 0, caseId: null };
 
     const subject = parsed.subject ?? "";
     const fromEmail = parsed.from?.value?.[0]?.address?.toLowerCase() ?? null;
+    const bodyText = (parsed.text ?? "").trim();
+    // A message with no attachments, no words and no subject carries nothing
+    // a human could ever want back. Everything else proceeds — a text-only
+    // reply ("sending the rest tomorrow") used to be dropped entirely, which
+    // made the Conversations view lie by omission.
+    if (attachments.length === 0 && !bodyText && !subject) {
+      return { imported: 0, caseId: null };
+    }
 
     return this.db.withTenant(channel.tenantId, async (tx) => {
       const caseId = await this.matchCase(tx, subject, fromEmail);
+
+      // Keep the WORDS as well as the files. Best-effort by design: a failure
+      // to record the sentence must never cost the attachments behind it.
+      // The unique index on (tenant, channel, external_id) collapses any
+      // replayed delivery into one row.
+      if (caseId) {
+        try {
+          await tx
+            .insert(conversationMessages)
+            .values({
+              tenantId: channel.tenantId,
+              caseId,
+              channel: "email",
+              direction: "inbound",
+              sender: fromEmail ?? "unknown",
+              subject: subject || null,
+              body: bodyText.slice(0, MAX_CONVERSATION_CHARS),
+              externalId: parsed.messageId ?? null,
+              sentAt: parsed.date ?? new Date(),
+            })
+            .onConflictDoNothing();
+        } catch (e) {
+          this.log.warn(
+            `Channel ${channel.id}: could not record message text for case ${caseId}: ${e instanceof Error ? e.message : e}`,
+          );
+        }
+      }
+
       if (!caseId) {
         // Never guess — a misfiled KYC document is worse than an unfiled one.
         // But never lose it either: the cursor advances past this message, so

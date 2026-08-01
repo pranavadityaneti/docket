@@ -595,6 +595,48 @@ export const caseEvents = pgTable(
 );
 
 /**
+ * The words of the conversation — one row per inbound message that matched a
+ * case (and, later, per outbound reply sent from the dashboard).
+ *
+ * Documents were always kept; the TEXT around them was thrown away, so
+ * "what did the borrower actually say?" had no answer. This table is that
+ * answer. Outbound document requests stay in case_messages (they are the
+ * reminder scheduler's memory); the conversation read merges both.
+ *
+ * external_id (email Message-ID / WhatsApp message id) carries a partial
+ * unique index: redelivery and poller races collapse into one row instead of
+ * a duplicated thread — same lesson as document checksums.
+ */
+export const conversationMessages = pgTable(
+  "conversation_messages",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
+    caseId: uuid("case_id").notNull().references(() => cases.id, { onDelete: "cascade" }),
+    channel: text("channel", { enum: CHANNEL_KINDS }).notNull(),
+    direction: text("direction", { enum: ["inbound", "outbound"] }).notNull(),
+    /** Email address or phone number the message came from (or went to). */
+    sender: text("sender").notNull(),
+    /** Email subject; null for WhatsApp. */
+    subject: text("subject"),
+    /** Message text, clamped at write. May be empty for a bare attachment. */
+    body: text("body").notNull().default(""),
+    /** Provider id used for dedup; null when the provider gave none. */
+    externalId: text("external_id"),
+    sentAt: timestamp("sent_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("conversation_messages_tenant_idx").on(t.tenantId),
+    // The thread is always read "this case, in order".
+    index("conversation_messages_case_sent_idx").on(t.caseId, t.sentAt),
+    uniqueIndex("conversation_messages_external_uq")
+      .on(t.tenantId, t.channel, t.externalId)
+      .where(sql`external_id IS NOT NULL`),
+  ],
+);
+
+/**
  * An inbound document that matched no case — the intake's holding pen.
  *
  * The matchers are deliberately conservative: a wrong match files a borrower's

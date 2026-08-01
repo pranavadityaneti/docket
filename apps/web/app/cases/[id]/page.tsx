@@ -28,6 +28,7 @@ import {
   resumeNudges,
   getCaseMessages,
   getCaseEvents,
+  getCaseConversation,
   addCaseComment,
   confirmSuggestion,
   dismissSuggestion,
@@ -39,6 +40,7 @@ import {
   type ApiDocument,
   type ApiCaseMessage,
   type ApiCaseEvent,
+  type ApiConversationEntry,
   type NudgeResult,
   type ChecklistItemStatus,
 } from "@/lib/api";
@@ -650,11 +652,12 @@ function NoteLine({ note }: { note: ApiCaseEvent }) {
 
 /* ------------------------------- tabs ------------------------------- */
 
-type CaseTab = "overview" | "checklist" | "activity" | "calls";
+type CaseTab = "overview" | "checklist" | "conversations" | "activity" | "calls";
 
 const TABS: { key: CaseTab; label: string; icon: string }[] = [
   { key: "overview", label: "Overview", icon: "person" },
   { key: "checklist", label: "Checklist", icon: "checklist" },
+  { key: "conversations", label: "Conversations", icon: "forum" },
   { key: "activity", label: "Activity", icon: "timeline" },
   { key: "calls", label: "Calls", icon: "call" },
 ];
@@ -943,6 +946,95 @@ function ActivityTab({ events }: { events: ActivityEvent[] }) {
   );
 }
 
+/* ------------------------------- conversations ------------------------------- */
+
+/**
+ * The back-and-forth as a thread: the subject's words on the left, ours on
+ * the right — the shape everyone already reads chats in. Documents aren't
+ * repeated here (the checklist owns them); what this adds is the WORDS,
+ * which until now were thrown away on arrival.
+ */
+function ConversationsTab({
+  entries,
+  subject,
+}: {
+  entries: ApiConversationEntry[];
+  subject: string;
+}) {
+  const [channel, setChannel] = React.useState<"all" | "email" | "whatsapp">("all");
+  const shown = entries.filter((e) => channel === "all" || e.channel === channel);
+
+  return (
+    <Card className="gap-0 overflow-hidden py-0">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b p-4">
+        <div>
+          <div className="font-medium">Conversations</div>
+          <p className="text-sm text-muted-foreground">
+            Every message exchanged with this {subject.toLowerCase()}.
+          </p>
+        </div>
+        <div className="flex gap-1">
+          {(["all", "email", "whatsapp"] as const).map((c) => (
+            <Button
+              key={c}
+              size="sm"
+              variant={channel === c ? "default" : "outline"}
+              className="h-7 px-2.5 text-xs capitalize"
+              onClick={() => setChannel(c)}
+            >
+              {c === "all" ? "All" : CHANNEL_LABEL[c]}
+            </Button>
+          ))}
+        </div>
+      </div>
+
+      {shown.length === 0 ? (
+        <div className="p-10 text-center">
+          <div className="text-sm font-medium">No messages yet</div>
+          <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
+            {channel === "whatsapp"
+              ? "WhatsApp messages will appear here once the number is connected."
+              : `Messages with this ${subject.toLowerCase()} will appear here as they arrive.`}
+          </p>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-3 p-4">
+          {shown.map((m) => (
+            <div
+              key={m.id}
+              className={`flex w-full ${m.direction === "outbound" ? "justify-end" : "justify-start"}`}
+            >
+              <div
+                className={`max-w-[75%] rounded-lg border px-3 py-2 ${
+                  m.direction === "outbound"
+                    ? "rounded-br-sm bg-primary/10 dark:bg-primary/20"
+                    : "rounded-bl-sm bg-muted/60"
+                }`}
+              >
+                <div className="mb-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Icon name={m.channel === "whatsapp" ? "chat" : "mail"} size={12} />
+                  {m.direction === "outbound" ? "To" : "From"} {m.counterpart}
+                  {m.kind ? ` · ${MESSAGE_KIND_LABEL[m.kind] ?? m.kind}` : ""}
+                  {m.failed ? <span className="font-medium text-red-600 dark:text-red-400">· failed</span> : null}
+                </div>
+                {m.subject ? <div className="text-sm font-medium">{m.subject}</div> : null}
+                {m.body ? (
+                  <div className="max-h-64 overflow-y-auto whitespace-pre-wrap break-words text-sm">
+                    {m.body}
+                  </div>
+                ) : null}
+                <div className="mt-1 text-right text-[11px] text-muted-foreground/70">
+                  {whenExact(m.at)}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </Card>
+  );
+}
+
 function CallsPlaceholder({ subject }: { subject: string }) {
   return (
     <Card className="flex flex-col items-center gap-3 border-dashed py-16 text-center">
@@ -978,6 +1070,7 @@ export default function CaseDetailPage() {
   const [hasData, setHasData] = React.useState(false);
   const [messages, setMessages] = React.useState<ApiCaseMessage[]>([]);
   const [events, setEvents] = React.useState<ApiCaseEvent[]>([]);
+  const [conversation, setConversation] = React.useState<ApiConversationEntry[]>([]);
   const [nudging, setNudging] = React.useState(false);
   const [pausing, setPausing] = React.useState(false);
   const [nudgeNotice, setNudgeNotice] = React.useState<string | null>(null);
@@ -988,16 +1081,18 @@ export default function CaseDetailPage() {
   // than showing slightly stale data next to the error.
   const refresh = React.useCallback(async () => {
     try {
-      const [c, cl, msgs, evs] = await Promise.all([
+      const [c, cl, msgs, evs, conv] = await Promise.all([
         getCase(caseId),
         getChecklist(caseId),
         getCaseMessages(caseId),
         getCaseEvents(caseId),
+        getCaseConversation(caseId),
       ]);
       setDetail(c);
       setChecklist(cl);
       setMessages(msgs);
       setEvents(evs);
+      setConversation(conv);
       setError(null);
       setActionError(null);
     } catch (e) {
@@ -1352,6 +1447,10 @@ export default function CaseDetailPage() {
           </Card>
           <ActivityTab events={buildActivity(detail, checklist, messages, events)} />
         </>
+      ) : null}
+
+      {tab === "conversations" ? (
+        <ConversationsTab entries={conversation} subject={subject} />
       ) : null}
 
       {tab === "calls" ? <CallsPlaceholder subject={subject} /> : null}

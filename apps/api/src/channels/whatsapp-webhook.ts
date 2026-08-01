@@ -19,6 +19,7 @@ import {
   cases,
   channels,
   contacts,
+  conversationMessages,
   documents,
   normaliseCaseReference,
   openSecret,
@@ -197,7 +198,23 @@ export class WhatsappService {
     message: WaMessage,
   ): Promise<void> {
     const media = mediaPart(message);
-    if (!media) return; // text-only or unsupported type — nothing to store
+    if (!media) {
+      // Text-only. There is no file to hold, but the WORDS are part of the
+      // case's conversation — "sending the rest tomorrow" used to vanish.
+      const body = (message.text?.body ?? "").trim();
+      if (!body) return; // unsupported type with no text — nothing to keep
+      await this.db.withTenant(channel.tenantId, async (tx) => {
+        const caseId = await this.matchCase(tx, body, message.from);
+        // Unmatched text is dropped by design for now: there is no case to
+        // hang it on, and unmatched_documents holds files, not sentences.
+        if (!caseId) {
+          this.log.warn(`WhatsApp: text message ${message.id} from ${message.from} matched no case — not stored`);
+          return;
+        }
+        await this.recordConversation(tx, channel, caseId, message, body);
+      });
+      return;
+    }
 
     const caption = media.caption ?? message.text?.body ?? "";
     const buffer = await this.downloadMedia(media.id, secret.accessToken);
@@ -256,6 +273,16 @@ export class WhatsappService {
         this.log.log(`WhatsApp: message ${message.id} already on case ${caseId} — skipped`);
         return null;
       }
+
+      // The thread line for this arrival: the caption if one was written,
+      // otherwise a marker naming the file. Dedup rides on message.id.
+      await this.recordConversation(
+        tx,
+        channel,
+        caseId,
+        message,
+        media.caption?.trim() || `[file] ${fileName}`,
+      );
 
       const [doc] = await tx
         .insert(documents)
@@ -349,6 +376,39 @@ export class WhatsappService {
    * Which case does this message belong to? Runs inside withTenant, so every
    * lookup is tenant-scoped. Returns null rather than guessing.
    */
+  /**
+   * One thread line for an inbound message. Best-effort by design — a failure
+   * to record the sentence must never cost the document behind it — and
+   * idempotent via the unique index on (tenant, channel, external_id):
+   * Meta re-delivers on any missed 200, and this collapses the replay.
+   */
+  private async recordConversation(
+    tx: Tx,
+    channel: ChannelRow,
+    caseId: string,
+    message: WaMessage,
+    body: string,
+  ): Promise<void> {
+    try {
+      await tx
+        .insert(conversationMessages)
+        .values({
+          tenantId: channel.tenantId,
+          caseId,
+          channel: "whatsapp",
+          direction: "inbound",
+          sender: message.from,
+          body: body.slice(0, 8_000),
+          externalId: message.id,
+        })
+        .onConflictDoNothing();
+    } catch (e) {
+      this.log.warn(
+        `WhatsApp: could not record message text for case ${caseId}: ${e instanceof Error ? e.message : e}`,
+      );
+    }
+  }
+
   private async matchCase(tx: Tx, caption: string, from: string): Promise<string | null> {
     // 1. explicit reference in the caption/text — the strongest signal.
     for (const token of caption.match(/DKT[-\s]?[0-9A-Za-z]{6}/gi) ?? []) {

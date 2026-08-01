@@ -242,6 +242,32 @@ export function addCaseComment(
   });
 }
 
+/* ------------------------------ conversation ------------------------------ */
+
+/**
+ * One line of the back-and-forth with the subject: their words (inbound,
+ * stored by the pollers) or our document requests (outbound, from
+ * case_messages) — merged server-side, oldest first.
+ */
+export type ApiConversationEntry = {
+  id: string;
+  channel: "email" | "whatsapp";
+  direction: "inbound" | "outbound";
+  /** Who it came from (inbound) or went to (outbound). */
+  counterpart: string;
+  subject: string | null;
+  body: string;
+  /** For outbound requests: initial | reminder | manual. */
+  kind: string | null;
+  failed: boolean;
+  at: string;
+};
+
+/** GET /cases/:id/conversation — the whole thread, oldest first. */
+export function getCaseConversation(caseId: string): Promise<ApiConversationEntry[]> {
+  return apiFetch<ApiConversationEntry[]>(`/cases/${encodeURIComponent(caseId)}/conversation`);
+}
+
 /** POST /cases/:id/nudge — send a document request now (manual). */
 export function requestDocuments(caseId: string): Promise<NudgeResult> {
   return apiFetch<NudgeResult>(`/cases/${encodeURIComponent(caseId)}/nudge`, { method: "POST" });

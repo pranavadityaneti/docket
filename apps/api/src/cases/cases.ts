@@ -27,7 +27,9 @@ import {
 import { and, asc, desc, eq } from "drizzle-orm";
 import {
   caseEvents,
+  caseMessages,
   cases,
+  conversationMessages,
   contacts,
   documentRequirements,
   generateCaseReference,
@@ -384,6 +386,59 @@ export class CasesService {
     });
   }
 
+  /**
+   * The full back-and-forth with the subject, oldest first, both channels.
+   * Inbound rows come from conversation_messages (the words the pollers now
+   * keep); outbound document requests come from case_messages — merged at
+   * read time so neither is stored twice and the two can never drift.
+   */
+  listConversation(tenantId: string, caseId: string) {
+    return this.db.withTenant(tenantId, async (tx) => {
+      const [row] = await tx
+        .select({ id: cases.id })
+        .from(cases)
+        .where(eq(cases.id, caseId))
+        .limit(1);
+      if (!row) throw new NotFoundException("Case not found");
+
+      const [inbound, outbound] = await Promise.all([
+        tx
+          .select()
+          .from(conversationMessages)
+          .where(eq(conversationMessages.caseId, caseId)),
+        tx.select().from(caseMessages).where(eq(caseMessages.caseId, caseId)),
+      ]);
+
+      const thread = [
+        ...inbound.map((m) => ({
+          id: m.id,
+          channel: m.channel,
+          direction: m.direction,
+          counterpart: m.sender,
+          subject: m.subject,
+          body: m.body,
+          kind: null as string | null,
+          failed: false,
+          at: m.sentAt,
+        })),
+        ...outbound.map((m) => ({
+          id: m.id,
+          channel: m.channel,
+          direction: "outbound" as const,
+          counterpart: m.recipient,
+          subject: m.subject,
+          // The request's body isn't stored; what it asked for is. Say that.
+          body: `Document request — ${(m.itemsSnapshot ?? []).length} item(s) requested`,
+          kind: m.kind as string | null,
+          failed: m.status === "failed",
+          at: m.sentAt,
+        })),
+      ].sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime());
+
+      return thread;
+    });
+  }
+
   async addComment(tenantId: string, user: AuthUser, caseId: string, input: AddCommentDto) {
     const body = input.body.trim();
     // The DB CHECK would refuse an all-whitespace comment anyway; refusing it
@@ -476,6 +531,11 @@ export class CasesController {
   @Get(":id/events")
   events(@CurrentUser() u: AuthUser, @Param("id", ParseUUIDPipe) id: string) {
     return this.cases.listEvents(u.tenantId, id);
+  }
+
+  @Get(":id/conversation")
+  conversation(@CurrentUser() u: AuthUser, @Param("id", ParseUUIDPipe) id: string) {
+    return this.cases.listConversation(u.tenantId, id);
   }
 
   @Post(":id/comments")
