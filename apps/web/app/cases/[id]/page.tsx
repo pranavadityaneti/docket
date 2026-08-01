@@ -551,6 +551,278 @@ function RemoveDialog({
 
 /* ------------------------------- page ------------------------------- */
 
+/* ------------------------------- tabs ------------------------------- */
+
+type CaseTab = "overview" | "checklist" | "activity" | "calls";
+
+const TABS: { key: CaseTab; label: string; icon: string }[] = [
+  { key: "overview", label: "Overview", icon: "person" },
+  { key: "checklist", label: "Checklist", icon: "checklist" },
+  { key: "activity", label: "Activity", icon: "timeline" },
+  { key: "calls", label: "Calls", icon: "call" },
+];
+
+function TabBar({ tab, onChange }: { tab: CaseTab; onChange: (t: CaseTab) => void }) {
+  return (
+    <div className="flex gap-1 overflow-x-auto border-b" role="tablist">
+      {TABS.map((t) => (
+        <button
+          key={t.key}
+          role="tab"
+          aria-selected={tab === t.key}
+          onClick={() => onChange(t.key)}
+          className={`inline-flex items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2 text-sm transition-colors ${
+            tab === t.key
+              ? "border-primary font-medium text-foreground"
+              : "border-transparent text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <Icon name={t.icon} size={15} />
+          {t.label}
+          {t.key === "calls" ? (
+            <span className="rounded-full border bg-muted px-1.5 py-0.5 text-[10px] leading-none text-muted-foreground">
+              soon
+            </span>
+          ) : null}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** "loan_amount" -> "Loan amount". Field configs will label these properly later. */
+function humanise(key: string): string {
+  const s = key.replace(/_/g, " ").trim();
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+/** Indian-grouped numbers; money-ish keys get a rupee sign. */
+function formatValue(key: string, value: unknown): string {
+  if (typeof value === "number") {
+    const grouped = value.toLocaleString("en-IN");
+    return /amount|turnover|income|revenue/i.test(key) ? `₹${grouped}` : grouped;
+  }
+  return String(value);
+}
+
+function OverviewTab({ detail, subject }: { detail: ApiCaseDetail; subject: string }) {
+  // data.source duplicates the case's own source column (both written by
+  // intake); the case column is the authority, so the data copy is skipped.
+  const fields = Object.entries(detail.data ?? {}).filter(([k]) => k !== "source");
+  return (
+    <div className="flex flex-col gap-4">
+      <Card className="gap-0 overflow-hidden py-0">
+        <div className="border-b p-4 font-medium">{subject}</div>
+        <dl className="grid grid-cols-1 gap-x-8 gap-y-3 p-4 text-sm sm:grid-cols-2">
+          <div>
+            <dt className="text-muted-foreground">Name</dt>
+            <dd className="mt-0.5">{detail.subjectName ?? "—"}</dd>
+          </div>
+          <div>
+            <dt className="text-muted-foreground">Organisation</dt>
+            <dd className="mt-0.5">{detail.subjectOrganisation ?? "—"}</dd>
+          </div>
+          <div>
+            <dt className="text-muted-foreground">Email</dt>
+            <dd className="mt-0.5 break-all">{detail.subjectEmail ?? "—"}</dd>
+          </div>
+          <div>
+            <dt className="text-muted-foreground">Phone</dt>
+            <dd className="mt-0.5">{detail.subjectPhone ?? "—"}</dd>
+          </div>
+        </dl>
+      </Card>
+
+      <Card className="gap-0 overflow-hidden py-0">
+        <div className="border-b p-4 font-medium">{detail.caseLabel}</div>
+        <dl className="grid grid-cols-1 gap-x-8 gap-y-3 p-4 text-sm sm:grid-cols-2">
+          <div>
+            <dt className="text-muted-foreground">Reference</dt>
+            <dd className="mt-0.5 font-mono text-[13px]">{detail.reference}</dd>
+          </div>
+          <div>
+            <dt className="text-muted-foreground">Workflow</dt>
+            <dd className="mt-0.5">{detail.workflowName}</dd>
+          </div>
+          <div>
+            <dt className="text-muted-foreground">Stage</dt>
+            <dd className="mt-0.5">{detail.stageName ?? "—"}</dd>
+          </div>
+          <div>
+            <dt className="text-muted-foreground">Source</dt>
+            <dd className="mt-0.5">{detail.source ?? "—"}</dd>
+          </div>
+          <div>
+            <dt className="text-muted-foreground">Created</dt>
+            <dd className="mt-0.5">{when(detail.createdAt)}</dd>
+          </div>
+          <div>
+            <dt className="text-muted-foreground">Reminders</dt>
+            <dd className="mt-0.5">{detail.nudgesPausedAt ? "Paused" : "Active"}</dd>
+          </div>
+        </dl>
+      </Card>
+
+      {fields.length > 0 ? (
+        <Card className="gap-0 overflow-hidden py-0">
+          <div className="border-b p-4 font-medium">Details</div>
+          <dl className="grid grid-cols-1 gap-x-8 gap-y-3 p-4 text-sm sm:grid-cols-2">
+            {fields.map(([k, v]) => (
+              <div key={k}>
+                <dt className="text-muted-foreground">{humanise(k)}</dt>
+                <dd className="mt-0.5 break-words">{formatValue(k, v)}</dd>
+              </div>
+            ))}
+          </dl>
+        </Card>
+      ) : null}
+    </div>
+  );
+}
+
+/* ------------------------------- activity ------------------------------- */
+
+type ActivityEvent = {
+  at: string;
+  icon: string;
+  title: string;
+  detail?: string;
+  failed?: boolean;
+};
+
+function whenExact(iso: string) {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime())
+    ? ""
+    : d.toLocaleString("en-IN", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+      });
+}
+
+/**
+ * The case's journey, derived on the client from data the page already
+ * fetches — nothing here is a second source of truth. Classification has no
+ * timestamp in the payload, so what the AI read rides along on the arrival
+ * event instead of pretending to know when it happened. A written event log
+ * (stage moves, reviews, comments) is the planned upgrade; this renders
+ * everything derivable today.
+ */
+function buildActivity(
+  detail: ApiCaseDetail,
+  checklist: ApiChecklist,
+  messages: ApiCaseMessage[],
+): ActivityEvent[] {
+  const events: ActivityEvent[] = [];
+
+  events.push({
+    at: detail.createdAt,
+    icon: "flag",
+    title: `${detail.caseLabel} created`,
+    detail: detail.source ? `via ${detail.source}` : undefined,
+  });
+
+  for (const item of checklist.items) {
+    for (const d of item.documents) {
+      if (!d.uploaded) continue; // reservations whose bytes never landed
+      const bits: string[] = [];
+      if (d.sourceChannel) bits.push(`via ${CHANNEL_LABEL[d.sourceChannel] ?? d.sourceChannel}`);
+      if (d.classifiedType) {
+        bits.push(
+          `AI read it as “${d.classifiedType}”${d.classificationConfidence ? ` (${d.classificationConfidence})` : ""}`,
+        );
+      }
+      bits.push(d.autoFiled ? `filed automatically under “${item.label}”` : `on “${item.label}”`);
+      events.push({
+        at: d.receivedAt,
+        icon: d.autoFiled ? "auto_awesome" : "description",
+        title: `${d.fileName} received`,
+        detail: bits.join(" · "),
+      });
+    }
+  }
+  for (const d of checklist.unclassified) {
+    if (!d.uploaded) continue;
+    const bits: string[] = [];
+    if (d.sourceChannel) bits.push(`via ${CHANNEL_LABEL[d.sourceChannel] ?? d.sourceChannel}`);
+    if (d.classifiedType) bits.push(`AI read it as “${d.classifiedType}” — awaiting a human`);
+    else bits.push("not yet matched to a checklist item");
+    events.push({ at: d.receivedAt, icon: "help", title: `${d.fileName} received`, detail: bits.join(" · ") });
+  }
+
+  for (const m of messages) {
+    events.push({
+      at: m.sentAt,
+      icon: m.channel === "whatsapp" ? "chat" : "mail",
+      title: `${MESSAGE_KIND_LABEL[m.kind] ?? m.kind} ${m.status === "failed" ? "failed" : "sent"} · ${CHANNEL_LABEL[m.channel] ?? m.channel}`,
+      detail: `${m.recipient}${m.status === "failed" && m.error ? ` — ${m.error}` : ""}`,
+      failed: m.status === "failed",
+    });
+  }
+
+  if (detail.nudgesPausedAt) {
+    events.push({ at: detail.nudgesPausedAt, icon: "pause", title: "Reminders paused" });
+  }
+
+  // Newest first — the question at the top of a timeline is "what just happened?"
+  return events.sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
+}
+
+function ActivityTab({ events }: { events: ActivityEvent[] }) {
+  return (
+    <Card className="gap-0 overflow-hidden py-0">
+      <div className="border-b p-4">
+        <div className="font-medium">Activity</div>
+        <p className="text-sm text-muted-foreground">
+          Every touchpoint on this case, newest first.
+        </p>
+      </div>
+      <div className="flex flex-col p-4">
+        {events.map((e, i) => (
+          <div key={`${e.at}-${i}`} className="relative flex gap-3 pb-5 last:pb-0">
+            {/* the spine */}
+            {i < events.length - 1 ? (
+              <div className="absolute left-[13px] top-7 h-[calc(100%-1.25rem)] w-px bg-border" />
+            ) : null}
+            <div
+              className={`z-10 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border ${
+                e.failed
+                  ? "border-red-200 bg-red-50 text-red-600 dark:border-red-900 dark:bg-red-950 dark:text-red-400"
+                  : "bg-muted text-muted-foreground"
+              }`}
+            >
+              <Icon name={e.icon} size={14} />
+            </div>
+            <div className="min-w-0 flex-1 pt-0.5">
+              <div className="text-sm">{e.title}</div>
+              {e.detail ? <div className="mt-0.5 text-xs text-muted-foreground">{e.detail}</div> : null}
+              <div className="mt-0.5 text-xs text-muted-foreground/70">{whenExact(e.at)}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+function CallsPlaceholder({ subject }: { subject: string }) {
+  return (
+    <Card className="flex flex-col items-center gap-3 border-dashed py-16 text-center">
+      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+        <Icon name="call" size={22} className="text-muted-foreground" />
+      </div>
+      <div className="text-sm font-medium">Calls are coming soon</div>
+      <p className="max-w-sm px-4 text-sm text-muted-foreground">
+        Calls with the {subject.toLowerCase()} will appear here — outcomes, notes and recordings,
+        alongside every other touchpoint on the case.
+      </p>
+    </Card>
+  );
+}
+
 export default function CaseDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
@@ -561,6 +833,9 @@ export default function CaseDetailPage() {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [actionError, setActionError] = React.useState<ActionError | null>(null);
+  // Checklist first: the product exists for "what is still missing?", so the
+  // landing view stays what it has always been. The other tabs are additive.
+  const [tab, setTab] = React.useState<CaseTab>("checklist");
   const [uploading, setUploading] = React.useState<string | null>(null);
   const [busyId, setBusyId] = React.useState<string | null>(null);
   const [rejecting, setRejecting] = React.useState<ApiDocument | null>(null);
@@ -896,8 +1171,6 @@ export default function CaseDetailPage() {
         ) : null}
       </div>
 
-      <ProgressCard summary={checklist.summary} subjectLabel={subject} />
-
       {actionError && actionError.id === null ? (
         <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
           {actionError.message}
@@ -909,6 +1182,18 @@ export default function CaseDetailPage() {
           {nudgeNotice}
         </div>
       ) : null}
+
+      <TabBar tab={tab} onChange={setTab} />
+
+      {tab === "overview" ? <OverviewTab detail={detail} subject={subject} /> : null}
+
+      {tab === "activity" ? <ActivityTab events={buildActivity(detail, checklist, messages)} /> : null}
+
+      {tab === "calls" ? <CallsPlaceholder subject={subject} /> : null}
+
+      {tab === "checklist" ? (
+        <>
+      <ProgressCard summary={checklist.summary} subjectLabel={subject} />
 
       <Card className="gap-0 overflow-hidden py-0">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b p-4">
@@ -1042,44 +1327,7 @@ export default function CaseDetailPage() {
           </div>
         </Card>
       ) : null}
-
-      {/* Outbound history — every document request and reminder sent, so staff
-          can see the chase without leaving the case. */}
-      {messages.length > 0 ? (
-        <Card className="gap-0 overflow-hidden py-0">
-          <div className="border-b p-4">
-            <div className="font-medium">Requests sent</div>
-            <p className="text-sm text-muted-foreground">
-              Document requests and reminders sent to this {subject.toLowerCase()}.
-            </p>
-          </div>
-          <div className="flex flex-col gap-1.5 p-4">
-            {messages.map((m) => (
-              <div
-                key={m.id}
-                className="flex flex-wrap items-center gap-2 rounded-md border bg-background px-3 py-2"
-              >
-                <Icon
-                  name={m.channel === "whatsapp" ? "chat" : "mail"}
-                  size={16}
-                  className="shrink-0 text-muted-foreground"
-                />
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm">
-                    {MESSAGE_KIND_LABEL[m.kind] ?? m.kind} · {CHANNEL_LABEL[m.channel] ?? m.channel}
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    {[m.recipient, when(m.sentAt)].filter(Boolean).join(" · ")}
-                    {m.status === "failed" && m.error ? ` — ${m.error}` : ""}
-                  </div>
-                </div>
-                <Badge variant={m.status === "failed" ? "destructive" : "outline"}>
-                  {m.status === "failed" ? "Failed" : "Sent"}
-                </Badge>
-              </div>
-            ))}
-          </div>
-        </Card>
+        </>
       ) : null}
 
       <RejectDialog
