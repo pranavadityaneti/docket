@@ -16,6 +16,15 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { listContacts, AuthRequiredError, type ApiContact } from "@/lib/api";
+import {
+  SelectCheckbox,
+  SelectionBar,
+  csvFilename,
+  downloadCsv,
+  toCsv,
+  useSelection,
+  type CsvColumn,
+} from "@/components/bulk-select";
 
 /* ------------------------------------------------------------------ *
  * Contacts — the parties documents are collected FROM, across all of
@@ -78,6 +87,22 @@ export default function ContactsPage() {
     );
   }, [rows, query]);
 
+  const visibleIds = React.useMemo(() => filtered.map((c) => c.id), [filtered]);
+  const sel = useSelection(visibleIds);
+
+  const csvColumns: CsvColumn<ApiContact>[] = [
+    { header: "Name", value: (c) => c.name },
+    { header: "Organisation", value: (c) => c.organisation },
+    { header: "Email", value: (c) => c.email },
+    { header: "Phone", value: (c) => c.phone },
+    { header: "Cases", value: (c) => c.caseCount },
+    { header: "Most recent case", value: (c) => (c.lastCaseAt ? when(c.lastCaseAt) : "") },
+  ];
+
+  function exportCsv(list: ApiContact[]) {
+    downloadCsv(csvFilename("contacts"), toCsv(list, csvColumns));
+  }
+
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -114,12 +139,34 @@ export default function ContactsPage() {
               className="pl-8"
             />
           </div>
-          {rows ? (
-            <span className="text-sm tabular-nums text-muted-foreground">
-              {filtered.length} of {rows.length}
-            </span>
-          ) : null}
+          <div className="flex items-center gap-2">
+            {rows ? (
+              <span className="text-sm tabular-nums text-muted-foreground">
+                {filtered.length} of {rows.length}
+              </span>
+            ) : null}
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 gap-1.5"
+              disabled={filtered.length === 0}
+              onClick={() => exportCsv(filtered)}
+            >
+              <Icon name="download" size={15} /> Download
+            </Button>
+          </div>
         </div>
+
+        <SelectionBar count={sel.count} noun="contact" onClear={sel.clear}>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 gap-1.5"
+            onClick={() => exportCsv(filtered.filter((c) => sel.isSelected(c.id)))}
+          >
+            <Icon name="download" size={14} /> Download CSV
+          </Button>
+        </SelectionBar>
 
         {rows === null ? (
           <div className="flex flex-col gap-2 p-4">
@@ -143,6 +190,14 @@ export default function ContactsPage() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-10">
+                    <SelectCheckbox
+                      checked={sel.allSelected}
+                      indeterminate={sel.someSelected}
+                      onChange={sel.toggleAll}
+                      label="Select all contacts shown"
+                    />
+                  </TableHead>
                   <TableHead>Name</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Phone</TableHead>
@@ -153,6 +208,13 @@ export default function ContactsPage() {
               <TableBody>
                 {filtered.map((c) => (
                   <TableRow key={c.id}>
+                    <TableCell className="w-10">
+                      <SelectCheckbox
+                        checked={sel.isSelected(c.id)}
+                        onChange={() => sel.toggle(c.id)}
+                        label={`Select ${c.name}`}
+                      />
+                    </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2.5">
                         <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium text-muted-foreground">

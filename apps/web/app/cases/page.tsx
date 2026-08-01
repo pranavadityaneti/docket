@@ -24,6 +24,15 @@ import {
   validateField,
 } from "@/components/case-fields";
 import {
+  SelectCheckbox,
+  SelectionBar,
+  csvFilename,
+  downloadCsv,
+  toCsv,
+  useSelection,
+  type CsvColumn,
+} from "@/components/bulk-select";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -568,6 +577,38 @@ function AllCasesView({
     return `${l.name} ${l.company} ${l.reference}`.toLowerCase().includes(q);
   });
 
+  const visibleIds = React.useMemo(() => filtered.map((l) => l.id), [filtered]);
+  const sel = useSelection(visibleIds);
+
+  /**
+   * Columns follow the workflow's own fields, so a lender exports loan
+   * amounts and a college exports courses — the same reason the table's
+   * columns are not hardcoded.
+   */
+  const csvColumns: CsvColumn<Lead>[] = React.useMemo(
+    () => [
+      { header: subjectLabel, value: (l) => l.name },
+      { header: "Organisation", value: (l) => l.company },
+      { header: "Reference", value: (l) => l.reference },
+      { header: "Stage", value: (l) => l.stage },
+      { header: "Source", value: (l) => l.source },
+      { header: "Last activity", value: (l) => l.activity },
+      ...fields.map((f) => ({
+        header: f.label,
+        value: (l: Lead) => {
+          const raw = l.data?.[f.field_key];
+          return raw === null || raw === undefined ? "" : raw;
+        },
+      })),
+    ],
+    [fields, subjectLabel],
+  );
+
+  /** Export the selection, or everything on screen when nothing is picked. */
+  function exportCsv(rows: Lead[]) {
+    downloadCsv(csvFilename(plural(caseLabel).toLowerCase()), toCsv(rows, csvColumns));
+  }
+
   return (
     <Card className="gap-0 overflow-hidden py-0">
       <div className="flex flex-wrap items-center gap-2 border-b p-3">
@@ -580,25 +621,45 @@ function AllCasesView({
             className="pl-8"
           />
         </div>
-        <Button variant="outline" size="sm" className="gap-1.5">
-          <Icon name="swap_vert" size={16} /> Updated At
-        </Button>
-        <Button variant="outline" size="sm" className="gap-1.5">
+        {/* Was a decoration; it now exports exactly what is on screen. */}
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-1.5"
+          disabled={filtered.length === 0}
+          onClick={() => exportCsv(filtered)}
+        >
           <Icon name="download" size={16} /> Download
-        </Button>
-        <Button variant="outline" size="sm" className="gap-1.5">
-          <Icon name="filter_list" size={16} /> Filters
         </Button>
         <Button variant="outline" size="sm" className="gap-1.5" onClick={onRefresh}>
           <Icon name="refresh" size={16} /> Refresh
         </Button>
       </div>
 
+      <SelectionBar count={sel.count} noun={caseLabel.toLowerCase()} onClear={sel.clear}>
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-8 gap-1.5"
+          onClick={() => exportCsv(filtered.filter((l) => sel.isSelected(l.id)))}
+        >
+          <Icon name="download" size={14} /> Download CSV
+        </Button>
+      </SelectionBar>
+
       <div className="overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="pl-4">{subjectLabel}</TableHead>
+              <TableHead className="w-10 pl-4">
+                <SelectCheckbox
+                  checked={sel.allSelected}
+                  indeterminate={sel.someSelected}
+                  onChange={sel.toggleAll}
+                  label={`Select all ${plural(caseLabel).toLowerCase()} shown`}
+                />
+              </TableHead>
+              <TableHead>{subjectLabel}</TableHead>
               {fields.map((f) => (
                 <TableHead key={f.field_key}>{f.label}</TableHead>
               ))}
@@ -611,7 +672,7 @@ function AllCasesView({
           <TableBody>
             {filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5 + fields.length} className="py-12 text-center">
+                <TableCell colSpan={6 + fields.length} className="py-12 text-center">
                   <div className="text-sm font-medium">
                     No {plural(caseLabel).toLowerCase()} match your search
                   </div>
@@ -643,7 +704,14 @@ function AllCasesView({
                   }
                 }}
               >
-                <TableCell className="pl-4">
+                <TableCell className="w-10 pl-4">
+                  <SelectCheckbox
+                    checked={sel.isSelected(l.id)}
+                    onChange={() => sel.toggle(l.id)}
+                    label={`Select ${l.reference}`}
+                  />
+                </TableCell>
+                <TableCell>
                   <div className="font-medium">{l.name}</div>
                   <div className="text-xs text-muted-foreground">{l.company} · {l.reference}</div>
                 </TableCell>
