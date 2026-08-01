@@ -118,4 +118,11 @@ export const env = {
    * where WEB_ORIGIN is unset. Never taken from request input.
    */
   appOrigin: webOrigins[0] ?? "http://localhost:3000",
+  /**
+   * Shared key for the machine-intake endpoint (the marketing site's enquiry
+   * form). Optional: unset means intake answers 503 — off, never open.
+   */
+  intakeApiKey: process.env.INTAKE_API_KEY?.trim() || undefined,
+  /** The single tenant intake creates cases for. See intake.ts on why one. */
+  intakeTenantSlug: process.env.INTAKE_TENANT_SLUG?.trim() || "finlot",
 } as const;

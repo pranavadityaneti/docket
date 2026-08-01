@@ -38,6 +38,9 @@ const ALLOWED = new Set([
   // Without this the advertised "swap the model with an env var" is only half
   // true: env.ts reads it, but nothing in prod could supply it.
   "OPENAI_MODEL",
+  // Machine-intake credentials (marketing-site enquiry form -> cases).
+  "INTAKE_API_KEY",
+  "INTAKE_TENANT_SLUG",
 ]);
 
 /**

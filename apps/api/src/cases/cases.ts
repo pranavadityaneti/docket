@@ -365,5 +365,9 @@ export class CasesController {
   imports: [NudgesModule],
   controllers: [CasesController],
   providers: [CasesService],
+  // Exported for the intake endpoint: a case born from the website must be
+  // created by the SAME code path as one born in the dashboard — reference
+  // retry, first stage, initial document request and all.
+  exports: [CasesService],
 })
 export class CasesModule {}
