@@ -97,24 +97,13 @@ const TONE_CLASS: Record<string, string> = {
 const toneClass = (tone: string | null | undefined) =>
   TONE_CLASS[tone ?? ""] ?? TONE_CLASS.muted;
 
-type LoanType = "SME Term Loan" | "LAP" | "Working Capital" | "Top-up";
-type EntityType =
-  | "Proprietorship"
-  | "Partnership"
-  | "Private Limited"
-  | "Public Limited"
-  | "LLP";
+/**
+ * How a case arrived. Structural — it names a channel, not an industry — so it
+ * stays, unlike the loan-type and entity-type lists that used to sit here:
+ * those were one industry's vocabulary hardcoded into a shared screen, and the
+ * create dialog now reads its options from the workflow's own field config.
+ */
 type Source = "Portal" | "Whatsapp" | "Email" | "Referral" | "Website" | "Other";
-
-const LOAN_TYPES: LoanType[] = ["SME Term Loan", "LAP", "Working Capital", "Top-up"];
-const ENTITY_TYPES: EntityType[] = [
-  "Proprietorship",
-  "Partnership",
-  "Private Limited",
-  "Public Limited",
-  "LLP",
-];
-const SOURCES: Source[] = ["Portal", "Whatsapp", "Email", "Referral", "Website", "Other"];
 
 type Lead = {
   id: string;
@@ -235,18 +224,6 @@ function inr(n: number) {
   return "₹" + n.toLocaleString("en-IN");
 }
 
-// Auto-format a PAN as it's typed: uppercase, strip junk, enforce AAAAA9999A structure.
-function formatPan(raw: string): string {
-  const s = raw.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10);
-  let out = "";
-  for (let i = 0; i < s.length; i++) {
-    const wantsLetter = i < 5 || i === 9;
-    if (wantsLetter ? /[A-Z]/.test(s[i]) : /[0-9]/.test(s[i])) out += s[i];
-    else break;
-  }
-  return out;
-}
-
 /* ------------------------------- Workflow selector ------------------------------- */
 
 /**
@@ -343,61 +320,142 @@ function Field({
   );
 }
 
-function SelectField({
+/**
+ * One field, rendered from the workflow's own field config.
+ *
+ * The dialog used to hardcode PAN / entity type / loan amount — one industry's
+ * vocabulary baked into a screen meant to serve a college and a CA firm too.
+ * Everything domain-specific now comes from FieldDef, which the API already
+ * returned and this screen already used for its table columns.
+ */
+function DynamicField({
+  field,
   value,
+  error,
   onChange,
-  options,
 }: {
+  field: ApiFieldDef;
   value: string;
+  error?: string;
   onChange: (v: string) => void;
-  options: readonly string[];
 }) {
   return (
-    <select value={value} onChange={(e) => onChange(e.target.value)} className={FIELD_CLASS}>
-      {options.map((o) => (
-        <option key={o} value={o}>
-          {o}
-        </option>
-      ))}
-    </select>
+    <Field label={field.label} error={error} required={field.required}>
+      {field.input_type === "dropdown" ? (
+        <select value={value} onChange={(e) => onChange(e.target.value)} className={FIELD_CLASS}>
+          {/* An optional dropdown needs an empty choice, or its first option
+              silently becomes an answer nobody gave. */}
+          {!field.required ? <option value="">—</option> : null}
+          {(field.options ?? []).map((o) => (
+            <option key={o} value={o}>
+              {o}
+            </option>
+          ))}
+        </select>
+      ) : field.input_type === "textarea" ? (
+        <textarea
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          rows={3}
+          placeholder={field.placeholder}
+          className={`${FIELD_CLASS} h-auto resize-none py-2`}
+        />
+      ) : (
+        <Input
+          type={field.input_type === "number" ? "number" : "text"}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={field.placeholder}
+        />
+      )}
+    </Field>
   );
+}
+
+/**
+ * Validate one value against its FieldDef. Returns a message, or null.
+ *
+ * `minimum`/`maximum` mean VALUE for integers and LENGTH for strings — that is
+ * how the config uses them (PAN carries minimum 10, maximum 10 alongside its
+ * regex).
+ */
+function validateField(field: ApiFieldDef, raw: string): string | null {
+  const value = raw.trim();
+  if (!value) return field.required ? `${field.label} is required.` : null;
+
+  const v = field.validation ?? {};
+  const num = (x: unknown) => {
+    if (x === undefined || x === null || x === "") return null;
+    const n = Number(x);
+    return Number.isFinite(n) ? n : null;
+  };
+
+  if (typeof v.regex === "string" && v.regex) {
+    try {
+      if (!new RegExp(v.regex).test(value)) return `${field.label} is not in the expected format.`;
+    } catch {
+      // A malformed regex in config must never block data entry.
+    }
+  }
+
+  const min = num(v.minimum);
+  const max = num(v.maximum);
+  if (field.field_type === "integer") {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return `${field.label} must be a number.`;
+    if (min !== null && n < min) return `${field.label} must be at least ${min}.`;
+    if (max !== null && n > max) return `${field.label} must be at most ${max}.`;
+  } else {
+    if (min !== null && value.length < min) {
+      return `${field.label} must be at least ${min} characters.`;
+    }
+    if (max !== null && value.length > max) {
+      return `${field.label} must be at most ${max} characters.`;
+    }
+  }
+  return null;
 }
 
 function CreateLeadDialog({
   open,
   onOpenChange,
   onCreate,
-  subjectLabel,
+  workflows,
+  selectedSlug,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
   onCreate: (input: CreateCaseInput) => Promise<void>;
-  /** "Borrower" for a lender, "Student" for a college — from the workflow. */
-  subjectLabel: string;
+  /** Every workflow this tenant runs — the form rebuilds itself per choice. */
+  workflows: ApiWorkflow[];
+  /** The workflow the Cases screen is showing; the dialog opens on it. */
+  selectedSlug: string | null;
 }) {
+  const [slug, setSlug] = React.useState<string>("");
   const [name, setName] = React.useState("");
-  const [company, setCompany] = React.useState("");
-  const [pan, setPan] = React.useState("");
-  const [loanType, setLoanType] = React.useState<LoanType>("SME Term Loan");
-  const [entityType, setEntityType] = React.useState<EntityType>("Proprietorship");
-  const [amount, setAmount] = React.useState("");
-  const [turnover, setTurnover] = React.useState("");
-  const [source, setSource] = React.useState<Source>("Portal");
-  const [funds, setFunds] = React.useState("");
+  const [organisation, setOrganisation] = React.useState("");
+  const [email, setEmail] = React.useState("");
+  const [phone, setPhone] = React.useState("");
+  const [values, setValues] = React.useState<Record<string, string>>({});
   const [errors, setErrors] = React.useState<Record<string, string>>({});
   const [submitting, setSubmitting] = React.useState(false);
   const [submitError, setSubmitError] = React.useState<string | null>(null);
 
+  const workflow = workflows.find((w) => w.slug === (slug || selectedSlug)) ?? workflows[0] ?? null;
+  const subjectLabel = workflow?.subjectLabel ?? "Contact";
+  const caseLabel = workflow?.caseLabel ?? "Case";
+  const fields = React.useMemo(
+    () => [...(workflow?.fields ?? [])].sort((a, b) => a.order - b.order),
+    [workflow],
+  );
+
   function reset() {
+    setSlug("");
     setName("");
-    setCompany("");
-    setPan("");
-    setLoanType("SME Term Loan");
-    setEntityType("Proprietorship");
-    setAmount("");
-    setTurnover("");
-    setSource("Portal");
-    setFunds("");
+    setOrganisation("");
+    setEmail("");
+    setPhone("");
+    setValues({});
     setErrors({});
     setSubmitError(null);
     setSubmitting(false);
@@ -409,33 +467,51 @@ function CreateLeadDialog({
     onOpenChange(next);
   }
 
+  /** Switching workflow changes which fields exist — old answers cannot carry over. */
+  function chooseWorkflow(next: string) {
+    setSlug(next);
+    setValues({});
+    setErrors({});
+  }
+
   async function submit() {
     const errs: Record<string, string> = {};
-    if (!name.trim()) errs.name = `${subjectLabel} name is required.`;
-    if (!company.trim()) errs.company = "Company name is required.";
-    const amt = Number(amount);
-    if (!amount || Number.isNaN(amt) || amt <= 0) errs.amount = "Enter a valid amount.";
-    if (pan && !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(pan.trim().toUpperCase()))
-      errs.pan = "PAN must look like ABCDE1234F.";
+    if (!name.trim()) errs.__name = `${subjectLabel} name is required.`;
+    // Loose on purpose: the API validates properly, and a create blocked by a
+    // client-side email rule is worse than one the server explains.
+    if (email.trim() && !email.includes("@")) errs.__email = "That does not look like an email.";
+    for (const f of fields) {
+      const msg = validateField(f, values[f.field_key] ?? "");
+      if (msg) errs[f.field_key] = msg;
+    }
     setErrors(errs);
     if (Object.keys(errs).length) return;
+
+    // Only answered fields travel; integers go as numbers so the API and the
+    // case Overview format them as numbers.
+    const data: Record<string, unknown> = {};
+    for (const f of fields) {
+      const raw = (values[f.field_key] ?? "").trim();
+      if (!raw) continue;
+      data[f.field_key] = f.field_type === "integer" ? Number(raw) : raw;
+    }
 
     setSubmitting(true);
     setSubmitError(null);
     try {
       await onCreate({
         name: name.trim(),
-        organisation: company.trim() || undefined,
-        source,
-        // Keys match this workflow's field config (see business-loan-config.ts).
-        data: {
-          pan_number: pan.trim() || undefined,
-          loan_type: loanType,
-          entity_type: entityType,
-          loan_amount: amt,
-          monthly_turnover: Number(turnover) || undefined,
-          funds_needed: funds.trim() || undefined,
-        },
+        organisation: organisation.trim() || undefined,
+        // The routing keys. Until now this dialog collected NEITHER, so a case
+        // created here could never be matched to an inbound email or WhatsApp
+        // message — the subject's documents had nowhere to land.
+        email: email.trim() || undefined,
+        phone: phone.trim() || undefined,
+        // `source` is both a case column and (for this workflow) a field. The
+        // column is what the board and Overview read, so mirror it up.
+        source: typeof data.source === "string" ? data.source : undefined,
+        workflow: workflow?.slug,
+        data,
       });
       handleOpenChange(false); // resets + closes on success
     } catch (e) {
@@ -449,33 +525,70 @@ function CreateLeadDialog({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="gap-0 p-0">
         <DialogHeader className="border-b pr-10">
-          <DialogTitle>New case</DialogTitle>
+          <DialogTitle>New {caseLabel.toLowerCase()}</DialogTitle>
           <DialogDescription>
-            Business Loan workflow · lands in Pending, then the AI workforce takes over.
+            {workflow ? `${workflow.name} workflow` : "No workflow configured"} · the document
+            checklist is built when it is created.
           </DialogDescription>
         </DialogHeader>
 
         <div className="min-h-0 flex-1 overflow-y-auto p-4">
+          {/* With one workflow there is nothing to choose — a picker would be
+              noise. It appears the moment a tenant runs two. */}
+          {workflows.length > 1 ? (
+            <FormSection title="Workflow">
+              <Field label="What is this for?">
+                <select
+                  value={workflow?.slug ?? ""}
+                  onChange={(e) => chooseWorkflow(e.target.value)}
+                  className={FIELD_CLASS}
+                >
+                  {workflows.map((w) => (
+                    <option key={w.slug} value={w.slug}>
+                      {w.name}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            </FormSection>
+          ) : null}
+
           <FormSection title={subjectLabel}>
-            <Field label="Full name" error={errors.name} required>
-              <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Ramesh Kumar" />
+            <Field label="Full name" error={errors.__name} required>
+              <Input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="e.g. Ramesh Kumar"
+              />
             </Field>
-            <Field label="Company name" error={errors.company} required>
-              <Input value={company} onChange={(e) => setCompany(e.target.value)} placeholder="e.g. Kumar Traders" />
+            <Field label="Organisation">
+              <Input
+                value={organisation}
+                onChange={(e) => setOrganisation(e.target.value)}
+                placeholder="Business, college or firm (optional)"
+              />
             </Field>
             <div className="grid grid-cols-2 gap-3">
-              <Field label="PAN" error={errors.pan}>
+              <Field label="Email" error={errors.__email}>
                 <Input
-                  value={pan}
-                  onChange={(e) => setPan(formatPan(e.target.value))}
-                  placeholder="ABCDE1234F"
-                  maxLength={10}
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="name@example.com"
                 />
               </Field>
-              <Field label="Entity type">
-                <SelectField value={entityType} onChange={(v) => setEntityType(v as EntityType)} options={ENTITY_TYPES} />
+              <Field label="Phone">
+                <Input
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="9876543210"
+                />
               </Field>
             </div>
+            <p className="text-xs text-muted-foreground">
+              Email and phone are how documents this {subjectLabel.toLowerCase()} sends are matched
+              back to this {caseLabel.toLowerCase()}.
+            </p>
           </FormSection>
 
           {/* The checklist is deliberately NOT previewed here. Which documents
@@ -487,40 +600,28 @@ function CreateLeadDialog({
           <div className="mb-5 rounded-lg border bg-muted/40 p-3">
             <div className="flex items-center gap-1.5 text-xs font-medium text-foreground">
               <Icon name="fact_check" size={15} className="text-primary" />
+              {/* One interpolation, not a sentence split across lines: JSX ate
+                  the newline between the expression and the text after it,
+                  which rendered "applicationis created". */}
               <span>
-                The document checklist for this {entityType} is built when the case is
-                created — you&rsquo;ll land on it next.
+                {`The document checklist is built from these answers when the ${caseLabel.toLowerCase()} is created — you’ll land on it next.`}
               </span>
             </div>
           </div>
 
-          <FormSection title="Loan ask">
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Loan type">
-                <SelectField value={loanType} onChange={(v) => setLoanType(v as LoanType)} options={LOAN_TYPES} />
-              </Field>
-              <Field label="Loan amount (₹)" error={errors.amount} required>
-                <Input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="4000000" />
-              </Field>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Monthly turnover (₹)">
-                <Input type="number" value={turnover} onChange={(e) => setTurnover(e.target.value)} placeholder="1200000" />
-              </Field>
-              <Field label="Source">
-                <SelectField value={source} onChange={(v) => setSource(v as Source)} options={SOURCES} />
-              </Field>
-            </div>
-            <Field label="Funds needed for">
-              <textarea
-                value={funds}
-                onChange={(e) => setFunds(e.target.value)}
-                placeholder="Short note on use of funds…"
-                rows={3}
-                className={`${FIELD_CLASS} h-auto resize-none py-2`}
-              />
-            </Field>
-          </FormSection>
+          {fields.length > 0 ? (
+            <FormSection title="Details">
+              {fields.map((f) => (
+                <DynamicField
+                  key={f.field_key}
+                  field={f}
+                  value={values[f.field_key] ?? ""}
+                  error={errors[f.field_key]}
+                  onChange={(v) => setValues((prev) => ({ ...prev, [f.field_key]: v }))}
+                />
+              ))}
+            </FormSection>
+          ) : null}
         </div>
 
         {submitError ? (
@@ -533,14 +634,14 @@ function CreateLeadDialog({
           <Button variant="outline" onClick={() => handleOpenChange(false)} disabled={submitting}>
             Cancel
           </Button>
-          <Button onClick={submit} disabled={submitting} className="gap-1.5">
+          <Button onClick={submit} disabled={submitting || !workflow} className="gap-1.5">
             {submitting ? (
               <>
                 <Icon name="progress_activity" size={16} className="animate-spin" /> Creating…
               </>
             ) : (
               <>
-                <Icon name="add" size={16} /> Create case
+                <Icon name="add" size={16} /> Create {caseLabel.toLowerCase()}
               </>
             )}
           </Button>
@@ -1087,7 +1188,8 @@ export default function CasesPage() {
       <CreateLeadDialog
         open={createOpen}
         onOpenChange={setCreateOpen}
-        subjectLabel={subjectLabel}
+        workflows={workflows}
+        selectedSlug={selectedSlug}
         onCreate={async (input) => {
           try {
             // The new case belongs to the workflow this screen is showing.

@@ -373,6 +373,12 @@ export type ApiFieldDef = {
   input_type: "text" | "number" | "dropdown" | "textarea";
   required: boolean;
   options?: string[];
+  /**
+   * Per-field rules the create form enforces: `regex` (string shape),
+   * `minimum`/`maximum` (value for integers, length for strings). Stored as
+   * strings in the config; the form parses what it needs.
+   */
+  validation?: Record<string, unknown>;
   placeholder?: string;
   order: number;
   show_in_table?: boolean;
