@@ -210,6 +210,54 @@ export function updateCase(caseId: string, input: UpdateCaseInput): Promise<ApiC
   });
 }
 
+/* ------------------------------ contacts ------------------------------ */
+
+/** A party documents are collected from, with how many cases they have. */
+export type ApiContact = {
+  id: string;
+  kind: "person" | "organisation";
+  name: string;
+  organisation: string | null;
+  email: string | null;
+  phone: string | null;
+  createdAt: string;
+  caseCount: number;
+  lastCaseAt: string | null;
+};
+
+/** GET /contacts — every subject this tenant has collected from. */
+export function listContacts(): Promise<ApiContact[]> {
+  return apiFetch<ApiContact[]>("/contacts");
+}
+
+/* ------------------------------ channels ------------------------------ */
+
+/**
+ * A tenant-owned intake address. Credentials are never returned by the API —
+ * the mailbox password and WhatsApp token exist only as ciphertext server-side.
+ */
+export type ApiChannel = {
+  id: string;
+  kind: "email" | "whatsapp";
+  address: string;
+  enabled: boolean;
+  config: Record<string, unknown> | null;
+  cursor: string | null;
+  lastPolledAt: string | null;
+  lastError: string | null;
+  createdAt: string;
+};
+
+/** GET /channels — the tenant's own mailboxes and numbers. */
+export function listChannels(): Promise<ApiChannel[]> {
+  return apiFetch<ApiChannel[]>("/channels");
+}
+
+/** POST /channels/:id/poll — fetch this mailbox now instead of waiting for the cron. */
+export function pollChannel(channelId: string): Promise<unknown> {
+  return apiFetch(`/channels/${encodeURIComponent(channelId)}/poll`, { method: "POST" });
+}
+
 /* ------------------------------ document requests (nudges) ------------------------------ */
 
 /** Per-channel result of one send attempt (see apps/api NudgeService). */

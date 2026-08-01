@@ -67,7 +67,7 @@ const NAV: NavGroup[] = [
       { title: "Cases", symbol: "folder_shared", href: "/cases" },
       // The party documents come from, across all their cases — where a
       // reusable document is answered once instead of re-collected.
-      { title: "Contacts", symbol: "contacts", soon: true },
+      { title: "Contacts", symbol: "contacts", href: "/contacts" },
     ],
   },
   {
@@ -83,10 +83,10 @@ const NAV: NavGroup[] = [
   {
     label: "Setup",
     items: [
-      { title: "Workflows", symbol: "account_tree" },
+      { title: "Workflows", symbol: "account_tree", href: "/workflows" },
       // The tenant's own number and mailbox under their own brand — the USP,
       // configured once rather than worked out of.
-      { title: "Channels", symbol: "hub" },
+      { title: "Channels", symbol: "hub", href: "/channels" },
       { title: "Integrations", symbol: "extension" },
       { title: "Team", symbol: "group" },
       { title: "Settings", symbol: "settings", href: "/settings" },
