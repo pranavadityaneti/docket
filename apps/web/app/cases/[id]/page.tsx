@@ -1136,7 +1136,8 @@ export default function CaseDetailPage() {
   // data already on screen must NOT blank the checklist — it becomes a banner,
   // because throwing away a working screen over one transient blip is worse
   // than showing slightly stale data next to the error.
-  const refresh = React.useCallback(async () => {
+  const refresh = React.useCallback(async (opts?: { background?: boolean }) => {
+    const background = opts?.background === true;
     try {
       const [c, cl, msgs, evs, conv] = await Promise.all([
         getCase(caseId),
@@ -1152,9 +1153,17 @@ export default function CaseDetailPage() {
       setConversation(conv);
       setLoadedAt(Date.now());
       setError(null);
-      setActionError(null);
+      // A background poll must NOT clear a message the user has not read.
+      // "Residence address proof already has 1 file" disappearing 15 seconds
+      // after it appears is worse than never showing it.
+      if (!background) setActionError(null);
     } catch (e) {
       if (e instanceof AuthRequiredError) return;
+      // A background poll that fails stays quiet: the screen keeps working on
+      // the data it has, the age label stops advancing, and the next tick
+      // usually recovers. Shouting about a transient blip nobody asked for
+      // trains people to ignore the banner.
+      if (background) return;
       const msg = e instanceof Error ? e.message : "Couldn't load this case.";
       setHasData((had) => {
         if (had) setActionError({ id: null, message: msg });
@@ -1191,6 +1200,44 @@ export default function CaseDetailPage() {
     const id = setInterval(() => setTick((t) => t + 1), 1000);
     return () => clearInterval(id);
   }, []);
+
+  /**
+   * Anything the user has in flight. Read by the auto-refresh below through a
+   * ref, so the poll does not land mid-action — replacing the checklist while
+   * a document is being filed makes rows jump under the cursor, and the
+   * refresh that every action already does on completion is the correct one.
+   */
+  const actionInFlight =
+    busyId !== null || uploading !== null || refreshing || nudging || pausing;
+  const busyRef = React.useRef(false);
+  // Mirrored in an effect, not during render: writing a ref while rendering is
+  // the anti-pattern React warns about, and the interval only ever reads it
+  // after a commit anyway.
+  React.useEffect(() => {
+    busyRef.current = actionInFlight;
+  }, [actionInFlight]);
+
+  /**
+   * Auto-refresh while a case is open.
+   *
+   * Documents arrive on their own schedule — the mailbox is polled once a
+   * minute, then the classifier reads each file — so the case a person is
+   * watching changes without them doing anything. 15s is well inside that
+   * pipeline's own latency, so files appear on screen shortly after they are
+   * real, and it is quiet enough to be unnoticeable.
+   *
+   * Three guards: skip while the tab is hidden (a backgrounded tab polling
+   * forever is pure waste), skip while an action is in flight, and skip while
+   * a fetch is already running. Failures stay silent — see refresh().
+   */
+  React.useEffect(() => {
+    const id = setInterval(() => {
+      if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+      if (busyRef.current) return;
+      void refresh({ background: true });
+    }, 15_000);
+    return () => clearInterval(id);
+  }, [refresh]);
 
   async function handleUpload(item: ApiChecklistItem, file: File) {
     setActionError(null);
@@ -1403,7 +1450,7 @@ export default function CaseDetailPage() {
             <Button variant="outline" onClick={() => router.push("/cases")}>
               Back to cases
             </Button>
-            <Button onClick={refresh}>Try again</Button>
+            <Button onClick={() => void manualRefresh()}>Try again</Button>
           </div>
         </Card>
       </div>
