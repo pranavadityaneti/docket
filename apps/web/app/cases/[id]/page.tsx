@@ -587,6 +587,52 @@ function RemoveDialog({
 
 /* ------------------------------- page ------------------------------- */
 
+/** "just now" / "40s ago" / "3m ago" — how stale what you are looking at is. */
+function agoLabel(loadedAt: number | null): string {
+  if (loadedAt === null) return "";
+  const secs = Math.max(0, Math.round((Date.now() - loadedAt) / 1000));
+  if (secs < 5) return "just now";
+  if (secs < 60) return `${secs}s ago`;
+  const mins = Math.round(secs / 60);
+  return `${mins}m ago`;
+}
+
+/**
+ * Refresh, with the age of what is on screen next to it.
+ *
+ * The page fetches on mount and never again, and documents arrive through a
+ * pipeline with real latency (mailbox polled once a minute, then each file is
+ * read by the classifier). Without this, a stale screen and a broken one look
+ * identical.
+ */
+function RefreshControl({
+  loadedAt,
+  refreshing,
+  onRefresh,
+}: {
+  loadedAt: number | null;
+  refreshing: boolean;
+  onRefresh: () => void;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="whitespace-nowrap text-xs text-muted-foreground">
+        {refreshing ? "Checking…" : loadedAt ? `Updated ${agoLabel(loadedAt)}` : ""}
+      </span>
+      <Button
+        size="sm"
+        variant="outline"
+        className="h-8 gap-1.5"
+        onClick={onRefresh}
+        disabled={refreshing}
+      >
+        <Icon name="refresh" size={15} className={refreshing ? "animate-spin" : undefined} />
+        Refresh
+      </Button>
+    </div>
+  );
+}
+
 /* ------------------------------- notes ------------------------------- */
 
 /** One-line note input. Clears itself on success; the caller refreshes. */
@@ -1058,6 +1104,17 @@ export default function CaseDetailPage() {
   const [detail, setDetail] = React.useState<ApiCaseDetail | null>(null);
   const [checklist, setChecklist] = React.useState<ApiChecklist | null>(null);
   const [loading, setLoading] = React.useState(true);
+  /**
+   * When the on-screen data was last fetched, and whether a fetch is running.
+   *
+   * Documents arrive through a pipeline the user cannot see — the mailbox is
+   * polled once a minute and each new file is then read by the classifier —
+   * so a case that looks empty may simply be a page loaded 90 seconds ago.
+   * Showing the age of what is on screen turns "is it broken?" into "it is
+   * 40 seconds old", which is the question people are actually asking.
+   */
+  const [loadedAt, setLoadedAt] = React.useState<number | null>(null);
+  const [refreshing, setRefreshing] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [actionError, setActionError] = React.useState<ActionError | null>(null);
   // Checklist first: the product exists for "what is still missing?", so the
@@ -1093,6 +1150,7 @@ export default function CaseDetailPage() {
       setMessages(msgs);
       setEvents(evs);
       setConversation(conv);
+      setLoadedAt(Date.now());
       setError(null);
       setActionError(null);
     } catch (e) {
@@ -1114,6 +1172,25 @@ export default function CaseDetailPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     refresh();
   }, [refresh]);
+
+  /** Manual refresh: same fetch, plus the in-flight state the buttons show. */
+  const manualRefresh = React.useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await refresh();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refresh]);
+
+  // Re-render once a second ONLY while a case is open, so the "updated Ns ago"
+  // label counts up instead of freezing at whatever it said on load. Cheap:
+  // one setState of a number, no fetching.
+  const [, setTick] = React.useState(0);
+  React.useEffect(() => {
+    const id = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
 
   async function handleUpload(item: ApiChecklistItem, file: File) {
     setActionError(null);
@@ -1399,9 +1476,11 @@ export default function CaseDetailPage() {
               <Icon name={detail.nudgesPausedAt ? "play_arrow" : "pause"} size={16} />
               {detail.nudgesPausedAt ? "Resume reminders" : "Pause reminders"}
             </Button>
-            <Button variant="outline" size="sm" className="gap-1.5" onClick={refresh}>
-              <Icon name="refresh" size={16} /> Refresh
-            </Button>
+            <RefreshControl
+              loadedAt={loadedAt}
+              refreshing={refreshing}
+              onRefresh={manualRefresh}
+            />
           </div>
         </div>
 
@@ -1467,9 +1546,18 @@ export default function CaseDetailPage() {
               What this {subject.toLowerCase()} has been asked for, and what has arrived.
             </p>
           </div>
-          <span className="text-sm tabular-nums text-muted-foreground">
-            {checklist.items.length} item{checklist.items.length === 1 ? "" : "s"}
-          </span>
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-sm tabular-nums text-muted-foreground">
+              {checklist.items.length} item{checklist.items.length === 1 ? "" : "s"}
+            </span>
+            {/* Right where documents appear, because this is the screen people
+                sit on while waiting for a borrower's email to land. */}
+            <RefreshControl
+              loadedAt={loadedAt}
+              refreshing={refreshing}
+              onRefresh={manualRefresh}
+            />
+          </div>
         </div>
 
         {checklist.items.length === 0 ? (
