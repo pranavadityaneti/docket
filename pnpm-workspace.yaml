@@ -4,19 +4,19 @@ packages:
 
 # Approve these dependencies' postinstall build scripts. pnpm blocks them by
 # default and, until each is answered, every `pnpm install` exits non-zero with
-# ERR_PNPM_IGNORED_BUILDS — which also fails the dependency check that `pnpm run`
+# ERR_PNPM_IGNORED_BUILDS - which also fails the dependency check that `pnpm run`
 # performs, so scripts can't run at all.
 #
 # NOTE: this is `allowBuilds` (pnpm 11), NOT `onlyBuiltDependencies` (pnpm 10).
-# The old key is silently ignored by pnpm 11 — an allowlist written there looks
+# The old key is silently ignored by pnpm 11 - an allowlist written there looks
 # correct and does nothing.
 #
 # esbuild / sharp / unrs-resolver fetch or build a native binary. @swc/core gets
 # its binary from an optional platform package, and @nestjs/core's script is only
 # a funding notice, but both must still be answered to clear the gate.
 allowBuilds:
-  '@nestjs/core': true
-  '@swc/core': true
+  "@nestjs/core": true
+  "@swc/core": true
   esbuild: true
   sharp: true
   unrs-resolver: true
@@ -29,13 +29,13 @@ allowBuilds:
 # the API crash-looped on boot:
 #   Error: Cannot find module './argon2.linux-x64-gnu.node'
 # It can neither hash nor verify a password without that binary, so login is
-# dead — and nothing catches it locally, where the darwin binary is the right one.
+# dead - and nothing catches it locally, where the darwin binary is the right one.
 #
 # linux/x64 is the EB target (Amazon Linux 2023, glibc 2.34 -> gnu, not musl);
 # darwin/arm64 keeps this machine working.
 #
 # NOTE: like allowBuilds above, this belongs here. pnpm 11 does NOT read
-# `pnpm.supportedArchitectures` from package.json — it is silently ignored there.
+# `pnpm.supportedArchitectures` from package.json - it is silently ignored there.
 # `pnpm config list` shows what pnpm actually reads.
 #
 # Changing this needs a clean install (`rm -rf node_modules && pnpm install`).

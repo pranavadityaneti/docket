@@ -1,13 +1,13 @@
-import { drizzle } from "drizzle-orm/postgres-js";
 import { sql } from "drizzle-orm";
+import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
-import * as schema from "./schema";
 import { RDS_CA_BUNDLE } from "./rds-ca";
+import * as schema from "./schema";
 
 /**
  * Decide the TLS posture for a connection string.
  *
- * RDS sets rds.force_ssl=1, so the connection is encrypted either way — but
+ * RDS sets rds.force_ssl=1, so the connection is encrypted either way - but
  * `sslmode=require` encrypts WITHOUT checking who is on the other end, which
  * means anything able to intercept traffic inside the VPC can present its own
  * certificate and read every borrower document that passes. Verifying against

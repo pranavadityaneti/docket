@@ -12,7 +12,7 @@ export function useIsMobile() {
     }
     mql.addEventListener("change", onChange)
     // Subscribing to a media query is a textbook effect. The initial read has to
-    // happen here rather than seeding useState — window is unavailable in SSR.
+    // happen here rather than seeding useState - window is unavailable in SSR.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsMobile(window.innerWidth < MOBILE_BREAKPOINT)
     return () => mql.removeEventListener("change", onChange)

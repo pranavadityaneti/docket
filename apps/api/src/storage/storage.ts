@@ -1,8 +1,8 @@
+import { Injectable, Module } from "@nestjs/common";
 import { createHash, randomBytes } from "node:crypto";
 import { createReadStream, createWriteStream } from "node:fs";
 import { mkdir, rm, stat } from "node:fs/promises";
 import path from "node:path";
-import { Injectable, Module } from "@nestjs/common";
 import { env } from "../config/env";
 import { S3StorageDriver } from "./s3";
 
@@ -11,7 +11,7 @@ import { S3StorageDriver } from "./s3";
  *
  * Two drivers behind one interface: local disk for development, S3 for
  * production (Change 3b). The interface is deliberately shaped around
- * PRESIGNED uploads even though the local driver cannot presign anything —
+ * PRESIGNED uploads even though the local driver cannot presign anything -
  * the client asks for an "upload target" and PUTs the bytes there. For S3
  * that target is a presigned URL and the file never touches our server; for
  * local it is a route on this API. Designing it any other way would mean
@@ -46,7 +46,7 @@ export interface StorageDriver {
   put(key: string, body: Buffer, contentType?: string): Promise<StoredObject>;
   /** Size + checksum of a stored object, or null if it isn't there. */
   head(key: string): Promise<StoredObject | null>;
-  /** Read it back — for download and, later, for OCR. */
+  /** Read it back - for download and, later, for OCR. */
   get(key: string): Promise<Buffer>;
   delete(key: string): Promise<void>;
 }
@@ -56,7 +56,7 @@ export interface StorageDriver {
  *
  * Tenant-first so that per-tenant IAM enforcement is POSSIBLE later: a policy
  * can restrict a principal to `tenants/<id>/*`. Today there is a single
- * application principal, so this buys auditability and a future boundary — it
+ * application principal, so this buys auditability and a future boundary - it
  * is not a second boundary yet. Postgres RLS is the boundary.
  *
  * The user's filename is deliberately NOT in the key. It is untrusted input
@@ -69,7 +69,7 @@ export function documentKey(tenantId: string, caseId: string, documentId: string
 
 /**
  * Key for an inbound document that matched no case. Deliberately NOT under any
- * case's prefix — it does not belong to one yet, and assignment later points a
+ * case's prefix - it does not belong to one yet, and assignment later points a
  * documents row at this same key rather than copying bytes.
  */
 export function unmatchedKey(tenantId: string, unmatchedId: string): string {
@@ -81,7 +81,7 @@ function sha256(buf: Buffer): string {
 }
 
 /**
- * Local-disk driver — development only.
+ * Local-disk driver - development only.
  *
  * Uploads are not presigned (nothing to sign against a filesystem), so the
  * target points at this API's own upload route, carrying a short-lived token
@@ -176,7 +176,7 @@ export const STORAGE = "STORAGE_DRIVER";
  * Both drivers are constructed, and env picks which one answers the token.
  *
  * LocalStorageDriver stays registered even in production because the upload
- * route depends on it directly — but that route is only ever reached when the
+ * route depends on it directly - but that route is only ever reached when the
  * local driver is also the one handing out targets, and env refuses to boot
  * production on the local driver at all.
  */
@@ -193,4 +193,4 @@ export const STORAGE = "STORAGE_DRIVER";
   ],
   exports: [STORAGE, LocalStorageDriver],
 })
-export class StorageModule {}
+export class StorageModule { }

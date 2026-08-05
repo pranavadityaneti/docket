@@ -1,4 +1,13 @@
-import { createHash, createHmac, randomUUID, timingSafeEqual } from "node:crypto";
+import {
+  cases,
+  channels,
+  contacts,
+  conversationMessages,
+  documents,
+  normaliseCaseReference,
+  openSecret,
+  unmatchedDocuments,
+} from "@docket/db";
 import {
   Body,
   Controller,
@@ -13,35 +22,26 @@ import {
   Query,
   Req,
 } from "@nestjs/common";
-import type { Request } from "express";
 import { and, desc, eq, isNotNull, isNull, sql } from "drizzle-orm";
-import {
-  cases,
-  channels,
-  contacts,
-  conversationMessages,
-  documents,
-  normaliseCaseReference,
-  openSecret,
-  unmatchedDocuments,
-} from "@docket/db";
-import { DbService } from "../db/db";
+import type { Request } from "express";
+import { createHash, createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import { ClassifyApplier } from "../classify/classify";
-import { STORAGE, type StorageDriver, documentKey, unmatchedKey } from "../storage/storage";
 import { env } from "../config/env";
+import { DbService } from "../db/db";
+import { STORAGE, type StorageDriver, documentKey, unmatchedKey } from "../storage/storage";
 
 /**
- * WhatsApp Cloud API intake — the push counterpart to the email poller.
+ * WhatsApp Cloud API intake - the push counterpart to the email poller.
  *
  * A subject sends a document to the tenant's WhatsApp number and it appears on
  * the right case, with no portal. Where email is pulled on a timer, WhatsApp is
  * pushed: Meta calls this webhook. Two endpoints, both unauthenticated by JWT
- * because Meta cannot present one — security is instead:
+ * because Meta cannot present one - security is instead:
  *   - GET  : the verify-token handshake (only Meta, holding our token, passes);
  *   - POST : an HMAC-SHA256 signature over the raw body, keyed by the tenant's
  *            own Meta app secret (a forged body cannot be signed).
  *
- * Matching mirrors email exactly — conservative, never a guess:
+ * Matching mirrors email exactly - conservative, never a guess:
  *   1. a DKT-XXXXXX reference in the message caption/text wins;
  *   2. the sender's phone number mapped to their most recent case;
  *   3. otherwise the message is left for a human.
@@ -102,10 +102,10 @@ export class WhatsappService {
     private readonly db: DbService,
     @Inject(STORAGE) private readonly storage: StorageDriver,
     private readonly classify: ClassifyApplier,
-  ) {}
+  ) { }
 
   /**
-   * Handle one webhook delivery. Never throws — Meta must always get its 200, or
+   * Handle one webhook delivery. Never throws - Meta must always get its 200, or
    * it retries and eventually disables the webhook. Every failure is logged and,
    * where it belongs to a known channel, recorded on that channel's lastError.
    */
@@ -119,17 +119,17 @@ export class WhatsappService {
       .map((c) => c.value)
       .filter((v): v is WaChangeValue => !!v && !!v.metadata?.phone_number_id);
 
-    if (changes.length === 0) return; // status callbacks etc. — nothing to ingest
+    if (changes.length === 0) return; // status callbacks etc. - nothing to ingest
 
     // Cap pre-signature work. Every distinct phone_number_id costs a channel
     // lookup BEFORE the signature can be checked (the lookup is how we find the
     // secret to check it with), and the body is attacker-controlled up to the
-    // parser's 1 MB limit — thousands of fabricated changes must not translate
+    // parser's 1 MB limit - thousands of fabricated changes must not translate
     // into thousands of unauthenticated DB queries. Meta batches are far smaller
     // than this, so a legitimate delivery is never truncated.
     if (changes.length > MAX_CHANGES_PER_DELIVERY) {
       this.log.warn(
-        `WhatsApp: delivery carried ${changes.length} changes — processing first ${MAX_CHANGES_PER_DELIVERY}`,
+        `WhatsApp: delivery carried ${changes.length} changes - processing first ${MAX_CHANGES_PER_DELIVERY}`,
       );
       changes = changes.slice(0, MAX_CHANGES_PER_DELIVERY);
     }
@@ -139,13 +139,13 @@ export class WhatsappService {
     for (const phoneId of new Set(changes.map((c) => c.metadata!.phone_number_id!))) {
       const channel = await this.findChannel(phoneId);
       if (channel) byPhoneId.set(phoneId, channel);
-      else this.log.warn(`WhatsApp: no channel for phone_number_id ${phoneId} — ignored`);
+      else this.log.warn(`WhatsApp: no channel for phone_number_id ${phoneId} - ignored`);
     }
     if (byPhoneId.size === 0) return;
 
     // Signature is computed by the sending app over the whole raw body. Numbers
     // in one delivery belong to one Meta app, so any resolved channel's app
-    // secret verifies it. Reject the entire delivery if it does not check out —
+    // secret verifies it. Reject the entire delivery if it does not check out -
     // an unsigned or wrongly-signed body is not acted on at all.
     const firstChannel = byPhoneId.values().next().value as ChannelRow;
     let firstSecret: WhatsappSecret;
@@ -156,14 +156,14 @@ export class WhatsappService {
       return;
     }
     if (!this.signatureValid(rawBody, signature, firstSecret.appSecret)) {
-      this.log.error("WhatsApp: signature verification failed — delivery dropped");
-      // The most likely cause is a mistyped app secret at channel setup — and
+      this.log.error("WhatsApp: signature verification failed - delivery dropped");
+      // The most likely cause is a mistyped app secret at channel setup - and
       // without this, that mistake is invisible outside server logs while every
       // inbound document silently vanishes. Surface it where staff look.
       for (const channel of byPhoneId.values()) {
         await this.recordError(
           channel,
-          "Webhook signature verification failed — the channel's app secret is likely wrong",
+          "Webhook signature verification failed - the channel's app secret is likely wrong",
         );
       }
       return;
@@ -200,15 +200,15 @@ export class WhatsappService {
     const media = mediaPart(message);
     if (!media) {
       // Text-only. There is no file to hold, but the WORDS are part of the
-      // case's conversation — "sending the rest tomorrow" used to vanish.
+      // case's conversation - "sending the rest tomorrow" used to vanish.
       const body = (message.text?.body ?? "").trim();
-      if (!body) return; // unsupported type with no text — nothing to keep
+      if (!body) return; // unsupported type with no text - nothing to keep
       await this.db.withTenant(channel.tenantId, async (tx) => {
         const caseId = await this.matchCase(tx, body, message.from);
         // Unmatched text is dropped by design for now: there is no case to
         // hang it on, and unmatched_documents holds files, not sentences.
         if (!caseId) {
-          this.log.warn(`WhatsApp: text message ${message.id} from ${message.from} matched no case — not stored`);
+          this.log.warn(`WhatsApp: text message ${message.id} from ${message.from} matched no case - not stored`);
           return;
         }
         await this.recordConversation(tx, channel, caseId, message, body);
@@ -220,14 +220,14 @@ export class WhatsappService {
     const buffer = await this.downloadMedia(media.id, secret.accessToken);
 
     if (buffer === null) {
-      // Oversized per Graph metadata — the bytes were never fetched.
-      this.log.warn(`WhatsApp: ${media.id} exceeds size limit (metadata) — skipped`);
+      // Oversized per Graph metadata - the bytes were never fetched.
+      this.log.warn(`WhatsApp: ${media.id} exceeds size limit (metadata) - skipped`);
       return;
     }
     if (buffer.length === 0) return;
     // Belt and braces: metadata may omit or understate file_size.
     if (buffer.length > env.maxUploadBytes) {
-      this.log.warn(`WhatsApp: ${media.id} exceeds size limit — skipped`);
+      this.log.warn(`WhatsApp: ${media.id} exceeds size limit - skipped`);
       return;
     }
 
@@ -238,7 +238,7 @@ export class WhatsappService {
     const landedCaseId = await this.db.withTenant(channel.tenantId, async (tx) => {
       const caseId = await this.matchCase(tx, caption, message.from);
       if (!caseId) {
-        // Never guess — but never lose it either. Meta stops redelivering the
+        // Never guess - but never lose it either. Meta stops redelivering the
         // moment we 200, so an unmatched document that isn't stored here is
         // gone. Hold the bytes for a human to route.
         const held = await this.holdUnmatched(tx, channel, {
@@ -250,13 +250,13 @@ export class WhatsappService {
           context: caption || null,
         });
         this.log.warn(
-          `WhatsApp: message ${message.id} from ${message.from} matched no case — ${held ? "held for review" : "duplicate of a pending arrival, skipped"}`,
+          `WhatsApp: message ${message.id} from ${message.from} matched no case - ${held ? "held for review" : "duplicate of a pending arrival, skipped"}`,
         );
         return null;
       }
 
       // Idempotency: Meta re-delivers on any missed 200. The same file already on
-      // this case (same SHA-256, not deleted) means we have seen this message —
+      // this case (same SHA-256, not deleted) means we have seen this message -
       // skip rather than create a duplicate document.
       const [dupe] = await tx
         .select({ id: documents.id })
@@ -270,7 +270,7 @@ export class WhatsappService {
         )
         .limit(1);
       if (dupe) {
-        this.log.log(`WhatsApp: message ${message.id} already on case ${caseId} — skipped`);
+        this.log.log(`WhatsApp: message ${message.id} already on case ${caseId} - skipped`);
         return null;
       }
 
@@ -309,21 +309,21 @@ export class WhatsappService {
       return caseId;
     });
 
-    // Post-commit: sort the arrival into a checklist slot. Fire-and-forget —
+    // Post-commit: sort the arrival into a checklist slot. Fire-and-forget -
     // Meta's 200 must never wait on a model call.
     if (landedCaseId) {
-      void this.classify.processCase(channel.tenantId, landedCaseId).catch(() => {});
+      void this.classify.processCase(channel.tenantId, landedCaseId).catch(() => { });
     }
 
     await this.db.admin
       .update(channels)
       .set({ lastPolledAt: new Date(), lastError: null })
       .where(eq(channels.id, channel.id))
-      .catch(() => {});
+      .catch(() => { });
   }
 
   /**
-   * Store one unmatched media file for human triage. Bytes first, row second —
+   * Store one unmatched media file for human triage. Bytes first, row second -
    * unmatched_documents.storage_key is NOT NULL, so a row can never exist
    * without its object. Deduped by checksum against the tenant's PENDING rows
    * only, so Meta redeliveries don't pile up copies while a resend after a
@@ -377,8 +377,8 @@ export class WhatsappService {
    * lookup is tenant-scoped. Returns null rather than guessing.
    */
   /**
-   * One thread line for an inbound message. Best-effort by design — a failure
-   * to record the sentence must never cost the document behind it — and
+   * One thread line for an inbound message. Best-effort by design - a failure
+   * to record the sentence must never cost the document behind it - and
    * idempotent via the unique index on (tenant, channel, external_id):
    * Meta re-delivers on any missed 200, and this collapses the replay.
    */
@@ -410,7 +410,7 @@ export class WhatsappService {
   }
 
   private async matchCase(tx: Tx, caption: string, from: string): Promise<string | null> {
-    // 1. explicit reference in the caption/text — the strongest signal.
+    // 1. explicit reference in the caption/text - the strongest signal.
     for (const token of caption.match(/DKT[-\s]?[0-9A-Za-z]{6}/gi) ?? []) {
       const ref = normaliseCaseReference(token.replace(/\s/g, ""));
       if (!ref) continue;
@@ -451,7 +451,7 @@ export class WhatsappService {
   /**
    * Two-step media fetch: metadata URL, then the authenticated binary.
    * Returns null (never fetching the bytes) when the metadata says the file is
-   * over the upload limit — WhatsApp allows documents up to 100 MB and the
+   * over the upload limit - WhatsApp allows documents up to 100 MB and the
    * binary is buffered in memory, so checking size only after download would
    * let a burst of large files exhaust RAM on the instance.
    */
@@ -522,7 +522,7 @@ export class WhatsappService {
       .update(channels)
       .set({ lastPolledAt: new Date(), lastError: error })
       .where(eq(channels.id, channel.id))
-      .catch(() => {});
+      .catch(() => { });
   }
 }
 
@@ -530,7 +530,7 @@ export class WhatsappService {
 export class WhatsappWebhookController {
   private readonly log = new Logger(WhatsappWebhookController.name);
 
-  constructor(private readonly whatsapp: WhatsappService) {}
+  constructor(private readonly whatsapp: WhatsappService) { }
 
   /**
    * Meta's one-time verification handshake. It echoes hub.challenge iff the

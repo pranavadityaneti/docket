@@ -1,3 +1,4 @@
+import { tenants } from "@docket/db";
 import {
   BadRequestException,
   Body,
@@ -11,26 +12,25 @@ import {
   UseGuards,
 } from "@nestjs/common";
 import { Throttle, ThrottlerGuard } from "@nestjs/throttler";
-import { createHash, timingSafeEqual } from "node:crypto";
 import { IsEmail, IsOptional, IsString, MaxLength, MinLength } from "class-validator";
 import { eq } from "drizzle-orm";
-import { tenants } from "@docket/db";
-import { DbService } from "../db/db";
+import { createHash, timingSafeEqual } from "node:crypto";
 import { CasesModule, CasesService } from "../cases/cases";
 import { env } from "../config/env";
+import { DbService } from "../db/db";
 
 /**
- * Machine intake — how a case is born from OUTSIDE the dashboard.
+ * Machine intake - how a case is born from OUTSIDE the dashboard.
  *
  * The first client is the marketing site's loan-enquiry form: a visitor
  * submits, the form's server forwards here, and the case appears on the board
- * with the subject's email and phone already set — which matters because those
+ * with the subject's email and phone already set - which matters because those
  * two fields are the routing keys every later WhatsApp message and email is
  * matched by. Case creation also sends the initial document request (that is
  * CasesService.create's own behaviour), so the borrower's inbox has the
  * checklist before staff have even opened the case.
  *
- * AUTH: a shared API key in the `x-intake-key` header, never a JWT — the
+ * AUTH: a shared API key in the `x-intake-key` header, never a JWT - the
  * caller is a server, not a person. The key lives in Secrets Manager beside
  * everything else and is compared in constant time. No key configured = the
  * endpoint answers 503 for everyone; it can never fail open.
@@ -115,7 +115,7 @@ export class IntakeController {
   constructor(
     private readonly db: DbService,
     private readonly cases: CasesService,
-  ) {}
+  ) { }
 
   /**
    * 20/min: a marketing site submits at human speed; a runaway retry loop or
@@ -125,7 +125,7 @@ export class IntakeController {
   @Post("enquiry")
   async enquiry(@Headers("x-intake-key") key: string | undefined, @Body() dto: IntakeEnquiryDto) {
     if (!env.intakeApiKey) {
-      // Not configured is a server condition, not a caller error — and it
+      // Not configured is a server condition, not a caller error - and it
       // must never fall open into "no key required".
       throw new ServiceUnavailableException("Intake is not configured");
     }
@@ -161,7 +161,7 @@ export class IntakeController {
     if (dto.message?.trim()) data.funds_needed = dto.message.trim();
     data.source = "Website";
 
-    const created = await this.cases.create(tenant.id, {
+    const created = await this.cases.create(tenant.id, null, {
       name: dto.name,
       kind: "person",
       organisation: dto.organisation,
@@ -183,4 +183,4 @@ export class IntakeController {
   imports: [CasesModule],
   controllers: [IntakeController],
 })
-export class IntakeModule {}
+export class IntakeModule { }

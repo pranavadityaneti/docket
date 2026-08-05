@@ -1,7 +1,7 @@
 -- Soft delete for cases and contacts.
 --
--- NOT a hard delete, deliberately. Every case artifact cascades from cases —
--- documents, case_messages, conversation_messages, case_events — so DELETE
+-- NOT a hard delete, deliberately. Every case artifact cascades from cases -
+-- documents, case_messages, conversation_messages, case_events - so DELETE
 -- would destroy the borrower's KYC files AND the audit trail, including the
 -- record of the deletion itself. A row that remembers it was deleted, by whom
 -- and when, is the only version of this that an auditor can be shown.

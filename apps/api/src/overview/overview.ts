@@ -1,5 +1,3 @@
-import { Controller, Get, Injectable, Module, UseGuards } from "@nestjs/common";
-import { asc, desc, eq, isNull } from "drizzle-orm";
 import {
   cases,
   contacts,
@@ -7,8 +5,10 @@ import {
   documents,
   workflowStages,
 } from "@docket/db";
-import { DbService } from "../db/db";
+import { Controller, Get, Injectable, Module, UseGuards } from "@nestjs/common";
+import { asc, desc, eq, isNull } from "drizzle-orm";
 import { CurrentUser, JwtAuthGuard, type AuthUser } from "../auth/auth";
+import { DbService } from "../db/db";
 import { requirementApplies, rollUpStatus } from "../documents/documents";
 
 /**
@@ -16,12 +16,12 @@ import { requirementApplies, rollUpStatus } from "../documents/documents";
  *
  * This exists because the screen had none. It shipped with "342 leads in
  * flight", "68% docs auto-cleared" and six invented borrowers, on a workspace
- * holding four cases — a landing page that reported a business that was not
+ * holding four cases - a landing page that reported a business that was not
  * happening. A dashboard nobody can trust is worse than no dashboard, because
  * the first time someone acts on it they learn the whole screen is decoration.
  *
- * Every count here is derived from rows. Anything that cannot be derived — call
- * volumes, emails sent, documents cleared by an AI — is absent rather than
+ * Every count here is derived from rows. Anything that cannot be derived - call
+ * volumes, emails sent, documents cleared by an AI - is absent rather than
  * estimated, because none of those things exist yet.
  *
  * Per-case state is computed with requirementApplies() and rollUpStatus(), the
@@ -45,12 +45,12 @@ export type AttentionItem = {
 
 @Injectable()
 export class OverviewService {
-  constructor(private readonly db: DbService) {}
+  constructor(private readonly db: DbService) { }
 
   overview(tenantId: string) {
     return this.db.withTenant(tenantId, async (tx) => {
-      // Three reads, then the per-case arithmetic in memory. The alternative —
-      // expressing it in SQL — would mean re-implementing requirementApplies()
+      // Three reads, then the per-case arithmetic in memory. The alternative -
+      // expressing it in SQL - would mean re-implementing requirementApplies()
       // as a JSONB predicate, which is a second copy of the rule that decides
       // what a subject is asked for. One wrong answer there is a document
       // nobody ever chases.
@@ -185,8 +185,8 @@ export class OverviewService {
          *
          * The product's premise is a dedicated WhatsApp number and mailbox per
          * tenant, but nothing ingests from either yet, so in practice every
-         * document here was uploaded by hand. Rather than assert that — a
-         * hardcoded `false` would be one more claim to go stale — the counts
+         * document here was uploaded by hand. Rather than assert that - a
+         * hardcoded `false` would be one more claim to go stale - the counts
          * are reported per channel and the screen draws its own conclusion.
          * The day a document arrives by WhatsApp, this changes on its own.
          */
@@ -199,7 +199,7 @@ export class OverviewService {
 @Controller("overview")
 @UseGuards(JwtAuthGuard)
 export class OverviewController {
-  constructor(private readonly overview: OverviewService) {}
+  constructor(private readonly overview: OverviewService) { }
 
   @Get()
   get(@CurrentUser() u: AuthUser) {
@@ -208,4 +208,4 @@ export class OverviewController {
 }
 
 @Module({ controllers: [OverviewController], providers: [OverviewService] })
-export class OverviewModule {}
+export class OverviewModule { }

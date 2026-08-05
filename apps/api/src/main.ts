@@ -1,8 +1,8 @@
-import "reflect-metadata";
 import { ValidationPipe } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import express, { type NextFunction, type Request, type Response } from "express";
+import "reflect-metadata";
 import { hydrateSecrets } from "./config/secrets";
 
 /** Uploads carry raw file bytes and must not be pre-parsed. */
@@ -11,7 +11,7 @@ const isUploadPath = (url: string) => url.startsWith("/uploads/");
 async function bootstrap() {
   // Secrets FIRST. config/env validates the environment at import time and
   // app.module reads env.jwtSecret at module scope, so both are imported
-  // dynamically below — a static import would evaluate them before Secrets
+  // dynamically below - a static import would evaluate them before Secrets
   // Manager had been consulted and the process would die on a missing
   // DATABASE_URL that was actually available all along.
   const loaded = await hydrateSecrets();
@@ -23,7 +23,7 @@ async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     logger: ["error", "warn", "log"],
     // Nest's default parsers are installed globally, which would consume the
-    // request stream on the raw upload route before the handler can read it —
+    // request stream on the raw upload route before the handler can read it -
     // a file uploaded as application/json would silently arrive as 0 bytes.
     // Parsers are re-applied below for every path EXCEPT /uploads.
     bodyParser: false,
@@ -33,7 +33,7 @@ async function bootstrap() {
   // raw request bytes. express.json() would hand the handler only the parsed
   // object, and re-serialising it will not reproduce Meta's byte stream (key
   // order, spacing), so the HMAC would never match. Stash the raw buffer on the
-  // request for webhook paths only — the parser still runs, so @Body() keeps
+  // request for webhook paths only - the parser still runs, so @Body() keeps
   // working; we just also keep the bytes the signature was computed over.
   const captureRawBody = (req: Request, _res: Response, buf: Buffer) => {
     if (req.url.startsWith("/webhooks/")) {

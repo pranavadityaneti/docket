@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
-import { Google_Sans_Flex, Geist_Mono } from "next/font/google";
+import { Geist_Mono, Outfit } from "next/font/google";
 import "./globals.css";
-import { AppChrome } from "@/components/app-chrome";
 
-const googleSans = Google_Sans_Flex({
+const outfit = Outfit({
   variable: "--font-sans",
   subsets: ["latin"],
   display: "swap",
@@ -15,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Docket — Finlot",
+  title: "Docket - Finlot",
   description: "AI workforce platform for loan origination",
 };
 
@@ -36,8 +35,8 @@ export default function RootLayout({
           href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block"
         />
       </head>
-      <body className={`${googleSans.variable} ${geistMono.variable} antialiased`}>
-        <AppChrome>{children}</AppChrome>
+      <body className={`${outfit.variable} ${geistMono.variable} antialiased`}>
+        {children}
       </body>
     </html>
   );

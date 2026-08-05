@@ -5,7 +5,7 @@ import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:
  *
  * Passwords use argon2 precisely because nobody ever needs the original back.
  * A tenant's mailbox password is the opposite: we have to present it to their
- * IMAP server on every poll, so it must be recoverable — which means encrypted,
+ * IMAP server on every poll, so it must be recoverable - which means encrypted,
  * not hashed. Different problem, different tool.
  *
  * AES-256-GCM: authenticated, so a tampered ciphertext fails to open rather
@@ -13,7 +13,7 @@ import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:
  * call, so encrypting the same password twice yields different output and the
  * database reveals nothing by comparison.
  *
- * The key lives in Secrets Manager alongside JWT_SECRET — the same posture, and
+ * The key lives in Secrets Manager alongside JWT_SECRET - the same posture, and
  * the same blast radius. KMS would be stronger (the key never leaves AWS, and
  * every use is logged in CloudTrail); this is the deliberate trade for not
  * adding a per-request AWS dependency to the mail poller. Worth revisiting once
@@ -44,7 +44,7 @@ export function openSecret(sealed: string, key: string): string {
   const parts = sealed.split(".");
   const [version, ivB64, tagB64, ctB64] = parts;
   // Validate structure by SHAPE, not truthiness: an empty plaintext seals to an
-  // empty ciphertext part (base64 of nothing is ""), which is valid — a
+  // empty ciphertext part (base64 of nothing is ""), which is valid - a
   // `!ctB64` check would wrongly reject it. iv and tag are always present.
   if (parts.length !== 4 || version !== VERSION || !ivB64 || !tagB64 || ctB64 === undefined) {
     throw new Error("Sealed secret is malformed");

@@ -3,7 +3,7 @@ import type { NudgeSnapshotItem } from "@docket/db";
 /**
  * Turning a checklist into the words a subject reads.
  *
- * Kept pure — no Nest, no DB, no network — so the one thing most worth getting
+ * Kept pure - no Nest, no DB, no network - so the one thing most worth getting
  * right (what we ask for, and how it reads) is trivially testable, and so the
  * email and WhatsApp bodies can never drift from the same source of truth: the
  * checklist the dashboard already shows.
@@ -42,7 +42,7 @@ export interface ComposedEmail {
  *   - required + expired  → was supplied but its validity window lapsed, so the
  *     slot is empty again and a fresh copy is needed (occupiesSlot agrees).
  * Expired is phrased as a fresh ask (state "missing"), which is what it is from
- * the subject's side. Optional items simply never sent are omitted — we do not
+ * the subject's side. Optional items simply never sent are omitted - we do not
  * nag for extras, only for what the workflow requires or refused.
  */
 export function collectNudgeItems(checklist: ChecklistLike): NudgeSnapshotItem[] {
@@ -65,7 +65,7 @@ export function collectNudgeItems(checklist: ChecklistLike): NudgeSnapshotItem[]
 
 /** Email content. The caller only sends when items is non-empty. */
 export function composeEmail(items: NudgeSnapshotItem[], ctx: ComposeContext): ComposedEmail {
-  const subject = `Documents needed — ${ctx.tenantName} — ${ctx.caseReference}`;
+  const subject = `Documents needed - ${ctx.tenantName} - ${ctx.caseReference}`;
   const lines: string[] = [
     `Hi ${ctx.contactName},`,
     ``,
@@ -75,7 +75,7 @@ export function composeEmail(items: NudgeSnapshotItem[], ctx: ComposeContext): C
   for (const it of items) {
     lines.push(
       it.state === "rejected"
-        ? `  • ${it.label} — please re-send${it.reason ? ` (${it.reason})` : ""}`
+        ? `  • ${it.label} - please re-send${it.reason ? ` (${it.reason})` : ""}`
         : `  • ${it.label}`,
     );
   }

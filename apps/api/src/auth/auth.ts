@@ -1,33 +1,37 @@
 import {
+  generateResetToken,
+  hashPassword,
+  hashResetToken,
+  memberships,
+  passwordResetTokens,
+  tenants,
+  users,
+  verifyPassword,
+} from "@docket/db";
+import {
   BadRequestException,
   Body,
   CanActivate,
   Controller,
   createParamDecorator,
   ExecutionContext,
+  Get,
   Injectable,
   Module,
   Post,
+  Res,
   UnauthorizedException,
   UseGuards,
 } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import { Throttle, ThrottlerGuard } from "@nestjs/throttler";
 import { IsEmail, IsString, MaxLength, MinLength } from "class-validator";
-import { and, eq, gt, isNull } from "drizzle-orm";
-import {
-  users,
-  memberships,
-  tenants,
-  passwordResetTokens,
-  verifyPassword,
-  hashPassword,
-  generateResetToken,
-  hashResetToken,
-} from "@docket/db";
+import { and, asc, eq, gt, isNull } from "drizzle-orm";
+import type { Response } from "express";
+import { env } from "../config/env";
 import { DbService } from "../db/db";
 import { EmailModule, EmailService } from "../email/email";
-import { env } from "../config/env";
+import { clearAuthCookies, extractAccessToken, setAuthCookies } from "./cookies";
 
 export type AuthUser = { userId: string; tenantId: string; role: string };
 
@@ -54,37 +58,15 @@ export class ResetPasswordDto {
   @MaxLength(512)
   token!: string;
 
-  // ≥12 matches the manual-reset helper's rule; the server is authoritative.
   @IsString()
   @MinLength(12)
   @MaxLength(200)
   password!: string;
 }
 
-// Hash of an arbitrary, never-used string — not a real credential. Verified
-// against on every login where the real user/hash lookup misses, so argon2's
-// (deliberately costly) computation runs on every attempt regardless of
-// whether the account exists. Without this, an unknown-email or
-// no-password-set request short-circuits before hashing while a wrong
-// password on a real account does not — a timing side-channel that lets an
-// attacker enumerate valid emails even though the error message is identical.
 const DUMMY_HASH =
   "$argon2id$v=19$m=19456,t=2,p=1$6I7QyPRhpNUWqg8thD0S0Q$CmdZjwGsFqTdBRlsUx6TYStwwwZFVFnSuWjooRlaUOY";
 
-/**
- * Rate-limits login by IP *and* account, not IP alone.
- *
- * Lender staff typically share one office IP behind NAT. Keying on IP alone
- * would mean one colleague mistyping their password five times locks out
- * everyone in the building — and since the throttler counts every attempt (not
- * just failures), a handful of people signing in at 9am would collide too.
- * Keying on ip+email caps brute force against any single account — the actual
- * threat — without that collateral.
- *
- * Guards run before pipes, so req.body here is the raw payload rather than a
- * validated LoginDto; the email is normalised defensively so that casing or
- * padding can't be used to get a fresh bucket per attempt.
- */
 @Injectable()
 export class LoginThrottlerGuard extends ThrottlerGuard {
   protected async getTracker(req: Record<string, any>): Promise<string> {
@@ -94,19 +76,22 @@ export class LoginThrottlerGuard extends ThrottlerGuard {
   }
 }
 
-/** Attaches req.user = { userId, tenantId, role } from a validated Bearer JWT. */
+/**
+ * Attaches req.user from a validated JWT.
+ * Accepts Authorization: Bearer … OR the httpOnly docket_token cookie.
+ */
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
   constructor(private readonly jwt: JwtService) {}
 
   async canActivate(ctx: ExecutionContext): Promise<boolean> {
     const req = ctx.switchToHttp().getRequest();
-    const header: string | undefined = req.headers["authorization"];
-    if (!header || !header.startsWith("Bearer ")) {
-      throw new UnauthorizedException("Missing bearer token");
+    const token = extractAccessToken(req);
+    if (!token) {
+      throw new UnauthorizedException("Missing session");
     }
     try {
-      const payload = await this.jwt.verifyAsync(header.slice(7));
+      const payload = await this.jwt.verifyAsync(token);
       req.user = { userId: payload.sub, tenantId: payload.tenantId, role: payload.role };
       return true;
     } catch {
@@ -130,14 +115,7 @@ export class AuthService {
   async login(email: string, password: string) {
     const clean = email.trim().toLowerCase();
     const [user] = await this.db.admin.select().from(users).where(eq(users.email, clean)).limit(1);
-    // Always verify against a real hash — the user's if they have one, the
-    // fixed dummy otherwise — so this await runs on every attempt. Skipping it
-    // when the user/hash lookup misses would make those requests return
-    // faster than a wrong-password-on-a-real-account request, letting an
-    // attacker enumerate valid emails by response time alone.
     const passwordOk = await verifyPassword(user?.passwordHash ?? DUMMY_HASH, password);
-    // Same generic message whether the email is unknown, has no password set,
-    // or the password is wrong — never reveal which, to avoid user enumeration.
     if (!user || !user.passwordHash || !passwordOk) {
       throw new UnauthorizedException("Invalid email or password");
     }
@@ -164,19 +142,48 @@ export class AuthService {
     };
   }
 
-  /**
-   * Start a reset. ALWAYS resolves to { ok: true } — the caller cannot tell
-   * whether the email exists (no enumeration), mirroring login's dummy-hash
-   * posture. If it does exist, prior unused tokens are superseded, a fresh one
-   * is issued, and the link is emailed; a send failure is swallowed (logged in
-   * the email module) so it can never reveal the account.
-   */
+  async me(userId: string, tenantId: string) {
+    const [user] = await this.db.admin
+      .select({ id: users.id, name: users.name, email: users.email })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+    if (!user) throw new UnauthorizedException("User not found");
+    const [tenant] = await this.db.admin
+      .select({ id: tenants.id, name: tenants.name, slug: tenants.slug })
+      .from(tenants)
+      .where(eq(tenants.id, tenantId))
+      .limit(1);
+    if (!tenant) throw new UnauthorizedException("Workspace not found");
+    const [m] = await this.db.admin
+      .select({ role: memberships.role })
+      .from(memberships)
+      .where(and(eq(memberships.userId, userId), eq(memberships.tenantId, tenantId)))
+      .limit(1);
+    if (!m) throw new UnauthorizedException("Not a member of this workspace");
+    return { user, tenant, role: m.role };
+  }
+
+  /** Workspace members - for case owner assignment. */
+  listMembers(tenantId: string) {
+    return this.db.admin
+      .select({
+        id: users.id,
+        name: users.name,
+        email: users.email,
+        role: memberships.role,
+      })
+      .from(memberships)
+      .innerJoin(users, eq(memberships.userId, users.id))
+      .where(eq(memberships.tenantId, tenantId))
+      .orderBy(asc(users.name));
+  }
+
   async forgotPassword(email: string): Promise<{ ok: true }> {
     const clean = email.trim().toLowerCase();
     const [user] = await this.db.admin.select().from(users).where(eq(users.email, clean)).limit(1);
     if (user) {
       const now = new Date();
-      // Only the newest link should work: retire any still-valid unused tokens.
       await this.db.admin
         .update(passwordResetTokens)
         .set({ usedAt: now })
@@ -191,15 +198,8 @@ export class AuthService {
       await this.db.admin.insert(passwordResetTokens).values({
         userId: user.id,
         tokenHash: hash,
-        expiresAt: new Date(now.getTime() + 60 * 60 * 1000), // 1 hour
+        expiresAt: new Date(now.getTime() + 60 * 60 * 1000),
       });
-      // Fire-and-forget: deliberately NOT awaited. Awaiting the send makes the
-      // response slower only for real accounts (the network call runs solely
-      // for them) — a timing side-channel that re-opens the enumeration this
-      // endpoint's constant response body closes. The email module logs its own
-      // failures; the catch keeps an unexpected throw from becoming an unhandled
-      // rejection. The token row is already committed above, so the link is
-      // valid regardless of when the send completes.
       void this.email
         .sendPasswordResetEmail(
           user.email,
@@ -210,10 +210,6 @@ export class AuthService {
     return { ok: true };
   }
 
-  /**
-   * Complete a reset. Generic 400 on any bad/expired/used token — never reveals
-   * which. On success sets the new argon2 hash and consumes the token.
-   */
   async resetPassword(token: string, password: string): Promise<{ ok: true }> {
     const hash = hashResetToken(token);
     const [row] = await this.db.admin
@@ -235,30 +231,46 @@ export class AuthService {
 }
 
 @Controller("auth")
-@UseGuards(LoginThrottlerGuard)
 export class AuthController {
   constructor(private readonly auth: AuthService) {}
 
-  // Argon2 makes each guess expensive for us as well as the attacker, so the
-  // password endpoint is the one place that needs a hard cap: 5 attempts per
-  // minute per ip+account, then a 5-minute lockout. Deliberately tight — a
-  // human fat-fingering their password twice never reaches it.
-  @Post("login")
-  @Throttle({ default: { limit: 5, ttl: 60_000, blockDuration: 300_000 } })
-  login(@Body() body: LoginDto) {
-    // email/password presence + format are enforced by the global ValidationPipe.
-    return this.auth.login(body.email, body.password);
+  @Get("me")
+  @UseGuards(JwtAuthGuard)
+  me(@CurrentUser() u: AuthUser) {
+    return this.auth.me(u.userId, u.tenantId);
   }
 
-  // Always 200 (no account enumeration). Tighter than login — a real user asks
-  // for a reset once, not three times a minute.
+  @Get("members")
+  @UseGuards(JwtAuthGuard)
+  members(@CurrentUser() u: AuthUser) {
+    return this.auth.listMembers(u.tenantId);
+  }
+
+  @Post("login")
+  @UseGuards(LoginThrottlerGuard)
+  @Throttle({ default: { limit: 5, ttl: 60_000, blockDuration: 300_000 } })
+  async login(@Body() body: LoginDto, @Res({ passthrough: true }) res: Response) {
+    const result = await this.auth.login(body.email, body.password);
+    setAuthCookies(res, result.token);
+    const { token: _token, ...profile } = result;
+    return profile;
+  }
+
+  @Post("logout")
+  logout(@Res({ passthrough: true }) res: Response) {
+    clearAuthCookies(res);
+    return { ok: true };
+  }
+
   @Post("forgot-password")
+  @UseGuards(LoginThrottlerGuard)
   @Throttle({ default: { limit: 3, ttl: 60_000, blockDuration: 300_000 } })
   forgot(@Body() body: ForgotPasswordDto) {
     return this.auth.forgotPassword(body.email);
   }
 
   @Post("reset-password")
+  @UseGuards(LoginThrottlerGuard)
   @Throttle({ default: { limit: 5, ttl: 60_000, blockDuration: 300_000 } })
   reset(@Body() body: ResetPasswordDto) {
     return this.auth.resetPassword(body.token, body.password);

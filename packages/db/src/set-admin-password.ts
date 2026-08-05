@@ -1,10 +1,10 @@
 import { eq } from "drizzle-orm";
 import { createDb } from "./client";
-import { users } from "./schema";
 import { hashPassword } from "./password";
+import { users } from "./schema";
 
 /**
- * Idempotently (re)set a password for an existing user — dev/admin bootstrap and
+ * Idempotently (re)set a password for an existing user - dev/admin bootstrap and
  * resets. Non-destructive: updates only password_hash on one row.
  *   ADMIN_EMAIL, ADMIN_PASSWORD override the defaults.
  */

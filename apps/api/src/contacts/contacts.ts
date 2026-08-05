@@ -1,3 +1,4 @@
+import { cases, contacts } from "@docket/db";
 import {
   Body,
   Controller,
@@ -5,20 +6,20 @@ import {
   Injectable,
   Module,
   Post,
+  Query,
   UseGuards,
 } from "@nestjs/common";
 import { ArrayMaxSize, IsArray, IsUUID } from "class-validator";
 import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
-import { cases, contacts } from "@docket/db";
-import { DbService } from "../db/db";
 import { CurrentUser, JwtAuthGuard, type AuthUser } from "../auth/auth";
+import { DbService } from "../db/db";
 
 /**
  * The parties documents are collected FROM, across all their cases.
  *
  * The case count rides along because a bare name-and-email list answers
  * nothing a person actually asks. The question this screen exists for is
- * "have we dealt with them before, and where?" — which is what makes a
+ * "have we dealt with them before, and where?" - which is what makes a
  * reusable document reusable.
  */
 export class BulkContactIdsDto {
@@ -30,11 +31,18 @@ export class BulkContactIdsDto {
 
 @Injectable()
 export class ContactsService {
-  constructor(private readonly db: DbService) {}
+  constructor(private readonly db: DbService) { }
 
-  list(tenantId: string) {
-    return this.db.withTenant(tenantId, (tx) =>
-      tx
+  list(tenantId: string, opts: { limit?: number; offset?: number } = {}) {
+    const limit = Math.min(Math.max(opts.limit ?? 50, 1), 200);
+    const offset = Math.max(opts.offset ?? 0, 0);
+    return this.db.withTenant(tenantId, async (tx) => {
+      const where = isNull(contacts.deletedAt);
+      const [countRow] = await tx
+        .select({ total: sql<number>`count(*)::int` })
+        .from(contacts)
+        .where(where);
+      const items = await tx
         .select({
           id: contacts.id,
           kind: contacts.kind,
@@ -43,19 +51,18 @@ export class ContactsService {
           email: contacts.email,
           phone: contacts.phone,
           createdAt: contacts.createdAt,
-          // LEFT JOIN + count: a contact with no case yet is still a contact,
-          // and must not vanish from its own list.
           caseCount: sql<number>`count(${cases.id})::int`,
           lastCaseAt: sql<Date | null>`max(${cases.createdAt})`,
         })
         .from(contacts)
-        // Join only LIVE cases, so a deleted case stops being counted here
-        // the moment it is deleted.
         .leftJoin(cases, and(eq(cases.contactId, contacts.id), isNull(cases.deletedAt)))
-        .where(isNull(contacts.deletedAt))
+        .where(where)
         .groupBy(contacts.id)
-        .orderBy(desc(contacts.createdAt)),
-    );
+        .orderBy(desc(contacts.createdAt))
+        .limit(limit)
+        .offset(offset);
+      return { items, total: countRow?.total ?? 0, limit, offset };
+    });
   }
 
   /**
@@ -84,7 +91,7 @@ export class ContactsService {
    *
    * Refusing is the honest option: cascading would delete a borrower's cases
    * as a side effect of tidying a contact list, and orphaning would leave
-   * cases whose subject cannot be named — and whose inbound documents would
+   * cases whose subject cannot be named - and whose inbound documents would
    * have nothing to match against.
    */
   async deleteMany(tenantId: string, userId: string, ids: string[]) {
@@ -101,7 +108,7 @@ export class ContactsService {
         if ((live?.n ?? 0) > 0) {
           refused.push({
             id,
-            reason: `Still has ${live.n} case${live.n === 1 ? "" : "s"} — delete or reassign those first`,
+            reason: `Still has ${live.n} case${live.n === 1 ? "" : "s"} - delete or reassign those first`,
           });
           continue;
         }
@@ -124,11 +131,20 @@ export class ContactsService {
 @Controller("contacts")
 @UseGuards(JwtAuthGuard)
 export class ContactsController {
-  constructor(private readonly contacts: ContactsService) {}
+  constructor(private readonly contacts: ContactsService) { }
 
   @Get()
-  list(@CurrentUser() u: AuthUser) {
-    return this.contacts.list(u.tenantId);
+  list(
+    @CurrentUser() u: AuthUser,
+    @Query("limit") limitRaw?: string,
+    @Query("offset") offsetRaw?: string,
+  ) {
+    const limit = limitRaw !== undefined ? Number(limitRaw) : undefined;
+    const offset = offsetRaw !== undefined ? Number(offsetRaw) : undefined;
+    return this.contacts.list(u.tenantId, {
+      limit: Number.isFinite(limit) ? limit : undefined,
+      offset: Number.isFinite(offset) ? offset : undefined,
+    });
   }
 
   @Post("delete-preview")
@@ -143,4 +159,4 @@ export class ContactsController {
 }
 
 @Module({ controllers: [ContactsController], providers: [ContactsService] })
-export class ContactsModule {}
+export class ContactsModule { }

@@ -2,7 +2,7 @@
 -- them was thrown away, so "what did the borrower actually say?" had no
 -- answer. One row per inbound message that matched a case (outbound document
 -- requests stay in case_messages; reads merge both). The partial unique index
--- on external_id collapses provider redelivery and poller races into one row —
+-- on external_id collapses provider redelivery and poller races into one row -
 -- the same lesson as document checksums.
 
 CREATE TABLE "conversation_messages" (

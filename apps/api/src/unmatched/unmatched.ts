@@ -1,3 +1,4 @@
+import { cases, documentRequirements, documents, unmatchedDocuments } from "@docket/db";
 import {
   BadRequestException,
   Body,
@@ -14,20 +15,19 @@ import {
 } from "@nestjs/common";
 import { IsOptional, IsString, IsUUID, MaxLength } from "class-validator";
 import { and, desc, eq, isNull } from "drizzle-orm";
-import { cases, documentRequirements, documents, unmatchedDocuments } from "@docket/db";
-import { DbService } from "../db/db";
 import { CurrentUser, JwtAuthGuard, type AuthUser } from "../auth/auth";
-import { DocumentsModule, DocumentsService } from "../documents/documents";
 import { ClassifyApplier, ClassifyModule } from "../classify/classify";
+import { DbService } from "../db/db";
+import { DocumentsModule, DocumentsService } from "../documents/documents";
 
 /**
- * Triage for inbound documents that matched no case — the human half of the
+ * Triage for inbound documents that matched no case - the human half of the
  * "never guess" rule. The intake held the bytes (see holdUnmatched in the
  * channels); this module is where a person routes them.
  *
  * Assigning INSERTS a real documents row pointing at the same storage object
  * (no byte copying, no nullable caseId on documents) and stamps this row with
- * the full resolution audit. Discarding flips status and keeps the object —
+ * the full resolution audit. Discarding flips status and keeps the object -
  * deleting bytes is a separate, deliberate act that nothing here performs.
  */
 
@@ -42,7 +42,7 @@ export class AssignUnmatchedDto {
 }
 
 export class DiscardUnmatchedDto {
-  /** Why it was discarded — the audit value, prompted for in the UI. */
+  /** Why it was discarded - the audit value, prompted for in the UI. */
   @IsOptional()
   @IsString()
   @MaxLength(500)
@@ -55,7 +55,7 @@ export class UnmatchedService {
     private readonly db: DbService,
     private readonly documents: DocumentsService,
     private readonly classify: ClassifyApplier,
-  ) {}
+  ) { }
 
   /** The tenant's pending arrivals, newest first. */
   list(tenantId: string) {
@@ -85,7 +85,7 @@ export class UnmatchedService {
   /**
    * File a pending arrival onto a case, optionally onto a checklist slot.
    * One transaction; the row is locked FOR UPDATE so two staff clicking
-   * simultaneously cannot both assign it — the second sees a conflict.
+   * simultaneously cannot both assign it - the second sees a conflict.
    */
   assign(tenantId: string, unmatchedId: string, userId: string, input: AssignUnmatchedDto) {
     return this.db.withTenant(tenantId, async (tx) => {
@@ -109,7 +109,7 @@ export class UnmatchedService {
 
       if (input.requirementId) {
         // Same two checks beginUpload makes, in the same order: the requirement
-        // must belong to this case's workflow, and the slot must have room —
+        // must belong to this case's workflow, and the slot must have room -
         // via the ONE implementation of that rule (DocumentsService).
         const [req] = await tx
           .select({ id: documentRequirements.id })
@@ -160,9 +160,9 @@ export class UnmatchedService {
     }).then((result) => {
       // Staff chose "no specific item": let the classifier propose one, after
       // the assignment has committed. An explicit slot choice is never
-      // second-guessed — this runs only when they declined to pick.
+      // second-guessed - this runs only when they declined to pick.
       if (!input.requirementId) {
-        void this.classify.process(tenantId, result.documentId).catch(() => {});
+        void this.classify.process(tenantId, result.documentId).catch(() => { });
       }
       return result;
     });
@@ -200,7 +200,7 @@ export class UnmatchedService {
 @Controller("unmatched")
 @UseGuards(JwtAuthGuard)
 export class UnmatchedController {
-  constructor(private readonly unmatched: UnmatchedService) {}
+  constructor(private readonly unmatched: UnmatchedService) { }
 
   @Get()
   list(@CurrentUser() u: AuthUser) {
@@ -231,4 +231,4 @@ export class UnmatchedController {
   controllers: [UnmatchedController],
   providers: [UnmatchedService],
 })
-export class UnmatchedModule {}
+export class UnmatchedModule { }

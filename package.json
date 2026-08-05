@@ -2,12 +2,13 @@
   "name": "docket",
   "version": "0.0.0",
   "private": true,
-  "description": "Docket — Finlot's AI workforce platform for loan origination (dashboard at docket.finlot.ai).",
+  "description": "Docket - Finlot's AI workforce platform for loan origination (dashboard at docket.finlot.ai).",
   "packageManager": "pnpm@11.1.2",
   "scripts": {
     "dev": "pnpm --filter web dev",
     "build": "pnpm --filter web build",
     "start": "pnpm --filter web start",
-    "lint": "pnpm --filter web lint"
+    "lint": "pnpm --filter web lint",
+    "test": "pnpm --filter web test"
   }
 }

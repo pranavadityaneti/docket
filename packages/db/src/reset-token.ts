@@ -1,9 +1,9 @@
-import { randomBytes, createHash } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 
 /**
  * A password-reset token: a high-entropy random value the user receives by
  * email, and the sha256 of it that we store. sha256 (not argon2) is correct
- * here — the token already carries 256 bits of entropy, so a slow hash buys
+ * here - the token already carries 256 bits of entropy, so a slow hash buys
  * nothing against a value that cannot be guessed. Passwords use argon2 because
  * they are low-entropy; tokens are not.
  */

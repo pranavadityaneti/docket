@@ -1,4 +1,4 @@
--- Inbound documents that matched no case — the intake's holding pen.
+-- Inbound documents that matched no case - the intake's holding pen.
 -- Before this table, "left for a human" was a fiction: the mail cursor advances
 -- past unmatched messages and Meta stops redelivering once we return 200, so an
 -- unmatched document was simply lost. Now the bytes are stored on arrival and a

@@ -1,3 +1,4 @@
+import { channels, sealSecret, type ChannelConfig } from "@docket/db";
 import {
   BadRequestException,
   Body,
@@ -14,18 +15,17 @@ import {
 import { Cron, CronExpression, ScheduleModule } from "@nestjs/schedule";
 import { IsEmail, IsInt, IsOptional, IsString, Max, MaxLength, Min, MinLength } from "class-validator";
 import { and, eq } from "drizzle-orm";
-import { channels, sealSecret, type ChannelConfig } from "@docket/db";
-import { DbService } from "../db/db";
 import { CurrentUser, JwtAuthGuard, type AuthUser } from "../auth/auth";
-import { StorageModule } from "../storage/storage";
 import { ClassifyModule } from "../classify/classify";
+import { env } from "../config/env";
+import { DbService } from "../db/db";
+import { StorageModule } from "../storage/storage";
 import { EmailPollerService, type PollResult } from "./email-poller";
 import { WhatsappService, WhatsappWebhookController } from "./whatsapp-webhook";
-import { env } from "../config/env";
 
 /**
  * Channels: the mailbox (and later WhatsApp number) a tenant's subjects write
- * to. See channels in the schema for why this is per-tenant — it is the
+ * to. See channels in the schema for why this is per-tenant - it is the
  * white-label promise, not a setting.
  *
  * The API never returns a stored credential. It goes in encrypted via
@@ -33,7 +33,7 @@ import { env } from "../config/env";
  */
 
 export class CreateEmailChannelDto {
-  /** The address subjects send to — what they see on the tenant's brand. */
+  /** The address subjects send to - what they see on the tenant's brand. */
   @IsEmail()
   @MaxLength(320)
   address!: string;
@@ -67,7 +67,7 @@ export class CreateWhatsappChannelDto {
   @MaxLength(64)
   address!: string;
 
-  /** Meta's phone number ID — the routing key the webhook matches on. */
+  /** Meta's phone number ID - the routing key the webhook matches on. */
   @IsString()
   @MinLength(1)
   @MaxLength(64)
@@ -86,7 +86,7 @@ export class CreateWhatsappChannelDto {
   appSecret!: string;
 }
 
-/** A channel as returned to the client — never includes the credential. */
+/** A channel as returned to the client - never includes the credential. */
 const SAFE_COLUMNS = {
   id: channels.id,
   kind: channels.kind,
@@ -103,7 +103,7 @@ export class ChannelsService {
   constructor(
     private readonly db: DbService,
     private readonly poller: EmailPollerService,
-  ) {}
+  ) { }
 
   /** The tenant's channels, without secrets. */
   list(tenantId: string) {
@@ -114,7 +114,7 @@ export class ChannelsService {
 
   async createEmail(tenantId: string, input: CreateEmailChannelDto) {
     if (!env.channelSecretKey) {
-      // Refuse rather than store a credential in the clear — the whole point of
+      // Refuse rather than store a credential in the clear - the whole point of
       // secret-box is that this never happens.
       throw new BadRequestException(
         "Email channels are unavailable: the server has no channel encryption key configured.",
@@ -143,7 +143,7 @@ export class ChannelsService {
       );
     }
     const config: ChannelConfig = { phoneNumberId: input.phoneNumberId };
-    // Both credentials sealed together — the webhook needs the access token to
+    // Both credentials sealed together - the webhook needs the access token to
     // download media and the app secret to verify signatures. Never returned.
     const secretCiphertext = sealSecret(
       JSON.stringify({ accessToken: input.accessToken, appSecret: input.appSecret }),
@@ -159,7 +159,7 @@ export class ChannelsService {
     });
   }
 
-  /** Poll one channel on demand — used for setup verification and the demo. */
+  /** Poll one channel on demand - used for setup verification and the demo. */
   async pollNow(tenantId: string, channelId: string): Promise<PollResult> {
     const [row] = await this.db.withTenant(tenantId, (tx) =>
       tx
@@ -200,7 +200,7 @@ export class ChannelsService {
 @Controller("channels")
 @UseGuards(JwtAuthGuard)
 export class ChannelsController {
-  constructor(private readonly channels: ChannelsService) {}
+  constructor(private readonly channels: ChannelsService) { }
 
   @Get()
   list(@CurrentUser() u: AuthUser) {
@@ -229,4 +229,4 @@ export class ChannelsController {
   providers: [ChannelsService, EmailPollerService, WhatsappService],
   exports: [ChannelsService],
 })
-export class ChannelsModule {}
+export class ChannelsModule { }

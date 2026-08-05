@@ -1,4 +1,13 @@
 import {
+  caseEvents,
+  cases,
+  documentRequirements,
+  documents,
+  users,
+  type DocumentStatus,
+  type RequirementCondition,
+} from "@docket/db";
+import {
   BadRequestException,
   Body,
   Controller,
@@ -14,22 +23,16 @@ import {
   Post,
   Put,
   Req,
+  Res,
+  StreamableFile,
   UseGuards,
 } from "@nestjs/common";
 import { IsIn, IsOptional, IsString, IsUUID, MaxLength, MinLength } from "class-validator";
 import { and, asc, eq, isNull } from "drizzle-orm";
-import type { Request } from "express";
-import {
-  caseEvents,
-  cases,
-  documentRequirements,
-  documents,
-  users,
-  type DocumentStatus,
-  type RequirementCondition,
-} from "@docket/db";
-import { DbService } from "../db/db";
+import type { Request, Response } from "express";
 import { CurrentUser, JwtAuthGuard, type AuthUser } from "../auth/auth";
+import { env } from "../config/env";
+import { DbService } from "../db/db";
 import {
   LocalStorageDriver,
   STORAGE,
@@ -37,12 +40,11 @@ import {
   documentKey,
   type StorageDriver,
 } from "../storage/storage";
-import { env } from "../config/env";
 
 /**
  * Documents: what a case still needs, and what has arrived.
  *
- * The upload flow is deliberately two-step — ask for a target, PUT the bytes,
+ * The upload flow is deliberately two-step - ask for a target, PUT the bytes,
  * then confirm. A single-step "post the file to the API" would put every
  * borrower's 12 bank statements through the API process, and would leave no
  * way to move to presigned S3 uploads later without changing the client. The
@@ -87,7 +89,7 @@ export type ChecklistItemStatus =
  * Have this row's bytes actually reached storage?
  *
  * A document row is created BEFORE the upload, so a row on its own proves
- * nothing — it is a reservation. If the upload is abandoned (a dropped
+ * nothing - it is a reservation. If the upload is abandoned (a dropped
  * connection, a closed tab, an expired ticket) the row survives with no file
  * behind it. Such a row is not a document and must not be treated as one:
  * counting it told a borrower's checklist that a file had arrived when nothing
@@ -104,7 +106,7 @@ export function hasLanded(doc: { storageKey: string | null }): boolean {
  * file still occupies a slot *until someone removes it*. There is no remove
  * action, so that reasoning never completed: rejecting the single permitted
  * copy of a document made the item permanently unfillable. Staff rejected a
- * blurry Aadhaar and then could not accept a clear one — the exact workflow the
+ * blurry Aadhaar and then could not accept a clear one - the exact workflow the
  * product exists to run, deadlocked by its own validation.
  *
  * A slot is held by a file that is still a candidate:
@@ -114,8 +116,8 @@ export function hasLanded(doc: { storageKey: string | null }): boolean {
  *   - no bytes  → no. Nothing was ever uploaded.
  *
  * Note this is deliberately NOT the same question as rollUpStatus answers. A
- * rejected document must keep *showing* as rejected — that is the signal a
- * human acts on — while no longer *blocking* the replacement it is asking for.
+ * rejected document must keep *showing* as rejected - that is the signal a
+ * human acts on - while no longer *blocking* the replacement it is asking for.
  * Occupancy is about capacity; roll-up is about what to display.
  */
 export function occupiesSlot(doc: {
@@ -137,7 +139,7 @@ export function occupiesSlot(doc: {
  * Takes whole documents, NOT bare statuses, deliberately: a reservation whose
  * bytes never landed still carries status "received", so a status-only
  * signature let every caller quietly report that a file had arrived when
- * nothing had — on the checklist AND on the Overview counts. Requiring
+ * nothing had - on the checklist AND on the Overview counts. Requiring
  * storageKey makes that mistake impossible to express.
  */
 export function rollUpStatus(
@@ -182,7 +184,7 @@ export class ReviewDocumentDto {
   @IsIn(["accepted", "rejected", "needs_review"])
   status!: "accepted" | "rejected" | "needs_review";
 
-  /** Required when rejecting — it is shown to staff AND used to compose the re-ask. */
+  /** Required when rejecting - it is shown to staff AND used to compose the re-ask. */
   @IsOptional()
   @IsString()
   @MaxLength(500)
@@ -190,7 +192,7 @@ export class ReviewDocumentDto {
 }
 
 export class RemoveDocumentDto {
-  /** Optional, but it is the whole audit value — prompted for in the UI. */
+  /** Optional, but it is the whole audit value - prompted for in the UI. */
   @IsOptional()
   @IsString()
   @MaxLength(500)
@@ -202,12 +204,12 @@ export class DocumentsService {
   constructor(
     private readonly db: DbService,
     @Inject(STORAGE) private readonly storage: StorageDriver,
-  ) {}
+  ) { }
 
   /**
    * The core read: what this case still needs.
    *
-   * Answers "what is missing from this borrower?" — the question the whole
+   * Answers "what is missing from this borrower?" - the question the whole
    * product exists to close, and the one the AI will ask before composing a
    * nudge. Conditions are resolved against the case's own data here rather
    * than in the client, so the dashboard, the WhatsApp bot and the voice bot
@@ -244,7 +246,7 @@ export class DocumentsService {
         // predicate beginUpload enforces with. The client must not re-derive it
         // from documents.length: that is a second implementation of the rule,
         // and it would grey out the upload button on a rejected item that the
-        // API would in fact accept — the deadlock reappearing in the UI only.
+        // API would in fact accept - the deadlock reappearing in the UI only.
         const slotsUsed = mine.filter(occupiesSlot).length;
         return {
           requirementId: r.id,
@@ -261,6 +263,7 @@ export class DocumentsService {
           documents: mine.map((d) => ({
             id: d.id,
             fileName: d.fileName,
+            mimeType: d.mimeType,
             status: d.status,
             rejectionReason: d.rejectionReason,
             sizeBytes: d.sizeBytes,
@@ -276,13 +279,13 @@ export class DocumentsService {
         };
       });
 
-      // Files that arrived but match no requirement — a borrower sending
+      // Files that arrived but match no requirement - a borrower sending
       // something unexpected, or the classifier declining to guess. Surfaced
       // separately so a human can place them; never silently dropped.
       //
       // A document the classifier recognised but was not confident enough to
       // file carries a SUGGESTION: the label rides along so the screen can
-      // offer "looks like Aadhaar — confirm?" without a second lookup. The
+      // offer "looks like Aadhaar - confirm?" without a second lookup. The
       // suggestion is resolved against `applicable`, so a suggestion for a
       // requirement that no longer applies to this case simply does not
       // appear rather than offering staff a slot that is not on the checklist.
@@ -296,6 +299,7 @@ export class DocumentsService {
           return {
             id: d.id,
             fileName: d.fileName,
+            mimeType: d.mimeType,
             status: d.status,
             sourceChannel: d.sourceChannel,
             receivedAt: d.receivedAt,
@@ -329,7 +333,7 @@ export class DocumentsService {
   /**
    * Refuse the caller if the requirement has no free slot left.
    *
-   * Capacity used to be checked in exactly one place — beginUpload — and that
+   * Capacity used to be checked in exactly one place - beginUpload - and that
    * was sufficient only while "a row exists" meant "a slot is used". Now that
    * occupancy is a predicate that CHANGES over a document's life (a rejection
    * frees a slot, an upload completing takes one), a single up-front check is
@@ -341,7 +345,7 @@ export class DocumentsService {
    *   - review a rejected document back to accepted after its replacement has
    *     already taken the slot.
    *
-   * `excludeDocumentId` is the document being changed — it must not be counted
+   * `excludeDocumentId` is the document being changed - it must not be counted
    * against itself.
    */
   // Public because assigning an unmatched arrival files a document too, and the
@@ -366,7 +370,7 @@ export class DocumentsService {
         and(
           eq(documents.caseId, caseId),
           eq(documents.requirementId, requirementId),
-          // A removed document frees its slot — that is most of the point of
+          // A removed document frees its slot - that is most of the point of
           // being able to remove one.
           isNull(documents.deletedAt),
         ),
@@ -376,7 +380,7 @@ export class DocumentsService {
     if (used >= req.maxFiles) {
       throw new BadRequestException(
         `"${req.label}" already has ${req.maxFiles} file${req.maxFiles === 1 ? "" : "s"}. ` +
-          `Reject the existing one first if this should replace it.`,
+        `Reject the existing one first if this should replace it.`,
       );
     }
   }
@@ -407,7 +411,7 @@ export class DocumentsService {
         if (!req) throw new BadRequestException("Requirement does not belong to this case");
 
         // Fail fast, before the caller uploads bytes it cannot file. This is
-        // early feedback, NOT the authoritative check — a reservation holds no
+        // early feedback, NOT the authoritative check - a reservation holds no
         // slot, so the binding check is the one in completeUpload().
         await this.assertSlotFree(tx, caseId, input.requirementId, null);
       }
@@ -433,7 +437,7 @@ export class DocumentsService {
     });
   }
 
-  /** Step 2: the bytes are in storage — verify and record what actually landed. */
+  /** Step 2: the bytes are in storage - verify and record what actually landed. */
   completeUpload(tenantId: string, documentId: string) {
     return this.db.withTenant(tenantId, async (tx) => {
       const [doc] = await tx
@@ -490,14 +494,14 @@ export class DocumentsService {
    * Remove a document: purge the file, keep the record.
    *
    * The file is deleted first and the row updated second. If the purge fails
-   * the whole thing fails and the document is untouched — the opposite order
+   * the whole thing fails and the document is untouched - the opposite order
    * could mark a document removed while its bytes are still sitting in storage,
    * which is precisely the outcome someone removing a misfiled KYC document is
    * trying to avoid. A crash between the two leaves an orphaned object with no
    * row pointing at it, which is recoverable; the reverse is not.
    *
    * storage_key is cleared because the object it names no longer exists. What
-   * stays — file name, checksum, size — describes what the file was without
+   * stays - file name, checksum, size - describes what the file was without
    * being the file.
    */
   remove(tenantId: string, userId: string, documentId: string, input: RemoveDocumentDto) {
@@ -533,7 +537,7 @@ export class DocumentsService {
   /**
    * Accept the classifier's suggestion: file the document onto the slot it
    * proposed. This is the human confirmation the auto-file path skips, so it
-   * runs the SAME capacity check every other placement runs — a suggestion is
+   * runs the SAME capacity check every other placement runs - a suggestion is
    * a proposal, never a licence to overflow an item.
    *
    * autoFiled stays false: a person made this placement, on advice. The audit
@@ -562,7 +566,7 @@ export class DocumentsService {
         throw new BadRequestException("There is no suggestion to confirm for this document");
       }
 
-      // The suggestion must still belong to this case's workflow — a workflow
+      // The suggestion must still belong to this case's workflow - a workflow
       // can be edited between the suggestion and the click.
       const [row] = await tx
         .select({ workflowId: cases.workflowId })
@@ -596,7 +600,7 @@ export class DocumentsService {
   /**
    * Reject the classifier's suggestion. The document stays unfiled and the
    * proposal is cleared, so the queue does not keep offering a wrong answer.
-   * What the classifier READ is deliberately kept (classifiedType) — that is
+   * What the classifier READ is deliberately kept (classifiedType) - that is
    * evidence about the document, not the discarded proposal.
    */
   dismissSuggestion(tenantId: string, documentId: string) {
@@ -634,7 +638,7 @@ export class DocumentsService {
       // it, this would push the item past maxFiles, so the same guard applies
       // here as on upload. Only this ONE transition needs it: rejecting never
       // adds occupancy, and accepting something already received does not
-      // change it — so a plain review of a live file is untouched.
+      // change it - so a plain review of a live file is untouched.
       const willOccupy = input.status !== "rejected" && hasLanded(doc);
       if (willOccupy && !occupiesSlot(doc) && doc.requirementId) {
         await this.assertSlotFree(tx, doc.caseId, doc.requirementId, doc.id);
@@ -667,7 +671,7 @@ export class DocumentsService {
         .where(eq(documents.id, documentId))
         .returning();
 
-      // The journal line — same transaction as the verdict, so the two can
+      // The journal line - same transaction as the verdict, so the two can
       // never disagree. Pinned to the document's checklist item, which lets
       // the item's own history answer "why was this rejected?".
       await tx.insert(caseEvents).values({
@@ -687,7 +691,7 @@ export class DocumentsService {
     });
   }
 
-  /** The name history keeps — read via admin exactly as auth reads users. */
+  /** The name history keeps - read via admin exactly as auth reads users. */
   private async authorName(userId: string): Promise<string> {
     const [u] = await this.db.admin
       .select({ name: users.name })
@@ -696,16 +700,70 @@ export class DocumentsService {
       .limit(1);
     return u?.name ?? "Unknown";
   }
+
+  /**
+   * Bytes for staff preview / download.
+   *
+   * Auth is the tenant boundary (RLS via withTenant); the storage key is never
+   * taken from the client. A reserved row with no landed file is not previewable.
+   */
+  content(tenantId: string, documentId: string) {
+    return this.db.withTenant(tenantId, async (tx) => {
+      const [doc] = await tx
+        .select({
+          id: documents.id,
+          fileName: documents.fileName,
+          mimeType: documents.mimeType,
+          storageKey: documents.storageKey,
+        })
+        .from(documents)
+        .where(and(eq(documents.id, documentId), isNull(documents.deletedAt)))
+        .limit(1);
+      if (!doc) throw new NotFoundException("Document not found");
+      if (!doc.storageKey) {
+        throw new BadRequestException("This document has no file to preview yet");
+      }
+      const body = await this.storage.get(doc.storageKey);
+      return {
+        body,
+        fileName: doc.fileName,
+        mimeType: doc.mimeType ?? "application/octet-stream",
+      };
+    });
+  }
 }
 
 @Controller()
 @UseGuards(JwtAuthGuard)
 export class DocumentsController {
-  constructor(private readonly docs: DocumentsService) {}
+  constructor(private readonly docs: DocumentsService) { }
 
   @Get("cases/:id/checklist")
   checklist(@CurrentUser() u: AuthUser, @Param("id", ParseUUIDPipe) id: string) {
     return this.docs.checklist(u.tenantId, id);
+  }
+
+  /**
+   * Stream the file for in-app preview. `inline` so the browser can render PDFs
+   * and images in a dialog rather than force-downloading every click.
+   */
+  @Get("documents/:id/content")
+  async content(
+    @CurrentUser() u: AuthUser,
+    @Param("id", ParseUUIDPipe) id: string,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const { body, fileName, mimeType } = await this.docs.content(u.tenantId, id);
+    // ASCII fallback + RFC 5987 filename* so unicode names (common on WhatsApp
+    // captures) survive Content-Disposition without header injection.
+    const safeAscii = fileName.replace(/[^\x20-\x7E]/g, "_").replace(/"/g, "");
+    res.set({
+      "Content-Type": mimeType,
+      "Content-Length": String(body.byteLength),
+      "Content-Disposition": `inline; filename="${safeAscii}"; filename*=UTF-8''${encodeURIComponent(fileName)}`,
+      "Cache-Control": "private, no-store",
+    });
+    return new StreamableFile(body);
   }
 
   @Post("cases/:id/documents")
@@ -756,18 +814,18 @@ export class DocumentsController {
  *
  * Deliberately NOT behind JwtAuthGuard: it stands in for a presigned S3 URL,
  * which is likewise unauthenticated and authorised solely by the signature.
- * Here the single-use, short-lived ticket in the path is that signature — it
+ * Here the single-use, short-lived ticket in the path is that signature - it
  * names the key, so a caller cannot choose where the bytes land. Development
  * only; in production STORAGE_DRIVER=s3 and this route is never reached.
  */
 @Controller("uploads")
 export class LocalUploadController {
-  constructor(private readonly local: LocalStorageDriver) {}
+  constructor(private readonly local: LocalStorageDriver) { }
 
   // PUT, because that is the method LocalStorageDriver.requestUpload() hands
   // the client, and it is what a presigned S3 URL takes. This was @Post while
   // the driver advertised PUT, so any client that honoured the contract got a
-  // 404 — invisible to a hand-written `curl -X POST`, and invisible to the S3
+  // 404 - invisible to a hand-written `curl -X POST`, and invisible to the S3
   // path, which uploads to Amazon and never reaches this route at all. Local
   // and production now exercise the same verb.
   @Put(":token")
@@ -802,8 +860,8 @@ export class LocalUploadController {
   controllers: [DocumentsController, LocalUploadController],
   providers: [DocumentsService],
   // Exported so the nudge feature can read the live checklist from the one place
-  // that computes it — the dashboard and the document requests can never then
+  // that computes it - the dashboard and the document requests can never then
   // disagree about what a case still needs.
   exports: [DocumentsService],
 })
-export class DocumentsModule {}
+export class DocumentsModule { }

@@ -1,7 +1,7 @@
 -- College Admissions: bring the workflow into the repository, and give it
 -- the descriptions it never had.
 --
--- This workflow has been live since before it was written down — workflow,
+-- This workflow has been live since before it was written down - workflow,
 -- stages, 3 fields and 7 document requirements existed only as rows created ad
 -- hoc. Nothing could recreate it, nobody could review it, and every one of its
 -- seven descriptions was NULL, which is the worst possible input to the AI
@@ -10,7 +10,7 @@
 -- SAFETY. Nothing is deleted. The seven existing items keep their keys, so any
 -- document already filed against them stays exactly where it is; they gain the
 -- descriptions they lacked. Eighteen new items are inserted. Fields are
--- replaced wholesale because field_configs stores them as one JSON array — the
+-- replaced wholesale because field_configs stores them as one JSON array - the
 -- three existing fields are carried through unchanged in that array.
 --
 -- CONDITIONS AND EXISTING CASES. New conditional items read fields that older
@@ -70,7 +70,7 @@ ON CONFLICT (workflow_id, key) DO UPDATE SET
   condition = EXCLUDED.condition, position = EXCLUDED.position;
 
 INSERT INTO document_requirements (tenant_id, workflow_id, key, label, description, required, max_files, reusable, validity_days, condition, position)
-SELECT w.tenant_id, w.id, 'certificate_10', 'Class 10 passing certificate', 'The board-issued certificate confirming the Class 10 pass. NOT the marksheet — this one certifies the result rather than listing subject marks.', true, 1, true, NULL, NULL, 4
+SELECT w.tenant_id, w.id, 'certificate_10', 'Class 10 passing certificate', 'The board-issued certificate confirming the Class 10 pass. NOT the marksheet - this one certifies the result rather than listing subject marks.', true, 1, true, NULL, NULL, 4
 FROM workflows w WHERE w.slug = 'college-admissions'
 ON CONFLICT (workflow_id, key) DO UPDATE SET
   label = EXCLUDED.label, description = EXCLUDED.description, required = EXCLUDED.required,
@@ -78,7 +78,7 @@ ON CONFLICT (workflow_id, key) DO UPDATE SET
   condition = EXCLUDED.condition, position = EXCLUDED.position;
 
 INSERT INTO document_requirements (tenant_id, workflow_id, key, label, description, required, max_files, reusable, validity_days, condition, position)
-SELECT w.tenant_id, w.id, 'marksheet_12', 'Class 12 marksheet', 'The board''s statement of marks for Class 12 / HSC — the document admission ranks are usually computed from. NOT the passing certificate. Asked for at every course level, including postgraduate.', true, 1, true, NULL, NULL, 5
+SELECT w.tenant_id, w.id, 'marksheet_12', 'Class 12 marksheet', 'The board''s statement of marks for Class 12 / HSC - the document admission ranks are usually computed from. NOT the passing certificate. Asked for at every course level, including postgraduate.', true, 1, true, NULL, NULL, 5
 FROM workflows w WHERE w.slug = 'college-admissions'
 ON CONFLICT (workflow_id, key) DO UPDATE SET
   label = EXCLUDED.label, description = EXCLUDED.description, required = EXCLUDED.required,
@@ -110,7 +110,7 @@ ON CONFLICT (workflow_id, key) DO UPDATE SET
   condition = EXCLUDED.condition, position = EXCLUDED.position;
 
 INSERT INTO document_requirements (tenant_id, workflow_id, key, label, description, required, max_files, reusable, validity_days, condition, position)
-SELECT w.tenant_id, w.id, 'entrance_score', 'Entrance exam score card', 'The rank or score card for the entrance the seat was allotted on — CUET, JEE, NEET, CAT or a state CET. NOT the admit card or hall ticket, which is issued before the exam and carries no result.', true, 1, false, 365, '{"field":"admission_route","equals":"Entrance exam"}'::jsonb, 9
+SELECT w.tenant_id, w.id, 'entrance_score', 'Entrance exam score card', 'The rank or score card for the entrance the seat was allotted on - CUET, JEE, NEET, CAT or a state CET. NOT the admit card or hall ticket, which is issued before the exam and carries no result.', true, 1, false, 365, '{"field":"admission_route","equals":"Entrance exam"}'::jsonb, 9
 FROM workflows w WHERE w.slug = 'college-admissions'
 ON CONFLICT (workflow_id, key) DO UPDATE SET
   label = EXCLUDED.label, description = EXCLUDED.description, required = EXCLUDED.required,
@@ -166,7 +166,7 @@ ON CONFLICT (workflow_id, key) DO UPDATE SET
   condition = EXCLUDED.condition, position = EXCLUDED.position;
 
 INSERT INTO document_requirements (tenant_id, workflow_id, key, label, description, required, max_files, reusable, validity_days, condition, position)
-SELECT w.tenant_id, w.id, 'ncl_certificate', 'Non-creamy-layer certificate', 'The current-year non-creamy-layer certificate for OBC candidates. This EXPIRES — a certificate from an earlier financial year is not accepted. NOT the caste certificate itself.', true, 1, false, 365, '{"field":"category","equals":"OBC"}'::jsonb, 16
+SELECT w.tenant_id, w.id, 'ncl_certificate', 'Non-creamy-layer certificate', 'The current-year non-creamy-layer certificate for OBC candidates. This EXPIRES - a certificate from an earlier financial year is not accepted. NOT the caste certificate itself.', true, 1, false, 365, '{"field":"category","equals":"OBC"}'::jsonb, 16
 FROM workflows w WHERE w.slug = 'college-admissions'
 ON CONFLICT (workflow_id, key) DO UPDATE SET
   label = EXCLUDED.label, description = EXCLUDED.description, required = EXCLUDED.required,
@@ -198,7 +198,7 @@ ON CONFLICT (workflow_id, key) DO UPDATE SET
   condition = EXCLUDED.condition, position = EXCLUDED.position;
 
 INSERT INTO document_requirements (tenant_id, workflow_id, key, label, description, required, max_files, reusable, validity_days, condition, position)
-SELECT w.tenant_id, w.id, 'income_certificate', 'Income certificate', 'The competent authority''s income certificate. NOT a salary slip, NOT an income tax return and NOT a bank statement — those evidence income but are not this certificate.', true, 1, false, 365, '{"field":"scholarship","equals":"Yes"}'::jsonb, 20
+SELECT w.tenant_id, w.id, 'income_certificate', 'Income certificate', 'The competent authority''s income certificate. NOT a salary slip, NOT an income tax return and NOT a bank statement - those evidence income but are not this certificate.', true, 1, false, 365, '{"field":"scholarship","equals":"Yes"}'::jsonb, 20
 FROM workflows w WHERE w.slug = 'college-admissions'
 ON CONFLICT (workflow_id, key) DO UPDATE SET
   label = EXCLUDED.label, description = EXCLUDED.description, required = EXCLUDED.required,

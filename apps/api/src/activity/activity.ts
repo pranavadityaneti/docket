@@ -1,5 +1,3 @@
-import { Controller, Get, Injectable, Module, UseGuards } from "@nestjs/common";
-import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import {
   caseMessages,
   cases,
@@ -10,8 +8,10 @@ import {
   workflowStages,
   workflows,
 } from "@docket/db";
-import { DbService } from "../db/db";
+import { Controller, Get, Injectable, Module, UseGuards } from "@nestjs/common";
+import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { CurrentUser, JwtAuthGuard, type AuthUser } from "../auth/auth";
+import { DbService } from "../db/db";
 import { requirementApplies, rollUpStatus } from "../documents/documents";
 
 /**
@@ -19,7 +19,7 @@ import { requirementApplies, rollUpStatus } from "../documents/documents";
  *
  * Both answer questions a single case cannot. "Who has written to us lately?"
  * and "who owes us documents, and when did we last ask?" are triage questions
- * — they are about choosing which case to open, so they cannot live inside one.
+ * - they are about choosing which case to open, so they cannot live inside one.
  *
  * Every figure is derived from rows, and the reminder arithmetic is the SAME
  * rule the scheduler applies (3-day interval, 3 reminders maximum). A screen
@@ -27,7 +27,7 @@ import { requirementApplies, rollUpStatus } from "../documents/documents";
  * screen: people would chase manually and double-message the borrower.
  */
 
-/** Kept in step with NudgeService — see the note above about disagreeing. */
+/** Kept in step with NudgeService - see the note above about disagreeing. */
 const REMINDER_INTERVAL_MS = 3 * 24 * 60 * 60 * 1000;
 const MAX_REMINDERS = 3;
 
@@ -68,10 +68,10 @@ export type FollowUpRow = {
 
 @Injectable()
 export class ActivityService {
-  constructor(private readonly db: DbService) {}
+  constructor(private readonly db: DbService) { }
 
   /**
-   * One row per case that has any message, newest first — a workspace inbox.
+   * One row per case that has any message, newest first - a workspace inbox.
    *
    * Inbound words and outbound requests live in two tables (the pollers keep
    * what a subject said; case_messages is the scheduler's own memory), so the
@@ -261,7 +261,7 @@ export class ActivityService {
 @Controller()
 @UseGuards(JwtAuthGuard)
 export class ActivityController {
-  constructor(private readonly activity: ActivityService) {}
+  constructor(private readonly activity: ActivityService) { }
 
   @Get("conversations")
   conversations(@CurrentUser() u: AuthUser) {
@@ -275,4 +275,4 @@ export class ActivityController {
 }
 
 @Module({ controllers: [ActivityController], providers: [ActivityService] })
-export class ActivityModule {}
+export class ActivityModule { }

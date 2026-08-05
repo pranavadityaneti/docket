@@ -1,12 +1,12 @@
 import { randomInt } from "node:crypto";
 
 /**
- * Human-readable case references — `DKT-7F3K2M`.
+ * Human-readable case references - `DKT-7F3K2M`.
  *
  * These are not internal ids; they are read over WhatsApp, typed into an email
  * subject, and spoken aloud to the voice bot. That drives every choice here:
  *
- * - **Crockford base32 alphabet** — no `I`, `L`, `O` or `U`. `I/1`, `O/0` and
+ * - **Crockford base32 alphabet** - no `I`, `L`, `O` or `U`. `I/1`, `O/0` and
  *   `L/1` are the pairs people confuse when reading a code back, and `U` is
  *   excluded so a random string can't spell something unfortunate.
  * - **Random, not sequential.** A counter would tell any tenant's competitor
@@ -41,7 +41,7 @@ export function normaliseCaseReference(raw: string): string | null {
 
   // Strip the prefix ONLY when doing so leaves exactly a full code. D, K and T
   // are all in the alphabet, so a legitimate reference can itself begin "DKT"
-  // (DKT-DKT123) — an unconditional strip would eat the first three characters
+  // (DKT-DKT123) - an unconditional strip would eat the first three characters
   // of a bare code and turn a valid reference into nonsense.
   const body =
     compact.length === PREFIX.length + LENGTH && compact.startsWith(PREFIX)
@@ -50,7 +50,7 @@ export function normaliseCaseReference(raw: string): string | null {
 
   // Fold the excluded characters onto what the speaker almost certainly meant.
   // This is safe in both directions: a real reference can never contain I, L,
-  // O or U, so folding can only ever repair a mis-transcription — it can never
+  // O or U, so folding can only ever repair a mis-transcription - it can never
   // turn one valid reference into a different valid one.
   const folded = body
     .replace(/[IL]/g, "1")

@@ -12,28 +12,53 @@ const ok = (name, fn) => {
   console.log("  PASS", name);
 };
 
-const ctx = { contactName: "Asha", tenantName: "Acme Loans", caseReference: "DKT-7F3K2M" };
+const ctx = {
+  contactName: "Asha",
+  tenantName: "Acme Loans",
+  caseReference: "DKT-7F3K2M",
+};
 
-ok("collects required-missing and rejected, skips optional-missing and satisfied", () => {
-  const items = collectNudgeItems({
-    items: [
-      { key: "pan", label: "PAN card", required: true, status: "missing", documents: [] },
-      { key: "sel", label: "Selfie", required: false, status: "missing", documents: [] },
-      { key: "acc", label: "Bank statement", required: true, status: "accepted", documents: [] },
-      {
-        key: "aad",
-        label: "Aadhaar",
-        required: true,
-        status: "rejected",
-        documents: [{ status: "rejected", rejectionReason: "blurry" }],
-      },
-    ],
-  });
-  assert.deepStrictEqual(items, [
-    { key: "pan", label: "PAN card", state: "missing" },
-    { key: "aad", label: "Aadhaar", state: "rejected", reason: "blurry" },
-  ]);
-});
+ok(
+  "collects required-missing and rejected, skips optional-missing and satisfied",
+  () => {
+    const items = collectNudgeItems({
+      items: [
+        {
+          key: "pan",
+          label: "PAN card",
+          required: true,
+          status: "missing",
+          documents: [],
+        },
+        {
+          key: "sel",
+          label: "Selfie",
+          required: false,
+          status: "missing",
+          documents: [],
+        },
+        {
+          key: "acc",
+          label: "Bank statement",
+          required: true,
+          status: "accepted",
+          documents: [],
+        },
+        {
+          key: "aad",
+          label: "Aadhaar",
+          required: true,
+          status: "rejected",
+          documents: [{ status: "rejected", rejectionReason: "blurry" }],
+        },
+      ],
+    });
+    assert.deepStrictEqual(items, [
+      { key: "pan", label: "PAN card", state: "missing" },
+      { key: "aad", label: "Aadhaar", state: "rejected", reason: "blurry" },
+    ]);
+  },
+);
 
 ok("rejected with no reason yields undefined reason", () => {
   const items = collectNudgeItems({
@@ -63,14 +88,25 @@ ok("optional rejected item is still nudged (re-send)", () => {
     ],
   });
   assert.deepStrictEqual(items, [
-    { key: "extra", label: "Extra proof", state: "rejected", reason: "wrong doc" },
+    {
+      key: "extra",
+      label: "Extra proof",
+      state: "rejected",
+      reason: "wrong doc",
+    },
   ]);
 });
 
 ok("complete checklist yields empty items", () => {
   const items = collectNudgeItems({
     items: [
-      { key: "pan", label: "PAN card", required: true, status: "accepted", documents: [] },
+      {
+        key: "pan",
+        label: "PAN card",
+        required: true,
+        status: "accepted",
+        documents: [],
+      },
     ],
   });
   assert.strictEqual(items.length, 0);
@@ -88,7 +124,9 @@ ok("expired required document is chased as a fresh ask", () => {
       },
     ],
   });
-  assert.deepStrictEqual(items, [{ key: "bank", label: "Bank statement", state: "missing" }]);
+  assert.deepStrictEqual(items, [
+    { key: "bank", label: "Bank statement", state: "missing" },
+  ]);
 });
 
 ok("expired OPTIONAL document is not chased", () => {
@@ -122,8 +160,11 @@ ok("received (awaiting review) is not re-asked", () => {
 });
 
 ok("email subject carries tenant + reference", () => {
-  const { subject } = composeEmail([{ key: "pan", label: "PAN card", state: "missing" }], ctx);
-  assert.strictEqual(subject, "Documents needed — Acme Loans — DKT-7F3K2M");
+  const { subject } = composeEmail(
+    [{ key: "pan", label: "PAN card", state: "missing" }],
+    ctx,
+  );
+  assert.strictEqual(subject, "Documents needed - Acme Loans - DKT-7F3K2M");
 });
 
 ok("email body lists items and re-ask reason", () => {
@@ -135,24 +176,33 @@ ok("email body lists items and re-ask reason", () => {
     ctx,
   );
   assert.ok(text.includes("• PAN card"));
-  assert.ok(text.includes("• Aadhaar — please re-send (blurry)"));
+  assert.ok(text.includes("• Aadhaar - please re-send (blurry)"));
   assert.ok(text.includes("DKT-7F3K2M"));
   assert.ok(text.includes("keep the subject line unchanged"));
 });
 
 ok("email rejected item without reason omits the parenthetical", () => {
-  const { text } = composeEmail([{ key: "aad", label: "Aadhaar", state: "rejected" }], ctx);
-  assert.ok(text.includes("• Aadhaar — please re-send"));
+  const { text } = composeEmail(
+    [{ key: "aad", label: "Aadhaar", state: "rejected" }],
+    ctx,
+  );
+  assert.ok(text.includes("• Aadhaar - please re-send"));
   assert.ok(!text.includes("re-send ("));
 });
 
 ok("whatsapp params are the 4 body variables in order", () => {
-  const p = composeWhatsappParams([{ key: "pan", label: "PAN card", state: "missing" }], ctx);
+  const p = composeWhatsappParams(
+    [{ key: "pan", label: "PAN card", state: "missing" }],
+    ctx,
+  );
   assert.deepStrictEqual(p, ["Asha", "Acme Loans", "DKT-7F3K2M", "PAN card"]);
 });
 
 ok("whatsapp marks rejected items as re-send", () => {
-  const p = composeWhatsappParams([{ key: "aad", label: "Aadhaar", state: "rejected" }], ctx);
+  const p = composeWhatsappParams(
+    [{ key: "aad", label: "Aadhaar", state: "rejected" }],
+    ctx,
+  );
   assert.strictEqual(p[3], "Aadhaar (re-send)");
 });
 

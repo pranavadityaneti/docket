@@ -1,7 +1,7 @@
 -- AI classification columns on documents (see apps/api/src/classify/classify.ts).
 --
 -- suggested_requirement_id: the slot the classifier believes this document
--- satisfies when it was NOT confident enough to file it itself — a human
+-- satisfies when it was NOT confident enough to file it itself - a human
 -- confirms (copying it into requirement_id) or ignores it.
 -- auto_filed: true when requirement_id was set by the classifier, so "who
 -- filed this here?" is always answerable in the audit trail.

@@ -1,4 +1,20 @@
 import {
+  caseEvents,
+  caseMessages,
+  cases,
+  contacts,
+  conversationMessages,
+  documentRequirements,
+  documents,
+  generateCaseReference,
+  memberships,
+  SUBJECT_KINDS,
+  users,
+  workflows,
+  workflowStages,
+  type SubjectKind,
+} from "@docket/db";
+import {
   BadRequestException,
   Body,
   Controller,
@@ -27,35 +43,20 @@ import {
   MinLength,
 } from "class-validator";
 import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
-import {
-  caseEvents,
-  caseMessages,
-  cases,
-  conversationMessages,
-  documents,
-  contacts,
-  documentRequirements,
-  generateCaseReference,
-  SUBJECT_KINDS,
-  users,
-  workflows,
-  workflowStages,
-  type SubjectKind,
-} from "@docket/db";
-import { DbService } from "../db/db";
 import { CurrentUser, JwtAuthGuard, type AuthUser } from "../auth/auth";
-import { NudgesModule, NudgeService } from "../nudges/nudges";
+import { DbService } from "../db/db";
+import { NudgeService, NudgesModule } from "../nudges/nudges";
 
 /**
  * A case is one run of a workflow: a loan application, a college admission, an
  * audit engagement, an insurance claim. Nothing in this module names an
- * industry — the subject's own fields live in `data` and are described by the
+ * industry - the subject's own fields live in `data` and are described by the
  * workflow's field config, so adding a vertical is configuration, not code.
  */
 
 // Guard on the JSONB payload: without a bound, a client could push an
 // arbitrarily large document into a column we read on every list. Measured in
-// UTF-8 bytes, not string length — Indian names and the rupee sign are
+// UTF-8 bytes, not string length - Indian names and the rupee sign are
 // multi-byte, so `.length` would let through several times this budget.
 const MAX_DATA_BYTES = 16_000;
 
@@ -65,7 +66,7 @@ const MAX_REFERENCE_ATTEMPTS = 5;
  * The PostgreSQL SQLSTATE for a failed query.
  *
  * drizzle wraps driver errors in a DrizzleQueryError, so the code is NOT on the
- * error itself — `err.code` is undefined and the real code sits on `err.cause`.
+ * error itself - `err.code` is undefined and the real code sits on `err.cause`.
  * Checking only the top level silently never matches, which turns any
  * error-code branch into dead code. Both levels are read so this keeps working
  * if drizzle stops wrapping.
@@ -76,7 +77,7 @@ function pgErrorCode(err: unknown): string | undefined {
 }
 
 export class CreateCaseDto {
-  /** The subject: borrower, student, client, vendor — whoever we collect from. */
+  /** The subject: borrower, student, client, vendor - whoever we collect from. */
   @IsString()
   @MinLength(1)
   @MaxLength(200)
@@ -127,7 +128,7 @@ export class CreateCaseDto {
  *
  * Deliberately NOT editable here: reference (the handle quoted in every email
  * the subject has), workflow (its checklist is already built and its
- * requirements already reference it), stage and reminders — each of those has
+ * requirements already reference it), stage and reminders - each of those has
  * its own endpoint and its own audit line.
  */
 export class UpdateCaseDto {
@@ -142,7 +143,7 @@ export class UpdateCaseDto {
   @MaxLength(200)
   organisation?: string;
 
-  // Nullable so a wrong address can be CLEARED, not just replaced — an empty
+  // Nullable so a wrong address can be CLEARED, not just replaced - an empty
   // string arrives as null rather than an address of "".
   @IsOptional()
   @IsEmail()
@@ -157,6 +158,11 @@ export class UpdateCaseDto {
   @IsOptional()
   @IsObject()
   data?: Record<string, unknown>;
+
+  /** Reassign the case owner. Null clears. */
+  @IsOptional()
+  @IsUUID()
+  ownerId?: string | null;
 }
 
 export class UpdateStageDto {
@@ -177,7 +183,7 @@ export class AddCommentDto {
   @MaxLength(2000)
   body!: string;
 
-  /** Pin the note to one checklist item — "special instructions on THIS document". */
+  /** Pin the note to one checklist item - "special instructions on THIS document". */
   @IsOptional()
   @IsUUID()
   requirementId?: string;
@@ -190,12 +196,12 @@ export class CasesService {
   constructor(
     private readonly db: DbService,
     private readonly nudges: NudgeService,
-  ) {}
+  ) { }
 
   /**
    * Resolve which workflow a request means. An explicit slug wins; otherwise,
    * if the tenant runs exactly one workflow, use it. Deliberately no default
-   * slug — hardcoding "business-loan" here is what made this a lending tool.
+   * slug - hardcoding "business-loan" here is what made this a lending tool.
    */
   private async resolveWorkflow(tx: any, slug?: string) {
     if (slug) {
@@ -210,10 +216,20 @@ export class CasesService {
     throw new BadRequestException("workflow is required when a workspace has more than one");
   }
 
-  list(tenantId: string, workflowSlug?: string) {
+  list(
+    tenantId: string,
+    opts: { workflowSlug?: string; limit?: number; offset?: number } = {},
+  ) {
+    const limit = Math.min(Math.max(opts.limit ?? 50, 1), 200);
+    const offset = Math.max(opts.offset ?? 0, 0);
     return this.db.withTenant(tenantId, async (tx) => {
-      const wf = await this.resolveWorkflow(tx, workflowSlug);
-      return tx
+      const wf = await this.resolveWorkflow(tx, opts.workflowSlug);
+      const where = and(eq(cases.workflowId, wf.id), isNull(cases.deletedAt));
+      const [countRow] = await tx
+        .select({ total: sql<number>`count(*)::int` })
+        .from(cases)
+        .where(where);
+      const items = await tx
         .select({
           id: cases.id,
           reference: cases.reference,
@@ -228,12 +244,18 @@ export class CasesService {
           stageId: workflowStages.id,
           stageName: workflowStages.name,
           stageTone: workflowStages.tone,
+          ownerId: cases.ownerId,
+          ownerName: users.name,
         })
         .from(cases)
         .leftJoin(contacts, eq(cases.contactId, contacts.id))
         .leftJoin(workflowStages, eq(cases.stageId, workflowStages.id))
-        .where(and(eq(cases.workflowId, wf.id), isNull(cases.deletedAt)))
-        .orderBy(desc(cases.createdAt));
+        .leftJoin(users, eq(cases.ownerId, users.id))
+        .where(where)
+        .orderBy(desc(cases.createdAt))
+        .limit(limit)
+        .offset(offset);
+      return { items, total: countRow?.total ?? 0, limit, offset };
     });
   }
 
@@ -242,7 +264,7 @@ export class CasesService {
    *
    * The workflow is joined, not resolved from a slug and not taken as "the
    * tenant's first workflow". A detail screen that guessed would label a
-   * student "Borrower" the moment a tenant runs two workflows — the same class
+   * student "Borrower" the moment a tenant runs two workflows - the same class
    * of bug that made `listStages` silently default to a lending slug.
    */
   get(tenantId: string, caseId: string) {
@@ -268,21 +290,24 @@ export class CasesService {
           workflowSlug: workflows.slug,
           subjectLabel: workflows.subjectLabel,
           caseLabel: workflows.caseLabel,
+          ownerId: cases.ownerId,
+          ownerName: users.name,
         })
         .from(cases)
         .innerJoin(workflows, eq(cases.workflowId, workflows.id))
         .leftJoin(contacts, eq(cases.contactId, contacts.id))
         .leftJoin(workflowStages, eq(cases.stageId, workflowStages.id))
+        .leftJoin(users, eq(cases.ownerId, users.id))
         .where(and(eq(cases.id, caseId), isNull(cases.deletedAt)))
         .limit(1);
       // RLS already confines this to the tenant, so a miss is genuinely "not
-      // here" — there is no path by which this returns another tenant's case.
+      // here" - there is no path by which this returns another tenant's case.
       if (!row) throw new NotFoundException("Case not found");
       return row;
     });
   }
 
-  create(tenantId: string, input: CreateCaseDto) {
+  create(tenantId: string, userId: string | null, input: CreateCaseDto) {
     const data = input.data ?? {};
     // Byte length, not string length: JSON.stringify(...).length counts UTF-16
     // code units, so '₹' and Devanagari names would each be undercounted and a
@@ -293,66 +318,67 @@ export class CasesService {
 
     return this.db
       .withTenant(tenantId, async (tx) => {
-      const wf = await this.resolveWorkflow(tx, input.workflow);
+        const wf = await this.resolveWorkflow(tx, input.workflow);
 
-      // The workflow's first stage, by position — not a stage named "Pending".
-      // A college's first stage might be "Awaiting documents".
-      const [firstStage] = await tx
-        .select()
-        .from(workflowStages)
-        .where(eq(workflowStages.workflowId, wf.id))
-        .orderBy(asc(workflowStages.position))
-        .limit(1);
+        // The workflow's first stage, by position - not a stage named "Pending".
+        // A college's first stage might be "Awaiting documents".
+        const [firstStage] = await tx
+          .select()
+          .from(workflowStages)
+          .where(eq(workflowStages.workflowId, wf.id))
+          .orderBy(asc(workflowStages.position))
+          .limit(1);
 
-      const [contact] = await tx
-        .insert(contacts)
-        .values({
-          tenantId,
-          // The caller declares this. It cannot be inferred from `organisation`
-          // being set — a person very often has one (a borrower's business, a
-          // candidate's employer) — and `name` is required, so there is no
-          // "name is absent so it must be a company" signal either.
-          kind: input.kind ?? "person",
-          name: input.name,
-          organisation: input.organisation ?? null,
-          email: input.email ?? null,
-          phone: input.phone ?? null,
-        })
-        .returning();
+        const [contact] = await tx
+          .insert(contacts)
+          .values({
+            tenantId,
+            // The caller declares this. It cannot be inferred from `organisation`
+            // being set - a person very often has one (a borrower's business, a
+            // candidate's employer) - and `name` is required, so there is no
+            // "name is absent so it must be a company" signal either.
+            kind: input.kind ?? "person",
+            name: input.name,
+            organisation: input.organisation ?? null,
+            email: input.email ?? null,
+            phone: input.phone ?? null,
+          })
+          .returning();
 
-      // References are random, so a collision is possible but vanishingly rare.
-      // The unique index is the authority; we retry rather than trust luck.
-      //
-      // Each attempt MUST run in its own savepoint. In PostgreSQL a failed
-      // statement aborts the entire transaction, so a bare retry would hit
-      // 25P02 ("current transaction is aborted") on the next INSERT and every
-      // statement after it — the retry would be dead code that also destroys
-      // the surrounding work. A nested drizzle transaction emits a real
-      // SAVEPOINT / ROLLBACK TO, leaving the outer transaction usable.
-      for (let attempt = 0; attempt < MAX_REFERENCE_ATTEMPTS; attempt++) {
-        try {
-          return await tx.transaction(async (sp) => {
-            const [created] = await sp
-              .insert(cases)
-              .values({
-                tenantId,
-                workflowId: wf.id,
-                contactId: contact.id,
-                stageId: firstStage?.id ?? null,
-                reference: generateCaseReference(),
-                source: input.source ?? null,
-                data,
-              })
-              .returning();
-            return created;
-          });
-        } catch (err) {
-          // 23505 = unique_violation: this reference is taken, draw another.
-          // Anything else is a real failure and must surface.
-          if (pgErrorCode(err) !== "23505") throw err;
+        // References are random, so a collision is possible but vanishingly rare.
+        // The unique index is the authority; we retry rather than trust luck.
+        //
+        // Each attempt MUST run in its own savepoint. In PostgreSQL a failed
+        // statement aborts the entire transaction, so a bare retry would hit
+        // 25P02 ("current transaction is aborted") on the next INSERT and every
+        // statement after it - the retry would be dead code that also destroys
+        // the surrounding work. A nested drizzle transaction emits a real
+        // SAVEPOINT / ROLLBACK TO, leaving the outer transaction usable.
+        for (let attempt = 0; attempt < MAX_REFERENCE_ATTEMPTS; attempt++) {
+          try {
+            return await tx.transaction(async (sp) => {
+              const [created] = await sp
+                .insert(cases)
+                .values({
+                  tenantId,
+                  workflowId: wf.id,
+                  contactId: contact.id,
+                  ownerId: userId,
+                  stageId: firstStage?.id ?? null,
+                  reference: generateCaseReference(),
+                  source: input.source ?? null,
+                  data,
+                })
+                .returning();
+              return created;
+            });
+          } catch (err) {
+            // 23505 = unique_violation: this reference is taken, draw another.
+            // Anything else is a real failure and must surface.
+            if (pgErrorCode(err) !== "23505") throw err;
+          }
         }
-      }
-      throw new BadRequestException("Could not allocate a case reference; please retry");
+        throw new BadRequestException("Could not allocate a case reference; please retry");
       })
       .then((created) => {
         // The borrower's first document request. Fire-and-forget AFTER the case
@@ -376,7 +402,12 @@ export class CasesService {
     const authorName = await this.authorName(userId);
     return this.db.withTenant(tenantId, async (tx) => {
       const [row] = await tx
-        .select({ id: cases.id, contactId: cases.contactId, data: cases.data })
+        .select({
+          id: cases.id,
+          contactId: cases.contactId,
+          data: cases.data,
+          ownerId: cases.ownerId,
+        })
         .from(cases)
         .where(and(eq(cases.id, caseId), isNull(cases.deletedAt)))
         .limit(1);
@@ -385,6 +416,28 @@ export class CasesService {
       const changes: { field: string; from: string | null; to: string | null }[] = [];
       const show = (v: unknown) =>
         v === undefined || v === null || v === "" ? null : String(v);
+
+      // ---- owner ---------------------------------------------------------
+      if (input.ownerId !== undefined) {
+        const nextOwner = input.ownerId;
+        if (nextOwner !== null) {
+          const [member] = await this.db.admin
+            .select({ userId: memberships.userId })
+            .from(memberships)
+            .where(and(eq(memberships.userId, nextOwner), eq(memberships.tenantId, tenantId)))
+            .limit(1);
+          if (!member) throw new BadRequestException("Owner must be a workspace member");
+        }
+        if (nextOwner !== row.ownerId) {
+          const fromName = row.ownerId ? await this.authorName(row.ownerId) : null;
+          const toName = nextOwner ? await this.authorName(nextOwner) : null;
+          changes.push({ field: "Owner", from: fromName, to: toName });
+          await tx
+            .update(cases)
+            .set({ ownerId: nextOwner, updatedAt: new Date() })
+            .where(and(eq(cases.id, caseId), isNull(cases.deletedAt)));
+        }
+      }
 
       // ---- the subject's own fields -------------------------------------
       if (row.contactId) {
@@ -403,7 +456,7 @@ export class CasesService {
             return to;
           };
           const name = track("Name", contact.name, input.name);
-          // name is NOT NULL — an explicit blank is refused rather than stored.
+          // name is NOT NULL - an explicit blank is refused rather than stored.
           if (name !== undefined) {
             if (name === null) throw new BadRequestException("Name cannot be empty");
             next.name = name;
@@ -427,7 +480,7 @@ export class CasesService {
         // MERGE, never replace: two people editing different fields on the
         // same case must not erase each other.
         const merged = { ...current, ...input.data };
-        // Same ceiling as create, and byte length not string length — see create().
+        // Same ceiling as create, and byte length not string length - see create().
         if (Buffer.byteLength(JSON.stringify(merged), "utf8") > MAX_DATA_BYTES) {
           throw new BadRequestException("data is too large");
         }
@@ -438,7 +491,7 @@ export class CasesService {
         await tx.update(cases).set({ data: merged, updatedAt: new Date() }).where(and(eq(cases.id, caseId), isNull(cases.deletedAt)));
       }
 
-      // A no-op edit writes no journal line — an audit trail full of "changed
+      // A no-op edit writes no journal line - an audit trail full of "changed
       // nothing" is an audit trail nobody reads.
       if (changes.length > 0) {
         await tx.insert(caseEvents).values({
@@ -485,16 +538,16 @@ export class CasesService {
         .where(and(eq(cases.id, caseId), isNull(cases.deletedAt)))
         .returning();
 
-      // The journal line — written in the SAME transaction as the move, so
+      // The journal line - written in the SAME transaction as the move, so
       // the two can never disagree. A move to the stage the case is already
       // in changes nothing and writes nothing.
       if (row.stageId !== stageId) {
         const [from] = row.stageId
           ? await tx
-              .select({ name: workflowStages.name })
-              .from(workflowStages)
-              .where(eq(workflowStages.id, row.stageId))
-              .limit(1)
+            .select({ name: workflowStages.name })
+            .from(workflowStages)
+            .where(eq(workflowStages.id, row.stageId))
+            .limit(1)
           : [undefined];
         await tx.insert(caseEvents).values({
           tenantId,
@@ -529,7 +582,7 @@ export class CasesService {
   /**
    * The full back-and-forth with the subject, oldest first, both channels.
    * Inbound rows come from conversation_messages (the words the pollers now
-   * keep); outbound document requests come from case_messages — merged at
+   * keep); outbound document requests come from case_messages - merged at
    * read time so neither is stored twice and the two can never drift.
    */
   listConversation(tenantId: string, caseId: string) {
@@ -568,7 +621,7 @@ export class CasesService {
           counterpart: m.recipient,
           subject: m.subject,
           // The request's body isn't stored; what it asked for is. Say that.
-          body: `Document request — ${(m.itemsSnapshot ?? []).length} item(s) requested`,
+          body: `Document request - ${(m.itemsSnapshot ?? []).length} item(s) requested`,
           kind: m.kind as string | null,
           failed: m.status === "failed",
           at: m.sentAt,
@@ -631,7 +684,7 @@ export class CasesService {
    *
    * Never a DELETE. Documents, messages and the journal all cascade from the
    * case row, so removing it would destroy the borrower's KYC files and the
-   * audit trail at once — including the record of this very deletion.
+   * audit trail at once - including the record of this very deletion.
    */
   async deleteMany(tenantId: string, userId: string, ids: string[]) {
     const authorName = await this.authorName(userId);
@@ -719,8 +772,8 @@ export class CasesService {
   }
 
   /**
-   * The name history keeps. Read via admin — `users` is global, not
-   * tenant-scoped, exactly as auth reads it — and denormalised onto the event
+   * The name history keeps. Read via admin - `users` is global, not
+   * tenant-scoped, exactly as auth reads it - and denormalised onto the event
    * so the journal survives the account being deleted.
    */
   private async authorName(userId: string): Promise<string> {
@@ -736,11 +789,22 @@ export class CasesService {
 @Controller("cases")
 @UseGuards(JwtAuthGuard)
 export class CasesController {
-  constructor(private readonly cases: CasesService) {}
+  constructor(private readonly cases: CasesService) { }
 
   @Get()
-  list(@CurrentUser() u: AuthUser, @Query("workflow") workflow?: string) {
-    return this.cases.list(u.tenantId, workflow);
+  list(
+    @CurrentUser() u: AuthUser,
+    @Query("workflow") workflow?: string,
+    @Query("limit") limitRaw?: string,
+    @Query("offset") offsetRaw?: string,
+  ) {
+    const limit = limitRaw !== undefined ? Number(limitRaw) : undefined;
+    const offset = offsetRaw !== undefined ? Number(offsetRaw) : undefined;
+    return this.cases.list(u.tenantId, {
+      workflowSlug: workflow,
+      limit: Number.isFinite(limit) ? limit : undefined,
+      offset: Number.isFinite(offset) ? offset : undefined,
+    });
   }
 
   @Get(":id")
@@ -750,7 +814,7 @@ export class CasesController {
 
   @Post()
   create(@CurrentUser() u: AuthUser, @Body() body: CreateCaseDto) {
-    return this.cases.create(u.tenantId, body);
+    return this.cases.create(u.tenantId, u.userId, body);
   }
 
   @Patch(":id")
@@ -815,8 +879,8 @@ export class CasesController {
   controllers: [CasesController],
   providers: [CasesService],
   // Exported for the intake endpoint: a case born from the website must be
-  // created by the SAME code path as one born in the dashboard — reference
+  // created by the SAME code path as one born in the dashboard - reference
   // retry, first stage, initial document request and all.
   exports: [CasesService],
 })
-export class CasesModule {}
+export class CasesModule { }

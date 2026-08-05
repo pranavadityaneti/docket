@@ -1,7 +1,7 @@
 -- ---------------------------------------------------------------------------
 -- Document removal: soft-delete the row, hard-delete the file.
 --
--- Staff need to take a document back — most often because the wrong file was
+-- Staff need to take a document back - most often because the wrong file was
 -- uploaded, sometimes one holding another person's KYC. That file has to
 -- genuinely stop existing, so the application purges the stored object and
 -- clears storage_key. What stays is the row: file name, checksum, size, and who

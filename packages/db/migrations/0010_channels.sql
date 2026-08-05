@@ -1,5 +1,5 @@
 -- A tenant's own inbound channel: the mailbox or WhatsApp number a subject
--- writes to. Per-tenant because Docket is white-labelled — a borrower must see
+-- writes to. Per-tenant because Docket is white-labelled - a borrower must see
 -- their own lender's address, never ours.
 --
 -- Credentials live only in secret_ciphertext (AES-256-GCM, see secret-box.ts).
@@ -21,7 +21,7 @@ CREATE TABLE "channels" (
 CREATE INDEX "channels_tenant_idx" ON "channels" ("tenant_id");--> statement-breakpoint
 -- Re-adding the same mailbox to a tenant is a mistake, not a second channel.
 CREATE UNIQUE INDEX "channels_tenant_kind_address_uq" ON "channels" ("tenant_id", "kind", "address");--> statement-breakpoint
--- "which channels are due a poll?" — asked across all tenants by the poller.
+-- "which channels are due a poll?" - asked across all tenants by the poller.
 CREATE INDEX "channels_kind_enabled_idx" ON "channels" ("kind", "enabled");--> statement-breakpoint
 
 -- ---------------------------------------------------------------------------
@@ -30,7 +30,7 @@ CREATE INDEX "channels_kind_enabled_idx" ON "channels" ("kind", "enabled");--> s
 -- poller runs outside any request and reads across tenants as the owner role,
 -- exactly as login does; every write it performs is done inside withTenant().
 --
--- Enabling RLS is NOT automatic on a new table — ALTER DEFAULT PRIVILEGES
+-- Enabling RLS is NOT automatic on a new table - ALTER DEFAULT PRIVILEGES
 -- grants the app role access the moment the table exists, and without a policy
 -- that access would be unscoped.
 -- ---------------------------------------------------------------------------

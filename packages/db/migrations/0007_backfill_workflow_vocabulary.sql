@@ -7,12 +7,12 @@
 -- existed: those had a vocabulary declared in business-loan-config.ts
 -- ('Borrower' / 'Application') and simply had nowhere to put it at the time.
 -- Every such row silently kept the default, so a lender's dashboard has been
--- labelling its borrowers "Contact" — the API reads the column correctly, the
+-- labelling its borrowers "Contact" - the API reads the column correctly, the
 -- column just never received its value.
 --
 -- The guard on the current values matters twice over. It keeps this idempotent,
 -- and it means the statement can only ever touch a row that is still holding
--- the untouched default — so a workspace that has deliberately chosen its own
+-- the untouched default - so a workspace that has deliberately chosen its own
 -- words is left exactly as it is, now and on any future re-run.
 --
 -- Only the business-loan slug is named. Nothing else shipped before 0005, and

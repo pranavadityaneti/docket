@@ -4,7 +4,7 @@
 --
 -- Written by hand, NOT generated. drizzle-kit would express these renames as
 -- DROP + CREATE, which silently discards the Row-Level Security policies that
--- migration 0001 attached to these tables — tenant isolation would be gone with
+-- migration 0001 attached to these tables - tenant isolation would be gone with
 -- no error anywhere. ALTER TABLE ... RENAME carries policies, indexes,
 -- constraints and grants across intact.
 --
@@ -57,12 +57,12 @@ ALTER TABLE "cases" DROP COLUMN "entity_type";--> statement-breakpoint
 ALTER TABLE "cases" DROP COLUMN "monthly_turnover";--> statement-breakpoint
 
 -- Human-readable handle, quoted over WhatsApp/email and spoken to the voice bot.
--- Added nullable, backfilled, then constrained — adding it NOT NULL outright
+-- Added nullable, backfilled, then constrained - adding it NOT NULL outright
 -- fails the moment the table has a single row, which would make this migration
 -- valid only against an empty database.
 ALTER TABLE "cases" ADD COLUMN "reference" text;--> statement-breakpoint
 
--- Same Crockford base32 alphabet as generateCaseReference() — no I, L, O or U,
+-- Same Crockford base32 alphabet as generateCaseReference() - no I, L, O or U,
 -- because these get read aloud. Six independent random() calls rather than a
 -- subquery: a scalar subquery could be evaluated once and hand every row the
 -- same reference, which the unique index below would then reject.
@@ -77,7 +77,7 @@ WHERE "reference" IS NULL;--> statement-breakpoint
 
 ALTER TABLE "cases" ALTER COLUMN "reference" SET NOT NULL;--> statement-breakpoint
 -- If the backfill ever collided, this index fails and drizzle rolls the whole
--- migration back — loud, not silent.
+-- migration back - loud, not silent.
 CREATE UNIQUE INDEX "cases_tenant_reference_uq" ON "cases" ("tenant_id","reference");--> statement-breakpoint
 
 -- Per-workflow vocabulary, so the UI never hardcodes an industry's noun.

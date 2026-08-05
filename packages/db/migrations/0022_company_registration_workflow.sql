@@ -4,7 +4,7 @@
 -- the checklist and identical whichever structure is being formed. Split into
 -- nine workflows that core would be written nine times and would drift the
 -- first time anyone corrected a description in one of them. Kept as one, the
--- differences are conditions on entity_type — the same mechanism the lending
+-- differences are conditions on entity_type - the same mechanism the lending
 -- workflow already uses to ask a Partnership for its deed and a Private
 -- Limited for its incorporation certificate.
 --
@@ -13,7 +13,7 @@
 --
 -- IDEMPOTENCY. Only `workflows` has a unique key (tenant_id, slug); stages and
 -- field_configs have none, so those are guarded with NOT EXISTS rather than
--- ON CONFLICT — without that, re-running would silently duplicate all six
+-- ON CONFLICT - without that, re-running would silently duplicate all six
 -- stages and give the workflow two field configs.
 --
 -- Created for every tenant that already runs Business Loan, which is how a
@@ -31,7 +31,7 @@ ON CONFLICT (tenant_id, slug) DO UPDATE SET
   name = EXCLUDED.name, subject_label = EXCLUDED.subject_label, case_label = EXCLUDED.case_label;
 
 
--- 2. Stages. NOT EXISTS on (workflow_id, name) — no unique index to rely on.
+-- 2. Stages. NOT EXISTS on (workflow_id, name) - no unique index to rely on.
 INSERT INTO workflow_stages (tenant_id, workflow_id, name, position, tone)
 SELECT w.tenant_id, w.id, 'New request', 0, 'muted'
 FROM workflows w
@@ -111,7 +111,7 @@ ON CONFLICT (workflow_id, key) DO UPDATE SET
   condition = EXCLUDED.condition, position = EXCLUDED.position;
 
 INSERT INTO document_requirements (tenant_id, workflow_id, key, label, description, required, max_files, reusable, validity_days, condition, position)
-SELECT w.tenant_id, w.id, 'promoter_address_proof', 'Residential address proof of each promoter (under 2 months old)', 'A utility bill or bank statement per promoter, DATED WITHIN THE LAST 2 MONTHS. An older bill is rejected at filing. NOT Aadhaar or a passport — those are identity proof, even though they print an address.', true, 15, false, 60, NULL, 2
+SELECT w.tenant_id, w.id, 'promoter_address_proof', 'Residential address proof of each promoter (under 2 months old)', 'A utility bill or bank statement per promoter, DATED WITHIN THE LAST 2 MONTHS. An older bill is rejected at filing. NOT Aadhaar or a passport - those are identity proof, even though they print an address.', true, 15, false, 60, NULL, 2
 FROM workflows w WHERE w.slug = 'company-registration'
 ON CONFLICT (workflow_id, key) DO UPDATE SET
   label = EXCLUDED.label, description = EXCLUDED.description, required = EXCLUDED.required,
@@ -135,7 +135,7 @@ ON CONFLICT (workflow_id, key) DO UPDATE SET
   condition = EXCLUDED.condition, position = EXCLUDED.position;
 
 INSERT INTO document_requirements (tenant_id, workflow_id, key, label, description, required, max_files, reusable, validity_days, condition, position)
-SELECT w.tenant_id, w.id, 'office_noc', 'NOC from the premises owner', 'A no-objection certificate signed by the owner permitting the address to be used as the registered office. NOT the rent agreement — this is the owner''s separate consent.', true, 1, false, NULL, '{"field":"office_premises","equals":"Rented"}'::jsonb, 5
+SELECT w.tenant_id, w.id, 'office_noc', 'NOC from the premises owner', 'A no-objection certificate signed by the owner permitting the address to be used as the registered office. NOT the rent agreement - this is the owner''s separate consent.', true, 1, false, NULL, '{"field":"office_premises","equals":"Rented"}'::jsonb, 5
 FROM workflows w WHERE w.slug = 'company-registration'
 ON CONFLICT (workflow_id, key) DO UPDATE SET
   label = EXCLUDED.label, description = EXCLUDED.description, required = EXCLUDED.required,
@@ -159,7 +159,7 @@ ON CONFLICT (workflow_id, key) DO UPDATE SET
   condition = EXCLUDED.condition, position = EXCLUDED.position;
 
 INSERT INTO document_requirements (tenant_id, workflow_id, key, label, description, required, max_files, reusable, validity_days, condition, position)
-SELECT w.tenant_id, w.id, 'dsc', 'Class 3 Digital Signature Certificate', 'A Class 3 DSC for every signing director or partner, from an MCA-authorised certifying authority. The filing cannot be submitted without it. NOT a DIN — a DSC is the signing token, a DIN is an identification number.', true, 15, false, NULL, '{"field":"entity_type","in":["Private Limited","Public Limited","One Person Company","LLP","Section 8 (NGO)","Nidhi","Producer Company"]}'::jsonb, 8
+SELECT w.tenant_id, w.id, 'dsc', 'Class 3 Digital Signature Certificate', 'A Class 3 DSC for every signing director or partner, from an MCA-authorised certifying authority. The filing cannot be submitted without it. NOT a DIN - a DSC is the signing token, a DIN is an identification number.', true, 15, false, NULL, '{"field":"entity_type","in":["Private Limited","Public Limited","One Person Company","LLP","Section 8 (NGO)","Nidhi","Producer Company"]}'::jsonb, 8
 FROM workflows w WHERE w.slug = 'company-registration'
 ON CONFLICT (workflow_id, key) DO UPDATE SET
   label = EXCLUDED.label, description = EXCLUDED.description, required = EXCLUDED.required,
@@ -175,7 +175,7 @@ ON CONFLICT (workflow_id, key) DO UPDATE SET
   condition = EXCLUDED.condition, position = EXCLUDED.position;
 
 INSERT INTO document_requirements (tenant_id, workflow_id, key, label, description, required, max_files, reusable, validity_days, condition, position)
-SELECT w.tenant_id, w.id, 'moa', 'Memorandum of Association (MOA)', 'The MOA stating the objects and the subscribers to the memorandum. NOT the Articles of Association, though the two are usually issued together — the MOA defines what the company may do.', true, 1, false, NULL, '{"field":"entity_type","in":["Private Limited","Public Limited","One Person Company","Section 8 (NGO)","Nidhi","Producer Company"]}'::jsonb, 10
+SELECT w.tenant_id, w.id, 'moa', 'Memorandum of Association (MOA)', 'The MOA stating the objects and the subscribers to the memorandum. NOT the Articles of Association, though the two are usually issued together - the MOA defines what the company may do.', true, 1, false, NULL, '{"field":"entity_type","in":["Private Limited","Public Limited","One Person Company","Section 8 (NGO)","Nidhi","Producer Company"]}'::jsonb, 10
 FROM workflows w WHERE w.slug = 'company-registration'
 ON CONFLICT (workflow_id, key) DO UPDATE SET
   label = EXCLUDED.label, description = EXCLUDED.description, required = EXCLUDED.required,
@@ -183,7 +183,7 @@ ON CONFLICT (workflow_id, key) DO UPDATE SET
   condition = EXCLUDED.condition, position = EXCLUDED.position;
 
 INSERT INTO document_requirements (tenant_id, workflow_id, key, label, description, required, max_files, reusable, validity_days, condition, position)
-SELECT w.tenant_id, w.id, 'aoa', 'Articles of Association (AOA)', 'The AOA setting out the company''s internal rules and governance. NOT the Memorandum — the AOA governs how the company runs, not what it may do.', true, 1, false, NULL, '{"field":"entity_type","in":["Private Limited","Public Limited","One Person Company","Section 8 (NGO)","Nidhi","Producer Company"]}'::jsonb, 11
+SELECT w.tenant_id, w.id, 'aoa', 'Articles of Association (AOA)', 'The AOA setting out the company''s internal rules and governance. NOT the Memorandum - the AOA governs how the company runs, not what it may do.', true, 1, false, NULL, '{"field":"entity_type","in":["Private Limited","Public Limited","One Person Company","Section 8 (NGO)","Nidhi","Producer Company"]}'::jsonb, 11
 FROM workflows w WHERE w.slug = 'company-registration'
 ON CONFLICT (workflow_id, key) DO UPDATE SET
   label = EXCLUDED.label, description = EXCLUDED.description, required = EXCLUDED.required,
@@ -199,7 +199,7 @@ ON CONFLICT (workflow_id, key) DO UPDATE SET
   condition = EXCLUDED.condition, position = EXCLUDED.position;
 
 INSERT INTO document_requirements (tenant_id, workflow_id, key, label, description, required, max_files, reusable, validity_days, condition, position)
-SELECT w.tenant_id, w.id, 'llp_agreement', 'LLP agreement', 'The agreement between designated partners governing the LLP, filed within 30 days of incorporation. An LLP has NO memorandum or articles — this document takes their place.', true, 1, false, NULL, '{"field":"entity_type","equals":"LLP"}'::jsonb, 13
+SELECT w.tenant_id, w.id, 'llp_agreement', 'LLP agreement', 'The agreement between designated partners governing the LLP, filed within 30 days of incorporation. An LLP has NO memorandum or articles - this document takes their place.', true, 1, false, NULL, '{"field":"entity_type","equals":"LLP"}'::jsonb, 13
 FROM workflows w WHERE w.slug = 'company-registration'
 ON CONFLICT (workflow_id, key) DO UPDATE SET
   label = EXCLUDED.label, description = EXCLUDED.description, required = EXCLUDED.required,
@@ -215,7 +215,7 @@ ON CONFLICT (workflow_id, key) DO UPDATE SET
   condition = EXCLUDED.condition, position = EXCLUDED.position;
 
 INSERT INTO document_requirements (tenant_id, workflow_id, key, label, description, required, max_files, reusable, validity_days, condition, position)
-SELECT w.tenant_id, w.id, 'inc3_nominee', 'Nominee consent (INC-3)', 'The written consent of the nominee who takes over the company on the sole member''s death or incapacity. Unique to a One Person Company — no other structure needs a nominee.', true, 1, false, NULL, '{"field":"entity_type","equals":"One Person Company"}'::jsonb, 15
+SELECT w.tenant_id, w.id, 'inc3_nominee', 'Nominee consent (INC-3)', 'The written consent of the nominee who takes over the company on the sole member''s death or incapacity. Unique to a One Person Company - no other structure needs a nominee.', true, 1, false, NULL, '{"field":"entity_type","equals":"One Person Company"}'::jsonb, 15
 FROM workflows w WHERE w.slug = 'company-registration'
 ON CONFLICT (workflow_id, key) DO UPDATE SET
   label = EXCLUDED.label, description = EXCLUDED.description, required = EXCLUDED.required,
@@ -231,7 +231,7 @@ ON CONFLICT (workflow_id, key) DO UPDATE SET
   condition = EXCLUDED.condition, position = EXCLUDED.position;
 
 INSERT INTO document_requirements (tenant_id, workflow_id, key, label, description, required, max_files, reusable, validity_days, condition, position)
-SELECT w.tenant_id, w.id, 'section8_projections', 'Three-year income & expenditure projection', 'The projected income and expenditure statement for three years, supporting the section 8 licence application. NOT audited financials — this is a forward projection.', true, 1, false, NULL, '{"field":"entity_type","equals":"Section 8 (NGO)"}'::jsonb, 17
+SELECT w.tenant_id, w.id, 'section8_projections', 'Three-year income & expenditure projection', 'The projected income and expenditure statement for three years, supporting the section 8 licence application. NOT audited financials - this is a forward projection.', true, 1, false, NULL, '{"field":"entity_type","equals":"Section 8 (NGO)"}'::jsonb, 17
 FROM workflows w WHERE w.slug = 'company-registration'
 ON CONFLICT (workflow_id, key) DO UPDATE SET
   label = EXCLUDED.label, description = EXCLUDED.description, required = EXCLUDED.required,
@@ -247,7 +247,7 @@ ON CONFLICT (workflow_id, key) DO UPDATE SET
   condition = EXCLUDED.condition, position = EXCLUDED.position;
 
 INSERT INTO document_requirements (tenant_id, workflow_id, key, label, description, required, max_files, reusable, validity_days, condition, position)
-SELECT w.tenant_id, w.id, 'producer_member_proof', 'Proof that members are primary producers', 'Evidence that each of the ten or more members is a primary producer — land records, farmer ID or a producer-organisation certificate. Unique to a Producer Company.', true, 15, false, NULL, '{"field":"entity_type","equals":"Producer Company"}'::jsonb, 19
+SELECT w.tenant_id, w.id, 'producer_member_proof', 'Proof that members are primary producers', 'Evidence that each of the ten or more members is a primary producer - land records, farmer ID or a producer-organisation certificate. Unique to a Producer Company.', true, 15, false, NULL, '{"field":"entity_type","equals":"Producer Company"}'::jsonb, 19
 FROM workflows w WHERE w.slug = 'company-registration'
 ON CONFLICT (workflow_id, key) DO UPDATE SET
   label = EXCLUDED.label, description = EXCLUDED.description, required = EXCLUDED.required,
@@ -295,7 +295,7 @@ ON CONFLICT (workflow_id, key) DO UPDATE SET
   condition = EXCLUDED.condition, position = EXCLUDED.position;
 
 INSERT INTO document_requirements (tenant_id, workflow_id, key, label, description, required, max_files, reusable, validity_days, condition, position)
-SELECT w.tenant_id, w.id, 'bank_account_form', 'Bank account opening form', 'The bank account opening application bundled with incorporation. NOT a cancelled cheque — the account does not exist yet.', false, 1, false, NULL, '{"field":"entity_type","in":["Private Limited","Public Limited","One Person Company","LLP","Section 8 (NGO)","Nidhi","Producer Company"]}'::jsonb, 25
+SELECT w.tenant_id, w.id, 'bank_account_form', 'Bank account opening form', 'The bank account opening application bundled with incorporation. NOT a cancelled cheque - the account does not exist yet.', false, 1, false, NULL, '{"field":"entity_type","in":["Private Limited","Public Limited","One Person Company","LLP","Section 8 (NGO)","Nidhi","Producer Company"]}'::jsonb, 25
 FROM workflows w WHERE w.slug = 'company-registration'
 ON CONFLICT (workflow_id, key) DO UPDATE SET
   label = EXCLUDED.label, description = EXCLUDED.description, required = EXCLUDED.required,

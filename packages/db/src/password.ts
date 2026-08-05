@@ -1,7 +1,7 @@
 import { hash, verify } from "@node-rs/argon2";
 
 /**
- * Password hashing for Docket auth — argon2id (@node-rs/argon2 defaults are
+ * Password hashing for Docket auth - argon2id (@node-rs/argon2 defaults are
  * OWASP-sane). The hash string is self-describing, so verify() reads its own
  * parameters; no shared config is needed between hashing and verifying.
  */

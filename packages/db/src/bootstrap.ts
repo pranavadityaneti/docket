@@ -8,22 +8,22 @@
 // This takes every value from the environment, refuses to run without an
 // explicit password, logs nothing sensitive, and is safe to re-run.
 //
-// Runs as the migration/owner role, which bypasses RLS — correct here, since
+// Runs as the migration/owner role, which bypasses RLS - correct here, since
 // provisioning creates the tenant that RLS would otherwise scope us to.
 import { and, eq } from "drizzle-orm";
-import { createDb } from "./client";
-import * as schema from "./schema";
-import { hashPassword } from "./password";
 import {
   DOCUMENT_REQUIREMENTS,
   LEAD_FIELDS,
   STAGES,
   WORKFLOW,
 } from "./business-loan-config";
+import { createDb } from "./client";
+import { hashPassword } from "./password";
+import * as schema from "./schema";
 
 function required(name: string): string {
   const value = process.env[name];
-  if (!value) throw new Error(`${name} is not set — refusing to bootstrap.`);
+  if (!value) throw new Error(`${name} is not set - refusing to bootstrap.`);
   return value;
 }
 
@@ -38,7 +38,7 @@ async function main() {
   const tenantPlan = process.env.TENANT_PLAN ?? "internal";
   const workflowSlug = WORKFLOW.slug;
 
-  // Hash before opening the transaction — argon2 is deliberately slow and there
+  // Hash before opening the transaction - argon2 is deliberately slow and there
   // is no reason to hold the transaction open while it runs.
   const passwordHash = await hashPassword(adminPassword);
 
@@ -76,7 +76,7 @@ async function main() {
           .limit(1)
       )[0];
 
-    // An existing user keeps its password — re-running must never silently
+    // An existing user keeps its password - re-running must never silently
     // reset someone's credentials. The one exception is a row that has no
     // password yet (invited-but-not-activated), which is what we came to set.
     let passwordSet = Boolean(insertedUser);
@@ -99,7 +99,7 @@ async function main() {
     /* ---- workflow ---- */
     // Whether this workflow already existed has to be decided BEFORE the
     // upsert. onConflictDoUpdate always returns a row, so "did .returning()
-    // give us anything" no longer tells a create apart from an update — it
+    // give us anything" no longer tells a create apart from an update - it
     // reported every re-run as a fresh install.
     //
     // Filtered on tenant as well as slug: the unique constraint is
@@ -127,7 +127,7 @@ async function main() {
       })
       // Reconcile rather than skip. onConflictDoNothing meant a workflow that
       // already existed could never receive a value it did not have when it was
-      // created — which is exactly how every pre-0005 workflow kept the neutral
+      // created - which is exactly how every pre-0005 workflow kept the neutral
       // 'Contact'/'Case' defaults after a vocabulary had been declared in
       // config, and why re-running bootstrap could not repair it. This tool's
       // contract is "make the workspace match the declared configuration", so
@@ -150,7 +150,7 @@ async function main() {
 
     /* ---- stages & field config ----
      * workflow_stages and field_configs have no unique constraint, so there is
-     * no conflict target to lean on — a blind re-insert would silently
+     * no conflict target to lean on - a blind re-insert would silently
      * duplicate all 12 stages. Guard on what is already there instead. */
     const existingStages = await tx
       .select({ id: schema.workflowStages.id })

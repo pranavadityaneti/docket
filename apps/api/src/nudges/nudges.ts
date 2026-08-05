@@ -1,4 +1,14 @@
 import {
+  caseMessages,
+  cases,
+  channels,
+  contacts,
+  tenants,
+  type MessageKind,
+  type NudgeSnapshotItem,
+  type Tx,
+} from "@docket/db";
+import {
   Controller,
   Get,
   Injectable,
@@ -12,24 +22,14 @@ import {
 } from "@nestjs/common";
 import { Cron, CronExpression } from "@nestjs/schedule";
 import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
-import {
-  cases,
-  caseMessages,
-  channels,
-  contacts,
-  tenants,
-  type MessageKind,
-  type NudgeSnapshotItem,
-  type Tx,
-} from "@docket/db";
-import { DbService } from "../db/db";
 import { CurrentUser, JwtAuthGuard, type AuthUser } from "../auth/auth";
+import { DbService } from "../db/db";
 import { DocumentsModule, DocumentsService } from "../documents/documents";
 import { collectNudgeItems, type ChecklistLike, type ComposeContext } from "./compose";
 import { EmailNudgeSender, WhatsappNudgeSender } from "./senders";
 
 /**
- * Asking subjects for the documents a case still needs — the outbound half of
+ * Asking subjects for the documents a case still needs - the outbound half of
  * Docket, and the counterpart to the intake channels.
  *
  * The content is composed from the same checklist() the dashboard reads, so a
@@ -56,7 +56,7 @@ export class NudgeService {
     private readonly documents: DocumentsService,
     private readonly email: EmailNudgeSender,
     private readonly whatsapp: WhatsappNudgeSender,
-  ) {}
+  ) { }
 
   /**
    * Compose from the live checklist and deliver on every reachable channel.
@@ -64,7 +64,7 @@ export class NudgeService {
    * The checklist is read first (its own transaction). If nothing is
    * outstanding we stop before opening a write transaction at all. The send
    * itself runs under a FOR UPDATE lock on the case row so two concurrent calls
-   * (a double-firing cron, or a manual click racing the cron) serialise — the
+   * (a double-firing cron, or a manual click racing the cron) serialise - the
    * second re-checks due-state under the lock and skips. Never throws for a
    * send failure; the failure is recorded on the message row.
    */
@@ -147,7 +147,7 @@ export class NudgeService {
       .select()
       .from(channels)
       .where(and(eq(channels.kind, kind), eq(channels.enabled, true)))
-      // Deterministic when a tenant has more than one — oldest wins.
+      // Deterministic when a tenant has more than one - oldest wins.
       .orderBy(asc(channels.createdAt))
       .limit(1);
     return ch;
@@ -233,7 +233,7 @@ export class NudgeService {
 
   // ---- reminder cron ----
   //
-  // Discovered by the single ScheduleModule.forRoot() in ChannelsModule — the
+  // Discovered by the single ScheduleModule.forRoot() in ChannelsModule - the
   // scheduler scans providers app-wide, so this needs no forRoot of its own
   // (a second one would register every cron twice).
 
@@ -254,7 +254,7 @@ export class NudgeService {
         .where(
           and(
             isNull(cases.nudgesPausedAt),
-            // A deleted case must never be chased — the borrower would get a
+            // A deleted case must never be chased - the borrower would get a
             // reminder for an application nobody can open.
             isNull(cases.deletedAt),
             isNull(contacts.deletedAt),
@@ -265,7 +265,7 @@ export class NudgeService {
       for (const c of candidates) {
         if (budget <= 0) {
           this.log.warn(
-            `Nudge run budget (${NUDGE_RUN_BUDGET}) exhausted — ${candidates.length} candidates this tick`,
+            `Nudge run budget (${NUDGE_RUN_BUDGET}) exhausted - ${candidates.length} candidates this tick`,
           );
           break;
         }
@@ -297,7 +297,7 @@ export class NudgeService {
 @Controller("cases")
 @UseGuards(JwtAuthGuard)
 export class NudgeController {
-  constructor(private readonly nudges: NudgeService) {}
+  constructor(private readonly nudges: NudgeService) { }
 
   @Post(":id/nudge")
   send(@CurrentUser() u: AuthUser, @Param("id", ParseUUIDPipe) id: string) {
@@ -326,4 +326,4 @@ export class NudgeController {
   providers: [NudgeService, EmailNudgeSender, WhatsappNudgeSender],
   exports: [NudgeService],
 })
-export class NudgesModule {}
+export class NudgesModule { }

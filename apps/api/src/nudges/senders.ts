@@ -1,6 +1,6 @@
+import { openSecret, type NudgeSnapshotItem } from "@docket/db";
 import { Injectable, Logger } from "@nestjs/common";
 import { Resend } from "resend";
-import { openSecret, type NudgeSnapshotItem } from "@docket/db";
 import { env } from "../config/env";
 import { composeEmail, composeWhatsappParams, type ComposeContext } from "./compose";
 
@@ -12,7 +12,7 @@ export type SendOutcome = { ok: true } | { ok: false; error: string };
  * Reply-To is the tenant's own mailbox address, not ours: the subject's reply
  * (with attachments) must land where the email poller reads it, so it can be
  * matched back to the case. From uses the tenant's name as display name over
- * our verified sending domain — the subject sees their lender, not Docket.
+ * our verified sending domain - the subject sees their lender, not Docket.
  */
 @Injectable()
 export class EmailNudgeSender {
@@ -61,7 +61,7 @@ interface WhatsappSecret {
  *
  * Business-initiated messages must be a Meta-approved template, so this is
  * template-only by design. It stays dormant until a whatsapp channel exists with
- * a templateName in its config — NudgeService gates that — so shipping this now
+ * a templateName in its config - NudgeService gates that - so shipping this now
  * costs nothing and it activates the moment the channel + template land.
  */
 @Injectable()
@@ -77,7 +77,7 @@ export class WhatsappNudgeSender {
     const cfg = channel.config ?? {};
     const templateName = typeof cfg.templateName === "string" ? cfg.templateName : null;
     const phoneNumberId = typeof cfg.phoneNumberId === "string" ? cfg.phoneNumberId : null;
-    // Meta matches the language code against the approved template EXACTLY — "en"
+    // Meta matches the language code against the approved template EXACTLY - "en"
     // and "en_US" are different templates to them, and a mismatch fails every
     // send. Configurable per channel so the code always matches what was approved.
     const templateLanguage = typeof cfg.templateLanguage === "string" ? cfg.templateLanguage : "en";

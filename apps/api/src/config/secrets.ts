@@ -6,7 +6,7 @@ import { GetSecretValueCommand, SecretsManagerClient } from "@aws-sdk/client-sec
  * WHY THIS EXISTS
  * Elastic Beanstalk environment properties are encrypted at rest, but any IAM
  * principal with `elasticbeanstalk:DescribeConfigurationSettings` can read them
- * back in plaintext — the database password and the JWT signing key included.
+ * back in plaintext - the database password and the JWT signing key included.
  * That is tolerable for a solo account with no data; it is not tolerable once
  * the database holds borrower KYC, and it is not something to explain to an
  * auditor. Secrets Manager scopes access to a named secret, logs every read in
@@ -17,7 +17,7 @@ import { GetSecretValueCommand, SecretsManagerClient } from "@aws-sdk/client-sec
  * app.module.ts consume `env.jwtSecret` at module scope. Making the whole chain
  * async would mean rewriting the boot path of every module. Instead this runs
  * FIRST, populates process.env, and main.ts imports AppModule dynamically
- * afterwards — so by the time anything reads env, the values are already there.
+ * afterwards - so by the time anything reads env, the values are already there.
  *
  * Values already present in the environment win. That keeps local development
  * and tests working with no AWS credentials at all, and gives an operator a
@@ -49,7 +49,7 @@ const ALLOWED = new Set([
  * A key pasted into a shell prompt can arrive wrapped in bracketed-paste
  * markers (ESC[200~ … ESC[201~). ESC is not whitespace, so .trim() leaves it,
  * the value still *looks* right in a console, and everything downstream that
- * merely reads it works — until it is used as an HTTP header, where undici
+ * merely reads it works - until it is used as an HTTP header, where undici
  * refuses it with "invalid authorization header" and the SDK reports the
  * useless "Connection error." That cost an afternoon once; it should not cost
  * anyone another one.
@@ -74,14 +74,14 @@ export async function hydrateSecrets(): Promise<string[]> {
   const client = new SecretsManagerClient({ region: REGION });
   const res = await client.send(new GetSecretValueCommand({ SecretId: secretId }));
   if (!res.SecretString) {
-    throw new Error(`Secret ${secretId} has no SecretString — refusing to start.`);
+    throw new Error(`Secret ${secretId} has no SecretString - refusing to start.`);
   }
 
   let parsed: Record<string, unknown>;
   try {
     parsed = JSON.parse(res.SecretString);
   } catch {
-    throw new Error(`Secret ${secretId} is not valid JSON — refusing to start.`);
+    throw new Error(`Secret ${secretId} is not valid JSON - refusing to start.`);
   }
 
   const loaded: string[] = [];

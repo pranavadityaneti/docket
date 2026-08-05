@@ -1,6 +1,6 @@
 // Centralized, validated environment config. Importing this module has the
 // side effect of validating the environment at boot and throwing if anything
-// required is missing or unsafe — a crash on deploy is far better than a
+// required is missing or unsafe - a crash on deploy is far better than a
 // silently misconfigured (or insecure) server accepting traffic.
 
 function required(name: string): string {
@@ -25,7 +25,7 @@ const webOrigins = webOriginRaw
   ? webOriginRaw.split(",").map((o) => o.trim()).filter(Boolean)
   : [];
 
-// Where documents are stored. "local" writes to disk and is development only —
+// Where documents are stored. "local" writes to disk and is development only -
 // it cannot presign, it keeps upload tickets in process memory, and nothing
 // survives a restart. Production must be "s3" (Change 3b), so a prod boot on
 // the local driver is refused rather than silently writing borrower KYC to an
@@ -33,7 +33,7 @@ const webOrigins = webOriginRaw
 const storageDriver = (process.env.STORAGE_DRIVER ?? "local") as "local" | "s3";
 if (isProd && storageDriver === "local") {
   throw new Error(
-    "STORAGE_DRIVER=local is development only — documents would be lost on redeploy. Set STORAGE_DRIVER=s3 in production.",
+    "STORAGE_DRIVER=local is development only - documents would be lost on redeploy. Set STORAGE_DRIVER=s3 in production.",
   );
 }
 // Fail at boot, not on the first upload. A server that starts happily and then
@@ -57,7 +57,7 @@ export const env = {
   s3Bucket: s3Bucket ?? "",
   /**
    * Customer-managed KMS key. Optional in the sense that the bucket's default
-   * encryption already applies it — naming it explicitly means a misconfigured
+   * encryption already applies it - naming it explicitly means a misconfigured
    * bucket cannot silently downgrade what this API writes.
    */
   s3KmsKeyId: process.env.S3_KMS_KEY_ID?.trim() || undefined,
@@ -65,7 +65,7 @@ export const env = {
   /**
    * This API's own externally reachable base URL. The local driver hands the
    * client an upload URL pointing back here, so it must be what the browser can
-   * actually reach — not localhost, if the API sits behind a proxy.
+   * actually reach - not localhost, if the API sits behind a proxy.
    */
   publicApiUrl: (process.env.PUBLIC_API_URL ?? `http://localhost:${process.env.API_PORT ?? 3333}`)
     .replace(/\/+$/, ""),
@@ -74,7 +74,7 @@ export const env = {
   /**
    * Value passed to `enableCors({ origin })`:
    *   - any WEB_ORIGIN set  -> that explicit allow-list
-   *   - dev with none set   -> `true` (reflect any origin — local only)
+   *   - dev with none set   -> `true` (reflect any origin - local only)
    * In production WEB_ORIGIN is guaranteed present (validated above), so this
    * is always the explicit list there.
    */
@@ -95,7 +95,7 @@ export const env = {
   channelSecretKey: process.env.CHANNEL_SECRET_KEY?.trim() || undefined,
   /**
    * Verify token for the WhatsApp webhook GET handshake. Global (not per-tenant)
-   * because Meta verifies the callback URL when the webhook is configured —
+   * because Meta verifies the callback URL when the webhook is configured -
    * before any channel row with credentials exists. Per-tenant app secrets still
    * gate every inbound POST. A future multi-app setup would move to per-path
    * webhooks; one token is right while there is one Meta app.
@@ -105,7 +105,7 @@ export const env = {
   graphApiVersion: process.env.GRAPH_API_VERSION?.trim() || "v21.0",
   /**
    * OpenAI credentials for document classification. Optional: when unset the
-   * classifier no-ops and every arrival stays wherever it lands today — the
+   * classifier no-ops and every arrival stays wherever it lands today - the
    * feature degrades to "off", never to "broken". Supplied in prod via the
    * Secrets Manager secret.
    */
@@ -120,7 +120,7 @@ export const env = {
   appOrigin: webOrigins[0] ?? "http://localhost:3000",
   /**
    * Shared key for the machine-intake endpoint (the marketing site's enquiry
-   * form). Optional: unset means intake answers 503 — off, never open.
+   * form). Optional: unset means intake answers 503 - off, never open.
    */
   intakeApiKey: process.env.INTAKE_API_KEY?.trim() || undefined,
   /** The single tenant intake creates cases for. See intake.ts on why one. */

@@ -1,25 +1,25 @@
+import { fieldConfigs, workflows, workflowStages, type FieldDef } from "@docket/db";
 import { Controller, Get, Injectable, Module, NotFoundException, Param, UseGuards } from "@nestjs/common";
 import { asc, eq } from "drizzle-orm";
-import { fieldConfigs, workflows, workflowStages, type FieldDef } from "@docket/db";
-import { DbService } from "../db/db";
 import { CurrentUser, JwtAuthGuard, type AuthUser } from "../auth/auth";
+import { DbService } from "../db/db";
 
 @Injectable()
 export class WorkflowsService {
-  constructor(private readonly db: DbService) {}
+  constructor(private readonly db: DbService) { }
 
   /**
    * The tenant's workflows, with their vocabulary and domain fields.
    *
    * The client needs this to know which workflow it is showing. Without it the
    * dashboard has to assume a slug, and the only slug it could assume was
-   * "business-loan" — which is exactly the lending hardcode this platform is
+   * "business-loan" - which is exactly the lending hardcode this platform is
    * being rebuilt to remove. A college tenant has no such workflow.
    *
    * `fields` rides along for the same reason: the Cases table's domain columns
    * come from FieldDef.show_in_table, so the screen renders whatever THIS
    * workflow declares instead of a hardcoded industry's picks. A workflow with
-   * no field config gets [] — the screen just shows no domain columns.
+   * no field config gets [] - the screen just shows no domain columns.
    */
   list(tenantId: string) {
     return this.db.withTenant(tenantId, async (tx) => {
@@ -77,7 +77,7 @@ export class WorkflowsService {
 @Controller("workflows")
 @UseGuards(JwtAuthGuard)
 export class WorkflowsController {
-  constructor(private readonly workflows: WorkflowsService) {}
+  constructor(private readonly workflows: WorkflowsService) { }
 
   // Declared before ":slug/stages" so the literal path is matched first and a
   // workflow can never be created with the slug that shadows this route.
@@ -93,4 +93,4 @@ export class WorkflowsController {
 }
 
 @Module({ controllers: [WorkflowsController], providers: [WorkflowsService] })
-export class WorkflowsModule {}
+export class WorkflowsModule { }

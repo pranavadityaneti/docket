@@ -2,7 +2,7 @@
 --
 -- Creating a role does NOT confer this. Since PG16, a CREATEROLE non-superuser
 -- that creates a role is auto-granted ADMIN OPTION on it but not SET, because
--- createrole_self_grant defaults to empty — so 0002 leaves docket_owner able to
+-- createrole_self_grant defaults to empty - so 0002 leaves docket_owner able to
 -- administer docket_app yet unable to SET ROLE to it. A dev superuser can SET
 -- ROLE to anything, so this only ever surfaces off a superuser (i.e. on RDS).
 --

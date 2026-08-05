@@ -14,7 +14,7 @@ UPDATE document_requirements dr SET description = 'The PAN card itself, for the 
 FROM workflows w
 WHERE dr.workflow_id = w.id AND w.slug = 'business-loan' AND dr.key = 'applicant_pan';
 
-UPDATE document_requirements dr SET description = 'The Aadhaar card issued by UIDAI, both sides, clearly legible. File an Aadhaar here even though it also shows an address — it is not the residence address proof.'
+UPDATE document_requirements dr SET description = 'The Aadhaar card issued by UIDAI, both sides, clearly legible. File an Aadhaar here even though it also shows an address - it is not the residence address proof.'
 FROM workflows w
 WHERE dr.workflow_id = w.id AND w.slug = 'business-loan' AND dr.key = 'applicant_aadhaar';
 
@@ -30,7 +30,7 @@ UPDATE document_requirements dr SET description = 'Proof of where the BUSINESS o
 FROM workflows w
 WHERE dr.workflow_id = w.id AND w.slug = 'business-loan' AND dr.key = 'office_address_proof';
 
-UPDATE document_requirements dr SET description = 'Registration proving the business exists: Shop Act licence, Udyam/MSME registration, or trade licence. A GST certificate has its own item — do not file one here.'
+UPDATE document_requirements dr SET description = 'Registration proving the business exists: Shop Act licence, Udyam/MSME registration, or trade licence. A GST certificate has its own item - do not file one here.'
 FROM workflows w
 WHERE dr.workflow_id = w.id AND w.slug = 'business-loan' AND dr.key = 'business_proof';
 
@@ -42,7 +42,7 @@ UPDATE document_requirements dr SET description = 'The filed income tax return (
 FROM workflows w
 WHERE dr.workflow_id = w.id AND w.slug = 'business-loan' AND dr.key = 'itr_computation';
 
-UPDATE document_requirements dr SET description = 'The auditor''s report and audited statements — Form 3CB/3CD with balance sheet and profit-and-loss, last 2 years. Not the income tax return itself, which has its own item.'
+UPDATE document_requirements dr SET description = 'The auditor''s report and audited statements - Form 3CB/3CD with balance sheet and profit-and-loss, last 2 years. Not the income tax return itself, which has its own item.'
 FROM workflows w
 WHERE dr.workflow_id = w.id AND w.slug = 'business-loan' AND dr.key = 'audited_financials';
 

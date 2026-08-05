@@ -1,20 +1,20 @@
 import { Controller, Get, Module } from "@nestjs/common";
 import { JwtModule } from "@nestjs/jwt";
 import { ThrottlerModule } from "@nestjs/throttler";
-import { env } from "./config/env";
-import { DbModule } from "./db/db";
+import { ActivityModule } from "./activity/activity";
 import { AuthModule } from "./auth/auth";
 import { CasesModule } from "./cases/cases";
-import { DocumentsModule } from "./documents/documents";
-import { StorageModule } from "./storage/storage";
-import { ContactsModule } from "./contacts/contacts";
-import { WorkflowsModule } from "./workflows/workflows";
-import { OverviewModule } from "./overview/overview";
 import { ChannelsModule } from "./channels/channels";
-import { NudgesModule } from "./nudges/nudges";
-import { UnmatchedModule } from "./unmatched/unmatched";
+import { env } from "./config/env";
+import { ContactsModule } from "./contacts/contacts";
+import { DbModule } from "./db/db";
+import { DocumentsModule } from "./documents/documents";
 import { IntakeModule } from "./intake/intake";
-import { ActivityModule } from "./activity/activity";
+import { NudgesModule } from "./nudges/nudges";
+import { OverviewModule } from "./overview/overview";
+import { StorageModule } from "./storage/storage";
+import { UnmatchedModule } from "./unmatched/unmatched";
+import { WorkflowsModule } from "./workflows/workflows";
 
 @Controller("health")
 class HealthController {
@@ -31,8 +31,8 @@ class HealthController {
       secret: env.jwtSecret,
       signOptions: { expiresIn: "7d" },
     }),
-    // Baseline bucket (ttl in ms). Routes that need to be stricter — /auth/login
-    // in particular — override this with @Throttle. Only controllers that opt in
+    // Baseline bucket (ttl in ms). Routes that need to be stricter - /auth/login
+    // in particular - override this with @Throttle. Only controllers that opt in
     // via ThrottlerGuard are actually limited.
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]),
     DbModule,
@@ -51,4 +51,4 @@ class HealthController {
   ],
   controllers: [HealthController],
 })
-export class AppModule {}
+export class AppModule { }

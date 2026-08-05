@@ -1,8 +1,3 @@
-import { createHash, randomUUID } from "node:crypto";
-import { Inject, Injectable, Logger } from "@nestjs/common";
-import { ImapFlow, type FetchMessageObject } from "imapflow";
-import { simpleParser } from "mailparser";
-import { and, desc, eq, isNull } from "drizzle-orm";
 import {
   cases,
   channels,
@@ -13,10 +8,15 @@ import {
   openSecret,
   unmatchedDocuments,
 } from "@docket/db";
-import { DbService } from "../db/db";
+import { Inject, Injectable, Logger } from "@nestjs/common";
+import { and, desc, eq, isNull } from "drizzle-orm";
+import { ImapFlow, type FetchMessageObject } from "imapflow";
+import { simpleParser } from "mailparser";
+import { createHash, randomUUID } from "node:crypto";
 import { ClassifyApplier } from "../classify/classify";
-import { STORAGE, type StorageDriver, documentKey, unmatchedKey } from "../storage/storage";
 import { env } from "../config/env";
+import { DbService } from "../db/db";
+import { documentKey, STORAGE, unmatchedKey, type StorageDriver } from "../storage/storage";
 
 export type PollResult = {
   fetched: number;
@@ -27,7 +27,7 @@ export type PollResult = {
 
 type ChannelRow = typeof channels.$inferSelect;
 
-/** Ceiling on stored message text — a pasted contract is a document, not a chat line. */
+/** Ceiling on stored message text - a pasted contract is a document, not a chat line. */
 const MAX_CONVERSATION_CHARS = 8_000;
 
 /**
@@ -38,11 +38,11 @@ const MAX_CONVERSATION_CHARS = 8_000;
  * log into. The dashboard is for staff; the subject only ever uses email (and,
  * later, WhatsApp).
  *
- * Matching is deliberately conservative — a wrong match files a borrower's bank
+ * Matching is deliberately conservative - a wrong match files a borrower's bank
  * statement onto someone else's loan, which is worse than not filing it. So:
  *   1. an explicit DKT-XXXXXX reference in the subject wins (we put it there);
  *   2. failing that, the sender's email mapped to their most recent case;
- *   3. failing that, the message is left for a human — never guessed.
+ *   3. failing that, the message is left for a human - never guessed.
  */
 @Injectable()
 export class EmailPollerService {
@@ -52,7 +52,7 @@ export class EmailPollerService {
     private readonly db: DbService,
     @Inject(STORAGE) private readonly storage: StorageDriver,
     private readonly classify: ClassifyApplier,
-  ) {}
+  ) { }
 
   /**
    * Channels currently being polled, by id.
@@ -60,7 +60,7 @@ export class EmailPollerService {
    * The overlap guard belongs HERE, not in the cron: the cron protected itself
    * with its own flag, but the manual "poll now" endpoint called straight into
    * this method and bypassed it. Two concurrent polls of one mailbox both read
-   * the same cursor, both fetch the same UID, and both ingest — which is
+   * the same cursor, both fetch the same UID, and both ingest - which is
    * exactly how nine real documents were duplicated on a live case. Guarding
    * the operation instead of one of its callers means a future caller cannot
    * reintroduce it.
@@ -70,10 +70,10 @@ export class EmailPollerService {
    */
   private readonly inFlight = new Set<string>();
 
-  /** Poll one email channel. Never throws — failures are returned and recorded. */
+  /** Poll one email channel. Never throws - failures are returned and recorded. */
   async pollChannel(channel: ChannelRow): Promise<PollResult> {
     if (this.inFlight.has(channel.id)) {
-      this.log.log(`Channel ${channel.id}: poll already in progress — skipped`);
+      this.log.log(`Channel ${channel.id}: poll already in progress - skipped`);
       return { fetched: 0, imported: 0, unmatched: 0 };
     }
     this.inFlight.add(channel.id);
@@ -132,14 +132,14 @@ export class EmailPollerService {
         const prev = parseCursor(channel.cursor);
 
         // First connect, or the mailbox was recreated (uidValidity changed):
-        // adopt "start from now" — record the current high-water mark and import
+        // adopt "start from now" - record the current high-water mark and import
         // nothing historical. Importing an existing inbox of years-old mail onto
         // cases that do not exist is the wrong default, and irreversible once the
         // documents are created.
         if (!prev || prev.uidValidity !== uidValidity) {
           await this.saveCursor(channel.id, `${uidValidity}:${Math.max(highestUid, 0)}`);
           this.log.log(
-            `Channel ${channel.id}: first sync — watermark set at uid ${highestUid}, no backfill`,
+            `Channel ${channel.id}: first sync - watermark set at uid ${highestUid}, no backfill`,
           );
           return { fetched: 0, imported: 0, unmatched: 0 };
         }
@@ -152,7 +152,7 @@ export class EmailPollerService {
         }
 
         let maxUid = prev.lastUid;
-        // `${startUid}:*` — if startUid exceeds the highest, IMAP returns the
+        // `${startUid}:*` - if startUid exceeds the highest, IMAP returns the
         // single highest message, so every UID is re-checked against lastUid.
         for await (const message of client.fetch(
           `${startUid}:*`,
@@ -166,12 +166,12 @@ export class EmailPollerService {
           imported += r.imported;
           if (r.imported === 0) unmatched++;
           // After the ingest transaction has committed: sort what just landed
-          // into checklist slots. Fire-and-forget — a classifier hiccup must
+          // into checklist slots. Fire-and-forget - a classifier hiccup must
           // never stall the poll loop or the cursor.
           if (r.imported > 0 && r.caseId) {
             void this.classify
               .processCase(channel.tenantId, r.caseId)
-              .catch(() => {});
+              .catch(() => { });
           }
         }
 
@@ -182,7 +182,7 @@ export class EmailPollerService {
     } catch (e) {
       return this.fail(channel, `Poll failed: ${msg(e)}`);
     } finally {
-      await client.logout().catch(() => {});
+      await client.logout().catch(() => { });
     }
 
     this.log.log(
@@ -207,7 +207,7 @@ export class EmailPollerService {
     const fromEmail = parsed.from?.value?.[0]?.address?.toLowerCase() ?? null;
     const bodyText = (parsed.text ?? "").trim();
     // A message with no attachments, no words and no subject carries nothing
-    // a human could ever want back. Everything else proceeds — a text-only
+    // a human could ever want back. Everything else proceeds - a text-only
     // reply ("sending the rest tomorrow") used to be dropped entirely, which
     // made the Conversations view lie by omission.
     if (attachments.length === 0 && !bodyText && !subject) {
@@ -245,14 +245,14 @@ export class EmailPollerService {
       }
 
       if (!caseId) {
-        // Never guess — a misfiled KYC document is worse than an unfiled one.
+        // Never guess - a misfiled KYC document is worse than an unfiled one.
         // But never lose it either: the cursor advances past this message, so
         // "left in the mailbox" means gone. Hold the bytes for a human instead.
         let held = 0;
         for (const att of attachments) {
           if (att.content.length > env.maxUploadBytes) {
             this.log.warn(
-              `Channel ${channel.id}: unmatched attachment ${att.filename ?? "(unnamed)"} exceeds size limit — skipped`,
+              `Channel ${channel.id}: unmatched attachment ${att.filename ?? "(unnamed)"} exceeds size limit - skipped`,
             );
             continue;
           }
@@ -266,7 +266,7 @@ export class EmailPollerService {
           if (stored) held++;
         }
         this.log.warn(
-          `Channel ${channel.id}: message uid ${message.uid} from ${fromEmail ?? "?"} matched no case — ${held} attachment(s) held for review`,
+          `Channel ${channel.id}: message uid ${message.uid} from ${fromEmail ?? "?"} matched no case - ${held} attachment(s) held for review`,
         );
         return { imported: 0, caseId: null };
       }
@@ -275,7 +275,7 @@ export class EmailPollerService {
       for (const att of attachments) {
         if (att.content.length > env.maxUploadBytes) {
           this.log.warn(
-            `Channel ${channel.id}: attachment ${att.filename ?? "(unnamed)"} exceeds size limit — skipped`,
+            `Channel ${channel.id}: attachment ${att.filename ?? "(unnamed)"} exceeds size limit - skipped`,
           );
           continue;
         }
@@ -286,7 +286,7 @@ export class EmailPollerService {
         // poll overlapping the cron ingested one message twice, putting nine
         // duplicate documents on a real case and paying to classify each one
         // twice. The per-channel lock below prevents that overlap, but this is
-        // the check that holds regardless of HOW a message is seen twice —
+        // the check that holds regardless of HOW a message is seen twice -
         // a second instance, a replayed cursor, a forwarded copy.
         const checksum = createHash("sha256").update(att.content).digest("hex");
         const [dupe] = await tx
@@ -302,7 +302,7 @@ export class EmailPollerService {
           .limit(1);
         if (dupe) {
           this.log.log(
-            `Channel ${channel.id}: ${fileName} already on case ${caseId} — skipped as duplicate`,
+            `Channel ${channel.id}: ${fileName} already on case ${caseId} - skipped as duplicate`,
           );
           continue;
         }
@@ -334,7 +334,7 @@ export class EmailPollerService {
   }
 
   /**
-   * Store one unmatched attachment for human triage. Bytes first, row second —
+   * Store one unmatched attachment for human triage. Bytes first, row second -
    * unmatched_documents.storage_key is NOT NULL, so a row can never exist
    * without its object. Deduped by checksum against the tenant's PENDING rows
    * only: a redelivered message doesn't pile up copies, while a resend after a
@@ -394,7 +394,7 @@ export class EmailPollerService {
     subject: string,
     fromEmail: string | null,
   ): Promise<string | null> {
-    // 1. explicit reference in the subject — the strongest signal, since we are
+    // 1. explicit reference in the subject - the strongest signal, since we are
     // the ones who put DKT-XXXXXX into the emails a subject replies to.
     for (const token of subject.match(/DKT[-\s]?[0-9A-Za-z]{6}/gi) ?? []) {
       const ref = normaliseCaseReference(token.replace(/\s/g, ""));
@@ -444,7 +444,7 @@ export class EmailPollerService {
       .update(channels)
       .set({ lastPolledAt: new Date(), lastError: error })
       .where(eq(channels.id, channel.id))
-      .catch(() => {});
+      .catch(() => { });
     return { fetched: 0, imported: 0, unmatched: 0, error };
   }
 }

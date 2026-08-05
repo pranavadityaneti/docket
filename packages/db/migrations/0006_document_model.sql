@@ -6,7 +6,7 @@
 --
 -- ⚠ RLS IS NOT AUTOMATIC ON NEW TABLES.
 -- Migration 0002 ran ALTER DEFAULT PRIVILEGES, so docket_app is granted
--- SELECT/INSERT/UPDATE/DELETE on these tables the moment they are created — but
+-- SELECT/INSERT/UPDATE/DELETE on these tables the moment they are created - but
 -- a new table has RLS *disabled*, and a table with RLS disabled ignores every
 -- policy. Without the ENABLE + CREATE POLICY statements at the bottom of this
 -- file, docket_app could read every tenant's documents, on the two tables that
@@ -17,7 +17,7 @@ CREATE TABLE "document_requirements" (
   "id"             uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
   "tenant_id"      uuid NOT NULL,
   "workflow_id"    uuid NOT NULL,
-  -- Stable machine key ("pan_card") — what the AI classifier matches against.
+  -- Stable machine key ("pan_card") - what the AI classifier matches against.
   "key"            text NOT NULL,
   "label"          text NOT NULL,
   "description"    text,
@@ -103,7 +103,7 @@ CREATE UNIQUE INDEX "document_requirements_workflow_key_uq" ON "document_require
 CREATE INDEX "documents_tenant_idx" ON "documents" ("tenant_id");--> statement-breakpoint
 CREATE INDEX "documents_case_idx" ON "documents" ("case_id");--> statement-breakpoint
 CREATE INDEX "documents_requirement_idx" ON "documents" ("requirement_id");--> statement-breakpoint
--- "what still needs a human?" — the exceptions queue.
+-- "what still needs a human?" - the exceptions queue.
 CREATE INDEX "documents_tenant_status_idx" ON "documents" ("tenant_id","status");--> statement-breakpoint
 -- Cross-channel duplicate detection.
 CREATE INDEX "documents_tenant_checksum_idx" ON "documents" ("tenant_id","checksum");--> statement-breakpoint

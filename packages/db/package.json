@@ -26,6 +26,7 @@
     "push": "drizzle-kit push",
     "studio": "drizzle-kit studio",
     "seed": "tsx src/seed.ts",
+    "seed:dummy": "tsx src/seed-dummy.ts",
     "set-password": "tsx src/set-admin-password.ts",
     "typecheck": "tsc --noEmit"
   },

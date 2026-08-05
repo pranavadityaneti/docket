@@ -1,5 +1,3 @@
-import { createHash } from "node:crypto";
-import { Injectable } from "@nestjs/common";
 import {
   DeleteObjectCommand,
   GetObjectCommand,
@@ -8,11 +6,13 @@ import {
   S3Client,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { Injectable } from "@nestjs/common";
+import { createHash } from "node:crypto";
 import { env } from "../config/env";
 import type { StorageDriver, StoredObject, UploadTarget } from "./storage";
 
 /**
- * S3 driver — production.
+ * S3 driver - production.
  *
  * Uploads are presigned, so a borrower's twelve bank statements go straight
  * from the browser to S3 and never occupy memory or bandwidth on a t3.micro.
@@ -32,7 +32,7 @@ export class S3StorageDriver implements StorageDriver {
    * Encryption headers must be part of BOTH the signature and the request the
    * client actually sends. The bucket policy denies any PUT that does not
    * declare aws:kms, so a client that drops these headers is refused rather
-   * than quietly writing something weaker — but that also means an unsigned
+   * than quietly writing something weaker - but that also means an unsigned
    * mismatch fails with an opaque SignatureDoesNotMatch. They travel together.
    */
   private encryptionHeaders(): Record<string, string> {
@@ -42,7 +42,7 @@ export class S3StorageDriver implements StorageDriver {
   }
 
   async requestUpload(key: string, contentType?: string): Promise<UploadTarget> {
-    const expiresIn = 900; // 15 minutes — long enough for a slow mobile upload
+    const expiresIn = 900; // 15 minutes - long enough for a slow mobile upload
     const url = await getSignedUrl(
       this.s3,
       new PutObjectCommand({
@@ -65,7 +65,7 @@ export class S3StorageDriver implements StorageDriver {
     };
   }
 
-  /** Server-side write — WhatsApp/email ingestion, where there is no browser. */
+  /** Server-side write - WhatsApp/email ingestion, where there is no browser. */
   async put(key: string, body: Buffer, contentType?: string): Promise<StoredObject> {
     await this.s3.send(
       new PutObjectCommand({
@@ -83,7 +83,7 @@ export class S3StorageDriver implements StorageDriver {
   /**
    * Size and checksum of what is actually stored.
    *
-   * HeadObject alone gives size but not a SHA-256 we can trust — S3's ETag is
+   * HeadObject alone gives size but not a SHA-256 we can trust - S3's ETag is
    * an MD5 only for single-part, unencrypted uploads, and is neither for a
    * KMS-encrypted or multipart object. So the object is read back and hashed.
    * That costs a GET per confirmation, which is the honest price of the API
@@ -121,7 +121,7 @@ function sha256(buf: Buffer): string {
 /**
  * A missing object and a forbidden one must be told apart: "no file was
  * uploaded" is a 400 the caller can act on, while a permissions failure is a
- * 500 we need to see. S3 reports a missing key as 404/NotFound — but when the
+ * 500 we need to see. S3 reports a missing key as 404/NotFound - but when the
  * caller lacks ListBucket it reports 403 instead, which is why the instance
  * role is granted ListBucket on the bucket.
  */
