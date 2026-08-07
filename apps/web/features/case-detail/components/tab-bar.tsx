@@ -5,14 +5,17 @@ import { TABS, type CaseTab } from "./meta";
 
 export function TabBar({ tab, onChange }: { tab: CaseTab; onChange: (t: CaseTab) => void }) {
   return (
-    <div className="flex gap-1 overflow-x-auto border-b" role="tablist">
+    <div
+      className="-mx-3 flex gap-1 overflow-x-auto border-b px-3 [scrollbar-width:none] sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden"
+      role="tablist"
+    >
       {TABS.map((t) => (
         <button
           key={t.key}
           role="tab"
           aria-selected={tab === t.key}
           onClick={() => onChange(t.key)}
-          className={`inline-flex items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2 text-sm transition-colors ${tab === t.key ? "border-primary font-medium text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}
+          className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 px-2.5 py-2 text-sm transition-colors sm:px-3 ${tab === t.key ? "border-primary font-medium text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}
         >
           <Icon name={t.icon} size={15} />
           {t.label}

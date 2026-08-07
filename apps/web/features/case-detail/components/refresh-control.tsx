@@ -13,7 +13,7 @@ export function RefreshControl({
 }) {
   return (
     <div className="flex items-center gap-2">
-      <span className="whitespace-nowrap text-xs text-muted-foreground">
+      <span className="hidden whitespace-nowrap text-xs text-muted-foreground sm:inline">
         {refreshing
           ? "Checking…"
           : loadedAt
@@ -26,13 +26,14 @@ export function RefreshControl({
         className="gap-1.5"
         onClick={onRefresh}
         disabled={refreshing}
+        aria-label="Refresh"
       >
         <Icon
           name="refresh"
           size={15}
           className={refreshing ? "animate-spin" : undefined}
         />
-        Refresh
+        <span className="hidden sm:inline">Refresh</span>
       </Button>
     </div>
   );

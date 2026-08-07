@@ -171,19 +171,21 @@ function CasesPage() {
   }, [searchParams, router]);
 
   return (
-    <div className="flex w-full flex-col gap-5">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div className="space-y-1">
+    <div className="flex w-full flex-col gap-4 sm:gap-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
+        <div className="min-w-0 space-y-1">
           <p className="text-[11px] font-medium uppercase tracking-[0.1em] text-muted-foreground">
             Pipeline
           </p>
-          <h1 className="text-2xl font-semibold tracking-tight text-balance">Cases</h1>
+          <h1 className="text-xl font-semibold tracking-tight text-balance sm:text-2xl">
+            Cases
+          </h1>
           <p className="text-sm text-muted-foreground">
             Every {subjectLabel.toLowerCase()} in the pipeline, and what each{" "}
             {caseLabel.toLowerCase()} still needs.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
           <WorkflowSelect
             workflows={workflows}
             selectedSlug={selectedSlug}
@@ -196,7 +198,10 @@ function CasesPage() {
               setSelectedSlug(slug);
             }}
           />
-          <Button className="gap-1.5" onClick={() => setCreateOpen(true)}>
+          <Button
+            className="min-w-0 flex-1 gap-1.5 sm:flex-none"
+            onClick={() => setCreateOpen(true)}
+          >
             <Icon name="add" size={18} /> New {caseLabel.toLowerCase()}
           </Button>
         </div>
@@ -278,6 +283,8 @@ function CasesPage() {
                   subjectLabel={subjectLabel}
                   caseLabel={caseLabel}
                   fields={domainFields}
+                  stages={stages}
+                  onMoveStage={moveStage}
                 />
                 {total > TABLE_PAGE_SIZE ? (
                   <Card className="gap-0 overflow-hidden py-0">

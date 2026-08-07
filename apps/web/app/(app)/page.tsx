@@ -167,9 +167,9 @@ export default function HomePage() {
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
-      <div className="animate-fade-up flex flex-wrap items-end justify-between gap-3">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight text-balance">
+      <div className="animate-fade-up flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
+        <div className="min-w-0 space-y-1">
+          <h1 className="text-xl font-semibold tracking-tight text-balance sm:text-2xl">
             {nothingToDo ? "Nothing needs you right now" : "Here’s what needs you today"}
           </h1>
           <p className="text-sm text-muted-foreground">
@@ -202,11 +202,14 @@ export default function HomePage() {
             )}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" className="gap-1.5" onClick={reload}>
+        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+          <Button variant="outline" className="min-w-0 flex-1 gap-1.5 sm:flex-none" onClick={reload}>
             <Icon name="refresh" size={18} /> Refresh
           </Button>
-          <Link href="/cases?new=1" className={cn(buttonVariants(), "gap-1.5")}>
+          <Link
+            href="/cases?new=1"
+            className={cn(buttonVariants(), "min-w-0 flex-1 gap-1.5 sm:flex-none")}
+          >
             <Icon name="add" size={18} /> New {caseLabel.toLowerCase()}
           </Link>
         </div>

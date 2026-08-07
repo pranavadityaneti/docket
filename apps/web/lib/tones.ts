@@ -36,6 +36,21 @@ export const TONE_CLASS: Record<string, string> = {
   red: "border-transparent bg-danger-muted text-danger",
 };
 
+/** Solid chip for tone pickers / colour previews. */
+export const TONE_SWATCH: Record<string, string> = {
+  muted: "bg-muted",
+  teal: "bg-pastel-mint",
+  primary: "bg-pastel-mint",
+  amber: "bg-pastel-peach",
+  orange: "bg-pastel-peach",
+  green: "bg-pastel-mint",
+  red: "bg-danger-muted",
+};
+
 export function toneClass(tone: string | null | undefined): string {
   return TONE_CLASS[tone ?? ""] ?? TONE_CLASS.muted;
+}
+
+export function toneSwatch(tone: string | null | undefined): string {
+  return TONE_SWATCH[tone ?? ""] ?? TONE_SWATCH.muted;
 }

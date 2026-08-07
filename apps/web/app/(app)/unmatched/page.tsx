@@ -12,7 +12,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Icon } from "@/components/ui/icon";
-import { fieldControlClassName } from "@/components/ui/input";
+import { FIELD_CLASS } from "@/components/shared/case-fields";
+import { SelectMenu } from "@/components/shared/select-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { assignUnmatched, discardUnmatched, listUnmatched } from "@/features/unmatched/api";
 import type { ApiUnmatchedDocument } from "@/features/unmatched/api";
@@ -34,8 +35,6 @@ import * as React from "react";
  * Assigning files the document onto a case (optionally straight onto a
  * checklist slot); discarding records why and keeps the file for audit.
  * ------------------------------------------------------------------ */
-
-const FIELD_CLASS = `flex ${fieldControlClassName}`;
 
 const CHANNEL_LABEL: Record<string, string> = { whatsapp: "WhatsApp", email: "Email" };
 
@@ -120,47 +119,55 @@ function AssignDialog({
         <div className="flex flex-col gap-3 px-5 py-1">
           <label className="flex flex-col gap-1.5 text-sm">
             Case
-            <select
-              className={FIELD_CLASS}
+            <SelectMenu
               value={caseId}
-              onChange={(e) => {
-                setCaseId(e.target.value);
+              disabled={loadingCases}
+              placeholder={loadingCases ? "Loading cases…" : "Choose a case…"}
+              options={[
+                {
+                  value: "",
+                  label: loadingCases ? "Loading cases…" : "Choose a case…",
+                },
+                ...caseOptions.map((c) => ({
+                  value: c.id,
+                  label: `${c.subjectName ?? "Unnamed"} · ${c.reference} (${c.workflowName})`,
+                })),
+              ]}
+              onChange={(next) => {
+                setCaseId(next);
                 setRequirementId("");
               }}
-              disabled={loadingCases}
-            >
-              <option value="">
-                {loadingCases ? "Loading cases…" : "Choose a case…"}
-              </option>
-              {caseOptions.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.subjectName ?? "Unnamed"} · {c.reference} ({c.workflowName})
-                </option>
-              ))}
-            </select>
+            />
           </label>
 
           <label className="flex flex-col gap-1.5 text-sm">
             Checklist item <span className="text-muted-foreground">(optional)</span>
-            <select
-              className={FIELD_CLASS}
+            <SelectMenu
               value={requirementId}
-              onChange={(e) => setRequirementId(e.target.value)}
               disabled={!caseId || items === null}
-            >
-              <option value="">
-                {!caseId
+              placeholder={
+                !caseId
                   ? "Choose a case first"
                   : items === null
                     ? "Loading checklist…"
-                    : "No specific item - place it later"}
-              </option>
-              {(items ?? []).map((i) => (
-                <option key={i.requirementId} value={i.requirementId}>
-                  {i.label}
-                </option>
-              ))}
-            </select>
+                    : "No specific item - place it later"
+              }
+              options={[
+                {
+                  value: "",
+                  label: !caseId
+                    ? "Choose a case first"
+                    : items === null
+                      ? "Loading checklist…"
+                      : "No specific item - place it later",
+                },
+                ...(items ?? []).map((i) => ({
+                  value: i.requirementId,
+                  label: i.label,
+                })),
+              ]}
+              onChange={setRequirementId}
+            />
           </label>
 
           {error ? <p className="text-sm text-danger">{error}</p> : null}

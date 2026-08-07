@@ -2,7 +2,7 @@
 
 import { AppHeader } from "@/components/layout/app-header";
 import { AppSidebar } from "@/components/layout/app-sidebar";
-import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+import { SidebarInset, SidebarProvider, useSidebar } from "@/components/ui/sidebar";
 import { AUTH_REQUIRED_EVENT } from "@/lib/http";
 import { usePathname, useRouter } from "next/navigation";
 import * as React from "react";
@@ -31,11 +31,21 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
 
   return (
     <SidebarProvider>
+      <MobileNavCloser pathname={pathname} />
       <AppSidebar />
-      <SidebarInset className="min-w-0">
+      <SidebarInset className="min-w-0 overflow-x-hidden">
         <AppHeader />
-        <div className="flex-1 p-4 md:p-5">{children}</div>
+        <div className="flex-1 overflow-x-hidden p-3 sm:p-4 md:p-5">{children}</div>
       </SidebarInset>
     </SidebarProvider>
   );
+}
+
+/** Sheet stays open across soft nav unless something closes it - painful on phone. */
+function MobileNavCloser({ pathname }: { pathname: string }) {
+  const { isMobile, setOpenMobile } = useSidebar();
+  React.useEffect(() => {
+    if (isMobile) setOpenMobile(false);
+  }, [pathname, isMobile, setOpenMobile]);
+  return null;
 }

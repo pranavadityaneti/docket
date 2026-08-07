@@ -24,4 +24,13 @@ describe("board drag helpers", () => {
     expect(shouldMoveOnDrop(payload, "Pending")).toBe(false);
     expect(shouldMoveOnDrop(payload, "Follow up")).toBe(true);
   });
+
+  /**
+   * Regression note for the faded-card bug: drop clears drag UI state before
+   * the optimistic stage move remounts the card (unmount skips dragend).
+   */
+  it("documents cross-stage drop as the fade-bug case", () => {
+    const payload = { leadId: "neha", fromStage: "Filed" };
+    expect(shouldMoveOnDrop(payload, "Query raised")).toBe(true);
+  });
 });

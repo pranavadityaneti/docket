@@ -3,10 +3,10 @@
 import {
   DynamicField,
   Field,
-  FIELD_CLASS,
   FormSection,
   validateField,
 } from "@/components/shared/case-fields";
+import { SelectMenu } from "@/components/shared/select-menu";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -140,17 +140,15 @@ export function CreateLeadDialog({
           {workflows.length > 1 ? (
             <FormSection title="Workflow">
               <Field label="What is this for?">
-                <select
+                <SelectMenu
                   value={workflow?.slug ?? ""}
-                  onChange={(event) => chooseWorkflow(event.target.value)}
-                  className={FIELD_CLASS}
-                >
-                  {workflows.map((item) => (
-                    <option key={item.slug} value={item.slug}>
-                      {item.name}
-                    </option>
-                  ))}
-                </select>
+                  onChange={chooseWorkflow}
+                  options={workflows.map((item) => ({
+                    value: item.slug,
+                    label: item.name,
+                  }))}
+                  placeholder="Choose a workflow…"
+                />
               </Field>
             </FormSection>
           ) : null}

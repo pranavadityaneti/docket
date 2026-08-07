@@ -7,7 +7,15 @@ import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FIELD_CLASS } from "@/components/shared/case-fields";
+import { SelectMenu } from "@/components/shared/select-menu";
 import { ErrorBanner, NoticeBanner } from "@/components/shared/page-state";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   canEditWorkflows,
   getWorkflow,
@@ -23,37 +31,23 @@ import {
   type ApiStage,
   type ApiWorkflow,
 } from "@/features/workflows/api";
+import {
+  snapFields,
+  snapIdentity,
+  snapRequirements,
+  snapStages,
+  type DraftField,
+  type DraftReq,
+  type DraftStage,
+} from "@/features/workflows/draft-snapshots";
 import { AuthRequiredError, getStoredProfile } from "@/lib/http";
+import { toneSwatch } from "@/lib/tones";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import * as React from "react";
 
 const TONES = ["muted", "teal", "primary", "amber", "orange", "green", "red"] as const;
-
-type DraftField = ApiFieldDef & { _clientId: string; keyLocked: boolean };
-type DraftStage = {
-  _clientId: string;
-  id?: string;
-  name: string;
-  tone: string;
-  position: number;
-};
-type DraftReq = {
-  _clientId: string;
-  id?: string;
-  key: string;
-  keyLocked: boolean;
-  label: string;
-  description: string;
-  required: boolean;
-  maxFiles: number;
-  reusable: boolean;
-  validityDays: string;
-  conditionField: string;
-  conditionEquals: string;
-  position: number;
-};
 
 function newId() {
   return `tmp_${Math.random().toString(36).slice(2, 10)}`;
@@ -67,6 +61,67 @@ function slugifyKey(label: string): string {
     .replace(/^_+|_+$/g, "")
     .replace(/^([^a-z])/, "f_$1")
     .slice(0, 64);
+}
+
+function TonePicker({
+  value,
+  disabled,
+  onChange,
+}: {
+  value: string;
+  disabled?: boolean;
+  onChange: (tone: string) => void;
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        disabled={disabled}
+        render={
+          <button
+            type="button"
+            disabled={disabled}
+            className={cn(
+              FIELD_CLASS,
+              "flex w-full items-center gap-2 text-left disabled:opacity-50",
+            )}
+          />
+        }
+      >
+        <span
+          className={cn(
+            "size-3.5 shrink-0 rounded-full ring-1 ring-black/10",
+            toneSwatch(value),
+          )}
+          aria-hidden
+        />
+        <span className="min-w-0 flex-1 truncate">{value}</span>
+        <Icon name="expand_more" size={16} className="shrink-0 text-muted-foreground" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="min-w-40 rounded-[12px]">
+        <DropdownMenuGroup>
+          {TONES.map((t) => (
+            <DropdownMenuItem
+              key={t}
+              className="gap-2"
+              onClick={() => onChange(t)}
+            >
+              <span
+                className={cn(
+                  "size-3.5 shrink-0 rounded-full ring-1 ring-black/10",
+                  toneSwatch(t),
+                )}
+                aria-hidden
+              />
+              <span className="flex-1">{t}</span>
+              {t === value ? (
+                <Icon name="check" size={14} className="text-primary" />
+              ) : null}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
 }
 
 function SectionHeader({
@@ -103,6 +158,11 @@ export default function WorkflowEditorPage() {
   const [fields, setFields] = React.useState<DraftField[]>([]);
   const [reqs, setReqs] = React.useState<DraftReq[]>([]);
 
+  const [baseIdentity, setBaseIdentity] = React.useState("");
+  const [baseStages, setBaseStages] = React.useState("");
+  const [baseFields, setBaseFields] = React.useState("");
+  const [baseReqs, setBaseReqs] = React.useState("");
+
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [notice, setNotice] = React.useState<string | null>(null);
@@ -123,44 +183,52 @@ export default function WorkflowEditorPage() {
       setSubjectLabel(wf.subjectLabel);
       setCaseLabel(wf.caseLabel);
       setDescription(wf.description ?? "");
-      setStages(
-        st.map((s: ApiStage) => ({
-          _clientId: s.id,
-          id: s.id,
-          name: s.name,
-          tone: s.tone,
-          position: s.position,
-        })),
+      setBaseIdentity(
+        snapIdentity(
+          wf.name,
+          wf.subjectLabel,
+          wf.caseLabel,
+          wf.description ?? "",
+        ),
       );
-      setFields(
-        [...fl]
-          .sort((a, b) => a.order - b.order)
-          .map((f) => ({
-            ...f,
-            _clientId: f.field_key,
-            keyLocked: true,
-          })),
-      );
-      setReqs(
-        rq.map((r: ApiRequirement) => ({
-          _clientId: r.id,
-          id: r.id,
-          key: r.key,
+      const nextStages = st.map((s: ApiStage) => ({
+        _clientId: s.id,
+        id: s.id,
+        name: s.name,
+        tone: s.tone,
+        position: s.position,
+      }));
+      setStages(nextStages);
+      setBaseStages(snapStages(nextStages));
+      const nextFields = [...fl]
+        .sort((a, b) => a.order - b.order)
+        .map((f) => ({
+          ...f,
+          _clientId: f.field_key,
           keyLocked: true,
-          label: r.label,
-          description: r.description ?? "",
-          required: r.required,
-          maxFiles: r.maxFiles,
-          reusable: r.reusable,
-          validityDays: r.validityDays != null ? String(r.validityDays) : "",
-          conditionField: r.condition?.field ?? "",
-          conditionEquals:
-            r.condition?.equals !== undefined
-              ? String(r.condition.equals)
-              : r.condition?.in?.join(", ") ?? "",
-          position: r.position,
-        })),
-      );
+        }));
+      setFields(nextFields);
+      setBaseFields(snapFields(nextFields));
+      const nextReqs = rq.map((r: ApiRequirement) => ({
+        _clientId: r.id,
+        id: r.id,
+        key: r.key,
+        keyLocked: true,
+        label: r.label,
+        description: r.description ?? "",
+        required: r.required,
+        maxFiles: r.maxFiles,
+        reusable: r.reusable,
+        validityDays: r.validityDays != null ? String(r.validityDays) : "",
+        conditionField: r.condition?.field ?? "",
+        conditionEquals:
+          r.condition?.equals !== undefined
+            ? String(r.condition.equals)
+            : r.condition?.in?.join(", ") ?? "",
+        position: r.position,
+      }));
+      setReqs(nextReqs);
+      setBaseReqs(snapRequirements(nextReqs));
     } catch (e) {
       if (e instanceof AuthRequiredError) return;
       setError(e instanceof Error ? e.message : "Couldn't load this workflow.");
@@ -172,6 +240,12 @@ export default function WorkflowEditorPage() {
   React.useEffect(() => {
     void load();
   }, [load]);
+
+  const identityDirty =
+    snapIdentity(name, subjectLabel, caseLabel, description) !== baseIdentity;
+  const stagesDirty = snapStages(stages) !== baseStages;
+  const fieldsDirty = snapFields(fields) !== baseFields;
+  const reqsDirty = snapRequirements(reqs) !== baseReqs;
 
   async function saveIdentity() {
     setBusy("identity");
@@ -185,6 +259,18 @@ export default function WorkflowEditorPage() {
         description: description.trim() || null,
       });
       setWorkflow((w) => (w ? { ...w, ...updated } : w));
+      setName(updated.name);
+      setSubjectLabel(updated.subjectLabel);
+      setCaseLabel(updated.caseLabel);
+      setDescription(updated.description ?? "");
+      setBaseIdentity(
+        snapIdentity(
+          updated.name,
+          updated.subjectLabel,
+          updated.caseLabel,
+          updated.description ?? "",
+        ),
+      );
       setNotice("Identity saved.");
     } catch (e) {
       if (e instanceof AuthRequiredError) return;
@@ -206,15 +292,15 @@ export default function WorkflowEditorPage() {
         position: i,
       }));
       const next = await putStages(slug, ordered);
-      setStages(
-        next.map((s) => ({
-          _clientId: s.id,
-          id: s.id,
-          name: s.name,
-          tone: s.tone,
-          position: s.position,
-        })),
-      );
+      const nextStages = next.map((s) => ({
+        _clientId: s.id,
+        id: s.id,
+        name: s.name,
+        tone: s.tone,
+        position: s.position,
+      }));
+      setStages(nextStages);
+      setBaseStages(snapStages(nextStages));
       setNotice("Stages saved.");
     } catch (e) {
       if (e instanceof AuthRequiredError) return;
@@ -242,13 +328,13 @@ export default function WorkflowEditorPage() {
         format: f.format,
       }));
       const next = await putFields(slug, payload);
-      setFields(
-        next.map((f) => ({
-          ...f,
-          _clientId: f.field_key,
-          keyLocked: true,
-        })),
-      );
+      const nextFields = next.map((f) => ({
+        ...f,
+        _clientId: f.field_key,
+        keyLocked: true,
+      }));
+      setFields(nextFields);
+      setBaseFields(snapFields(nextFields));
       setNotice("Fields saved.");
     } catch (e) {
       if (e instanceof AuthRequiredError) return;
@@ -296,26 +382,26 @@ export default function WorkflowEditorPage() {
         };
       });
       const next = await putRequirements(slug, payload);
-      setReqs(
-        next.map((r) => ({
-          _clientId: r.id,
-          id: r.id,
-          key: r.key,
-          keyLocked: true,
-          label: r.label,
-          description: r.description ?? "",
-          required: r.required,
-          maxFiles: r.maxFiles,
-          reusable: r.reusable,
-          validityDays: r.validityDays != null ? String(r.validityDays) : "",
-          conditionField: r.condition?.field ?? "",
-          conditionEquals:
-            r.condition?.equals !== undefined
-              ? String(r.condition.equals)
-              : r.condition?.in?.join(", ") ?? "",
-          position: r.position,
-        })),
-      );
+      const nextReqs = next.map((r) => ({
+        _clientId: r.id,
+        id: r.id,
+        key: r.key,
+        keyLocked: true,
+        label: r.label,
+        description: r.description ?? "",
+        required: r.required,
+        maxFiles: r.maxFiles,
+        reusable: r.reusable,
+        validityDays: r.validityDays != null ? String(r.validityDays) : "",
+        conditionField: r.condition?.field ?? "",
+        conditionEquals:
+          r.condition?.equals !== undefined
+            ? String(r.condition.equals)
+            : r.condition?.in?.join(", ") ?? "",
+        position: r.position,
+      }));
+      setReqs(nextReqs);
+      setBaseReqs(snapRequirements(nextReqs));
       setNotice("Checklist saved.");
     } catch (e) {
       if (e instanceof AuthRequiredError) return;
@@ -413,7 +499,7 @@ export default function WorkflowEditorPage() {
             canEdit ? (
               <Button
                 size="sm"
-                disabled={busy === "identity"}
+                disabled={busy === "identity" || !identityDirty}
                 onClick={() => void saveIdentity()}
               >
                 {busy === "identity" ? "Saving…" : "Save"}
@@ -490,7 +576,7 @@ export default function WorkflowEditorPage() {
                 </Button>
                 <Button
                   size="sm"
-                  disabled={busy === "stages"}
+                  disabled={busy === "stages" || !stagesDirty}
                   onClick={() => void saveStages()}
                 >
                   {busy === "stages" ? "Saving…" : "Save"}
@@ -524,28 +610,21 @@ export default function WorkflowEditorPage() {
                     }
                   />
                 </label>
-                <label className="w-36 text-sm">
+                <label className="w-40 text-sm">
                   <span className="mb-1 block text-xs text-muted-foreground">
                     Tone
                   </span>
-                  <select
-                    className={FIELD_CLASS}
+                  <TonePicker
                     value={s.tone}
                     disabled={!canEdit}
-                    onChange={(e) =>
+                    onChange={(tone) =>
                       setStages((prev) =>
                         prev.map((x, idx) =>
-                          idx === i ? { ...x, tone: e.target.value } : x,
+                          idx === i ? { ...x, tone } : x,
                         ),
                       )
                     }
-                  >
-                    {TONES.map((t) => (
-                      <option key={t} value={t}>
-                        {t}
-                      </option>
-                    ))}
-                  </select>
+                  />
                 </label>
                 {canEdit ? (
                   <div className="flex gap-1">
@@ -618,7 +697,7 @@ export default function WorkflowEditorPage() {
                 </Button>
                 <Button
                   size="sm"
-                  disabled={busy === "fields"}
+                  disabled={busy === "fields" || !fieldsDirty}
                   onClick={() => void saveFields()}
                 >
                   {busy === "fields" ? "Saving…" : "Save"}
@@ -686,13 +765,17 @@ export default function WorkflowEditorPage() {
                     <span className="mb-1 block text-xs text-muted-foreground">
                       Input
                     </span>
-                    <select
-                      className={FIELD_CLASS}
+                    <SelectMenu
                       value={f.input_type}
                       disabled={!canEdit}
-                      onChange={(e) => {
-                        const input_type = e.target
-                          .value as ApiFieldDef["input_type"];
+                      options={[
+                        { value: "text", label: "text" },
+                        { value: "textarea", label: "textarea" },
+                        { value: "number", label: "number" },
+                        { value: "dropdown", label: "dropdown" },
+                      ]}
+                      onChange={(next) => {
+                        const input_type = next as ApiFieldDef["input_type"];
                         setFields((prev) =>
                           prev.map((x, idx) => {
                             if (idx !== i) return x;
@@ -706,12 +789,7 @@ export default function WorkflowEditorPage() {
                           }),
                         );
                       }}
-                    >
-                      <option value="text">text</option>
-                      <option value="textarea">textarea</option>
-                      <option value="number">number</option>
-                      <option value="dropdown">dropdown</option>
-                    </select>
+                    />
                   </label>
                   {canEdit ? (
                     <div className="flex gap-1">
@@ -853,7 +931,7 @@ export default function WorkflowEditorPage() {
                 </Button>
                 <Button
                   size="sm"
-                  disabled={busy === "requirements"}
+                  disabled={busy === "requirements" || !reqsDirty}
                   onClick={() => void saveRequirements()}
                 >
                   {busy === "requirements" ? "Saving…" : "Save"}
@@ -1060,27 +1138,26 @@ export default function WorkflowEditorPage() {
                     <span className="text-xs text-muted-foreground">
                       Only when field
                     </span>
-                    <select
-                      className={FIELD_CLASS}
+                    <SelectMenu
                       value={r.conditionField}
                       disabled={!canEdit}
-                      onChange={(e) =>
+                      options={[
+                        { value: "", label: "Always" },
+                        ...fields.map((f) => ({
+                          value: f.field_key,
+                          label: f.label || f.field_key,
+                        })),
+                      ]}
+                      onChange={(next) =>
                         setReqs((prev) =>
                           prev.map((x, idx) =>
                             idx === i
-                              ? { ...x, conditionField: e.target.value }
+                              ? { ...x, conditionField: next }
                               : x,
                           ),
                         )
                       }
-                    >
-                      <option value="">Always</option>
-                      {fields.map((f) => (
-                        <option key={f.field_key} value={f.field_key}>
-                          {f.label || f.field_key}
-                        </option>
-                      ))}
-                    </select>
+                    />
                   </label>
                   <label className="flex min-w-[10rem] flex-1 flex-col gap-1">
                     <span className="text-xs text-muted-foreground">

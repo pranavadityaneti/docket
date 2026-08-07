@@ -453,7 +453,7 @@ function CaseDetailPageInner() {
   const subject = detail.subjectLabel;
 
   return (
-    <div className="flex w-full flex-col gap-5">
+    <div className="flex w-full flex-col gap-4 sm:gap-5">
       <div>
         <Link
           href="/cases"
@@ -462,7 +462,7 @@ function CaseDetailPageInner() {
           <Icon name="arrow_back" size={16} /> All cases
         </Link>
 
-        <div className="mt-3 flex flex-wrap items-start justify-between gap-3">
+        <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
           {/* flex-1 is load-bearing, not decoration: `truncate` needs a
               constrained width, and min-w-0 alone leaves this box sized to its
               content - so a long subject or organisation name pushed straight
@@ -473,7 +473,7 @@ function CaseDetailPageInner() {
               {detail.caseLabel}
             </p>
             <h1
-              className="truncate text-2xl font-semibold tracking-tight text-balance"
+              className="truncate text-xl font-semibold tracking-tight text-balance sm:text-2xl"
               title={detail.subjectName ?? undefined}
             >
               {detail.subjectName ?? "Unnamed"}
@@ -493,7 +493,7 @@ function CaseDetailPageInner() {
               );
             })()}
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
             {detail.stageName ? (
               <Badge variant="outline" className="whitespace-nowrap">
                 {detail.stageName}
@@ -501,21 +501,27 @@ function CaseDetailPageInner() {
             ) : null}
             <Button
               size="sm"
-              className="gap-1.5"
+              className="min-w-0 flex-1 gap-1.5 sm:flex-none"
               onClick={handleRequestDocuments}
               disabled={nudging}
             >
-              <Icon name="send" size={16} /> {nudging ? "Sending…" : "Request documents"}
+              <Icon name="send" size={16} />
+              <span className="truncate">
+                {nudging ? "Sending…" : "Request documents"}
+              </span>
             </Button>
             <Button
               variant="outline"
               size="sm"
-              className="gap-1.5"
+              className="min-w-0 flex-1 gap-1.5 sm:flex-none"
               onClick={() => handleTogglePause(detail.nudgesPausedAt !== null)}
               disabled={pausing}
             >
               <Icon name={detail.nudgesPausedAt ? "play_arrow" : "pause"} size={16} />
-              {detail.nudgesPausedAt ? "Resume reminders" : "Pause reminders"}
+              <span className="truncate">
+                {detail.nudgesPausedAt ? "Resume" : "Pause"}
+                <span className="hidden sm:inline"> reminders</span>
+              </span>
             </Button>
             <RefreshControl
               loadedAt={loadedAt}

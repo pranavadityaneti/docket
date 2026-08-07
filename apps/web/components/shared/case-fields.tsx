@@ -1,5 +1,6 @@
 "use client";
 
+import { SelectMenu } from "@/components/shared/select-menu";
 import { Input, fieldControlClassName } from "@/components/ui/input";
 import type { ApiFieldDef } from "@/features/workflows/api";
 import * as React from "react";
@@ -15,7 +16,7 @@ import * as React from "react";
  * code naming any of them.
  * ------------------------------------------------------------------ */
 
-/** Native selects / textareas - same 42×8 geometry as Input. */
+/** Textareas / shared field chrome - same 42×8 geometry as Input. */
 export const FIELD_CLASS = `flex ${fieldControlClassName}`;
 
 export function FormSection({ title, children }: { title: string; children: React.ReactNode }) {
@@ -64,19 +65,22 @@ export function DynamicField({
   error?: string;
   onChange: (v: string) => void;
 }) {
+  const dropdownOptions = React.useMemo(() => {
+    const opts = (field.options ?? []).map((o) => ({ value: o, label: o }));
+    // An optional dropdown needs an empty choice, or its first option
+    // silently becomes an answer nobody gave.
+    return field.required ? opts : [{ value: "", label: "-" }, ...opts];
+  }, [field.options, field.required]);
+
   return (
     <Field label={field.label} error={error} required={field.required}>
       {field.input_type === "dropdown" ? (
-        <select value={value} onChange={(e) => onChange(e.target.value)} className={FIELD_CLASS}>
-          {/* An optional dropdown needs an empty choice, or its first option
-              silently becomes an answer nobody gave. */}
-          {!field.required ? <option value="">-</option> : null}
-          {(field.options ?? []).map((o) => (
-            <option key={o} value={o}>
-              {o}
-            </option>
-          ))}
-        </select>
+        <SelectMenu
+          value={value}
+          onChange={onChange}
+          options={dropdownOptions}
+          placeholder="Choose…"
+        />
       ) : field.input_type === "textarea" ? (
         <textarea
           value={value}

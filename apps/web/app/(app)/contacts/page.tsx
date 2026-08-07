@@ -149,8 +149,8 @@ export default function ContactsPage() {
       ) : null}
 
       <Card className="gap-0 overflow-hidden py-0">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3">
-          <div className="relative min-w-[220px] flex-1">
+        <div className="flex flex-col gap-3 border-b px-4 py-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+          <div className="relative min-w-0 flex-1">
             <Icon
               name="search"
               size={16}
@@ -159,11 +159,11 @@ export default function ContactsPage() {
             <Input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search this page by name, organisation, email or phone…"
+              placeholder="Search by name, org, email or phone…"
               className="pl-8"
             />
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {rows ? (
               <span className="text-sm tabular-nums text-muted-foreground">
                 {filtered.length} on page
@@ -220,69 +220,113 @@ export default function ContactsPage() {
             </p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-10">
+          <>
+            <ul className="divide-y md:hidden">
+              {filtered.map((c) => (
+                <li key={c.id} className="flex gap-3 px-4 py-3">
+                  <div className="pt-1">
                     <SelectCheckbox
-                      checked={sel.allSelected}
-                      indeterminate={sel.someSelected}
-                      onChange={sel.toggleAll}
-                      label="Select all contacts shown"
+                      checked={sel.isSelected(c.id)}
+                      onChange={() => sel.toggle(c.id)}
+                      label={`Select ${c.name}`}
                     />
-                  </TableHead>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Phone</TableHead>
-                  <TableHead className="text-right">Cases</TableHead>
-                  <TableHead>Most recent</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filtered.map((c) => (
-                  <TableRow key={c.id} className="h-[58px] [&_td]:py-0">
-                    <TableCell className="w-10">
-                      <SelectCheckbox
-                        checked={sel.isSelected(c.id)}
-                        onChange={() => sel.toggle(c.id)}
-                        label={`Select ${c.name}`}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex h-full items-center gap-2.5">
-                        <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium text-muted-foreground">
-                          {initials(c.name)}
-                        </div>
-                        <div className="min-w-0">
-                          <div className="truncate font-medium leading-5">{c.name}</div>
-                          {c.organisation ? (
-                            <div className="truncate text-xs leading-4 text-muted-foreground">
-                              {c.organisation}
-                            </div>
-                          ) : null}
-                        </div>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2.5">
+                      <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium text-muted-foreground">
+                        {initials(c.name)}
                       </div>
-                    </TableCell>
-                    <TableCell className="text-sm">
-                      {c.email ?? <span className="text-muted-foreground">- none</span>}
-                    </TableCell>
-                    <TableCell className="text-sm">
-                      {c.phone ?? <span className="text-muted-foreground">- none</span>}
-                    </TableCell>
-                    <TableCell className="text-right">
+                      <div className="min-w-0">
+                        <div className="truncate font-medium leading-5">{c.name}</div>
+                        {c.organisation ? (
+                          <div className="truncate text-xs leading-4 text-muted-foreground">
+                            {c.organisation}
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
+                    <div className="mt-2 space-y-0.5 text-sm text-muted-foreground">
+                      <div className="truncate">{c.email ?? "No email"}</div>
+                      <div className="truncate">{c.phone ?? "No phone"}</div>
+                    </div>
+                    <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                       <Badge variant="outline" className="tabular-nums">
-                        {c.caseCount}
+                        {c.caseCount} case{c.caseCount === 1 ? "" : "s"}
                       </Badge>
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {formatDate(c.lastCaseAt)}
-                    </TableCell>
+                      <span>Recent {formatDate(c.lastCaseAt)}</span>
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+            <div className="hidden overflow-x-auto md:block">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-10">
+                      <SelectCheckbox
+                        checked={sel.allSelected}
+                        indeterminate={sel.someSelected}
+                        onChange={sel.toggleAll}
+                        label="Select all contacts shown"
+                      />
+                    </TableHead>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Phone</TableHead>
+                    <TableHead className="text-right">Cases</TableHead>
+                    <TableHead>Most recent</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+                </TableHeader>
+                <TableBody>
+                  {filtered.map((c) => (
+                    <TableRow key={c.id} className="h-[58px] [&_td]:py-0">
+                      <TableCell className="w-10">
+                        <SelectCheckbox
+                          checked={sel.isSelected(c.id)}
+                          onChange={() => sel.toggle(c.id)}
+                          label={`Select ${c.name}`}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex h-full items-center gap-2.5">
+                          <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium text-muted-foreground">
+                            {initials(c.name)}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="truncate font-medium leading-5">{c.name}</div>
+                            {c.organisation ? (
+                              <div className="truncate text-xs leading-4 text-muted-foreground">
+                                {c.organisation}
+                              </div>
+                            ) : (
+                              <div className="truncate text-xs leading-4 text-transparent">
+                                &nbsp;
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        {c.email ?? <span className="text-muted-foreground">- none</span>}
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        {c.phone ?? <span className="text-muted-foreground">- none</span>}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Badge variant="outline" className="tabular-nums">
+                          {c.caseCount}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {formatDate(c.lastCaseAt)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </>
         )}
 
         <ListPager

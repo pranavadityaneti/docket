@@ -1,6 +1,5 @@
 "use client";
 
-import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
@@ -25,6 +24,7 @@ import {
   deleteWorkflow,
   listStages,
   listWorkflows,
+  type ApiFieldDef,
   type ApiStage,
   type ApiWorkflow,
 } from "@/features/workflows/api";
@@ -39,6 +39,120 @@ function slugPreview(name: string): string {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 64);
+}
+
+function fieldIcon(field: ApiFieldDef): string {
+  if (field.format === "inr") return "currency_rupee";
+  if (field.input_type === "dropdown") return "list";
+  if (field.input_type === "number" || field.field_type === "integer") {
+    return "tag";
+  }
+  if (field.input_type === "textarea") return "notes";
+  return "text_fields";
+}
+
+function fieldTypeHint(field: ApiFieldDef): string {
+  if (field.format === "inr") return "₹";
+  if (field.input_type === "dropdown") return "list";
+  if (field.input_type === "number" || field.field_type === "integer") {
+    return "number";
+  }
+  if (field.input_type === "textarea") return "long text";
+  return "text";
+}
+
+function SectionLabel({
+  children,
+  count,
+}: {
+  children: React.ReactNode;
+  count?: number;
+}) {
+  return (
+    <div className="mb-2.5 flex items-baseline gap-2">
+      <span className="text-[11px] font-medium uppercase tracking-[0.1em] text-muted-foreground">
+        {children}
+      </span>
+      {typeof count === "number" ? (
+        <span className="tabular-nums text-[11px] text-muted-foreground/80">
+          {count}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
+function StagesPipeline({ stages }: { stages: ApiStage[] }) {
+  return (
+    <div className="-mx-1 overflow-x-auto px-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+      <ol className="flex min-w-min items-stretch gap-0">
+        {stages.map((s, i) => {
+          const tone = TONE_CLASS[s.tone] ?? TONE_CLASS.muted;
+          const isLast = i === stages.length - 1;
+          return (
+            <li key={s.id} className="flex items-center">
+              <div
+                className={cn(
+                  "flex max-w-[11rem] items-center gap-2 rounded-[12px] px-2.5 py-1.5",
+                  tone,
+                )}
+                title={s.name}
+              >
+                <span className="flex size-5 shrink-0 items-center justify-center rounded-[6px] bg-background/55 text-[10px] font-semibold tabular-nums">
+                  {i + 1}
+                </span>
+                <span className="truncate text-xs font-medium leading-snug">
+                  {s.name}
+                </span>
+              </div>
+              {!isLast ? (
+                <div
+                  className="mx-1 flex w-4 shrink-0 items-center justify-center"
+                  aria-hidden
+                >
+                  <div className="h-px w-full bg-border" />
+                  <Icon
+                    name="chevron_right"
+                    size={12}
+                    className="-ml-1 text-muted-foreground/70"
+                  />
+                </div>
+              ) : null}
+            </li>
+          );
+        })}
+      </ol>
+    </div>
+  );
+}
+
+function FieldsCollected({ fields }: { fields: ApiFieldDef[] }) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {fields.map((f) => (
+        <span
+          key={f.field_key}
+          title={`${f.label} · ${fieldTypeHint(f)}${f.required ? " · required" : ""}`}
+          className="inline-flex max-w-full items-center gap-1.5 rounded-[12px] border border-border/80 bg-muted/40 px-2.5 py-1.5 text-xs text-foreground"
+        >
+          <Icon
+            name={fieldIcon(f)}
+            size={14}
+            className="shrink-0 text-muted-foreground"
+          />
+          <span className="truncate font-medium">{f.label}</span>
+          {f.required ? (
+            <span
+              className="text-[10px] font-semibold uppercase tracking-wide text-danger"
+              aria-label="Required"
+            >
+              req
+            </span>
+          ) : null}
+        </span>
+      ))}
+    </div>
+  );
 }
 
 function WorkflowCard({
@@ -132,58 +246,28 @@ function WorkflowCard({
         </div>
       </div>
 
-      <div className="border-b p-4">
-        <div className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          Stages
-        </div>
+      <div className="border-b bg-muted/20 p-4">
+        <SectionLabel count={stages?.length}>Stages</SectionLabel>
         {stages === null && !stageError ? (
-          <Skeleton className="h-7 w-2/3" />
+          <Skeleton className="h-9 w-2/3 rounded-[12px]" />
         ) : stageError ? (
           <p className="text-sm text-muted-foreground">Couldn&rsquo;t load stages.</p>
         ) : stages && stages.length > 0 ? (
-          <div className="flex flex-wrap items-center gap-1.5">
-            {stages.map((s, i) => (
-              <React.Fragment key={s.id}>
-                <Badge
-                  variant="outline"
-                  className={`${TONE_CLASS[s.tone] ?? TONE_CLASS.muted} whitespace-nowrap font-normal`}
-                >
-                  {s.name}
-                </Badge>
-                {i < stages.length - 1 ? (
-                  <Icon name="chevron_right" size={14} className="text-muted-foreground" />
-                ) : null}
-              </React.Fragment>
-            ))}
-          </div>
+          <StagesPipeline stages={stages} />
         ) : (
           <p className="text-sm text-muted-foreground">No stages configured.</p>
         )}
       </div>
 
       <div className="p-4">
-        <div className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          Fields collected
-        </div>
+        <SectionLabel count={fields.length}>Fields collected</SectionLabel>
         {fields.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             No custom fields - this workflow collects only the subject&rsquo;s name
             and contact details.
           </p>
         ) : (
-          <div className="flex flex-wrap gap-1.5">
-            {fields.slice(0, 8).map((f) => (
-              <Badge key={f.field_key} variant="outline" className="font-normal">
-                {f.label}
-                {f.required ? <span className="ml-0.5 text-danger">*</span> : null}
-              </Badge>
-            ))}
-            {fields.length > 8 ? (
-              <Badge variant="outline" className="font-normal text-muted-foreground">
-                +{fields.length - 8} more
-              </Badge>
-            ) : null}
-          </div>
+          <FieldsCollected fields={fields} />
         )}
       </div>
 

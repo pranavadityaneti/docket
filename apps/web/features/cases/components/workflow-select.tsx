@@ -19,17 +19,17 @@ export function WorkflowSelect({
   const selected = workflows.find((workflow) => workflow.slug === selectedSlug)
     ?? workflows[0];
   return (
-    <div className="relative">
+    <div className="relative max-w-full">
       <Button
         variant="outline"
-        className="gap-2"
+        className="max-w-full gap-2"
         onClick={() => setOpen((isOpen) => !isOpen)}
       >
-        {selected.name}
+        <span className="truncate">{selected.name}</span>
         <Icon
           name="expand_more"
           size={16}
-          className="text-muted-foreground"
+          className="shrink-0 text-muted-foreground"
         />
       </Button>
       {open ? (
@@ -39,7 +39,7 @@ export function WorkflowSelect({
             className="fixed inset-0 z-40 cursor-default"
             onClick={() => setOpen(false)}
           />
-          <div className="absolute right-0 top-full z-50 mt-1 w-60 rounded-md border border-border bg-popover p-1 text-popover-foreground">
+          <div className="absolute left-0 right-auto top-full z-50 mt-1 w-[min(15rem,calc(100vw-2rem))] rounded-md border border-border bg-popover p-1 text-popover-foreground sm:left-auto sm:right-0">
             {workflows.map((workflow) => (
               <button
                 key={workflow.slug}
@@ -47,11 +47,11 @@ export function WorkflowSelect({
                   setOpen(false);
                   if (workflow.slug !== selected.slug) onSelect(workflow.slug);
                 }}
-                className="flex w-full items-center justify-between rounded-sm px-2.5 py-1.5 text-sm hover:bg-accent"
+                className="flex w-full items-center justify-between gap-2 rounded-sm px-2.5 py-1.5 text-left text-sm hover:bg-accent"
               >
-                {workflow.name}
+                <span className="truncate">{workflow.name}</span>
                 {selected.slug === workflow.slug ? (
-                  <Icon name="check" size={16} className="text-primary" />
+                  <Icon name="check" size={16} className="shrink-0 text-primary" />
                 ) : null}
               </button>
             ))}

@@ -7,6 +7,7 @@ import {
   inputsToData,
   validateField,
 } from "@/components/shared/case-fields";
+import { SelectMenu } from "@/components/shared/select-menu";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
@@ -107,20 +108,17 @@ function OwnerAssign({
       <label htmlFor="case-owner" className="text-sm text-muted-foreground">
         Owner
       </label>
-      <select
+      <SelectMenu
         id="case-owner"
-        className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] disabled:opacity-50"
         value={ownerId}
         disabled={saving || members.length === 0}
-        onChange={(e) => void saveOwner(e.target.value)}
-      >
-        <option value="">Unassigned</option>
-        {members.map((m) => (
-          <option key={m.id} value={m.id}>
-            {m.name}
-          </option>
-        ))}
-      </select>
+        placeholder="Unassigned"
+        options={[
+          { value: "", label: "Unassigned" },
+          ...members.map((m) => ({ value: m.id, label: m.name })),
+        ]}
+        onChange={(next) => void saveOwner(next)}
+      />
       {error ? <p className="text-xs text-danger">{error}</p> : null}
     </div>
   );

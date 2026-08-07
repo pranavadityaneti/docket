@@ -3,6 +3,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
+import { SelectMenu } from "@/components/shared/select-menu";
 import type { ApiFieldDef, ApiStage } from "@/features/workflows/api";
 import { cn } from "@/lib/utils";
 import { plural } from "@/lib/format";
@@ -69,7 +70,7 @@ function BoardCard({
       onDragStart={(event) => {
         const target = event.target as HTMLElement | null;
         // Select / interactive controls use their own pointer - don't steal.
-        if (target?.closest("select, label, button, a, input, textarea")) {
+        if (target?.closest("select, label, button, a, input, textarea, [data-slot='dropdown-menu-trigger']")) {
           event.preventDefault();
           return;
         }
@@ -82,9 +83,11 @@ function BoardCard({
         event.dataTransfer.effectAllowed = "move";
         setDraggingId(lead.id);
       }}
-      onDragEnd={() => setDraggingId(null)}
+      onDragEnd={() => {
+        setDraggingId(null);
+      }}
       className={cn(
-        "cursor-grab rounded-[8px] border border-border bg-card p-3 active:cursor-grabbing",
+        "cursor-grab rounded-[8px] border border-border bg-card p-3 text-foreground active:cursor-grabbing",
         draggingId === lead.id && "opacity-50",
       )}
     >
@@ -111,25 +114,21 @@ function BoardCard({
       ) : null}
       <label className="mt-2 flex cursor-pointer items-center gap-1.5 border-t pt-2 text-[11px] text-muted-foreground">
         <Icon name="swap_vert" size={14} className="shrink-0" />
-        <select
+        <SelectMenu
+          size="sm"
           value={lead.stage}
           disabled={!stages.length}
-          onChange={(event) => {
-            const name = event.target.value as Stage;
+          aria-label={`Move ${lead.name} to another stage`}
+          className="min-w-0 flex-1"
+          options={options.map((name) => ({ value: name, label: name }))}
+          onChange={(next) => {
+            const name = next as Stage;
             const id = stageIdByName.get(name);
             if (id && name !== lead.stage) {
               onMoveStage(lead.id, id, name);
             }
           }}
-          aria-label={`Move ${lead.name} to another stage`}
-          className="min-w-0 flex-1 cursor-pointer rounded-[8px] border border-input bg-background px-1.5 py-1 text-[11px] text-foreground outline-none focus-visible:border-ring disabled:opacity-50"
-        >
-          {options.map((name) => (
-            <option key={name} value={name}>
-              {name}
-            </option>
-          ))}
-        </select>
+        />
       </label>
     </div>
   );
@@ -174,6 +173,10 @@ function BoardColumn({
     const payload = parseBoardDragPayload(
       event.dataTransfer.getData(BOARD_DRAG_MIME),
     );
+    // Clear the drag fade BEFORE the optimistic stage update. Moving the card
+    // to another column unmounts the drag source, and dragend never runs — the
+    // card stayed at opacity-50 forever (looked "disabled").
+    setDraggingId(null);
     if (!payload) return;
     if (!shouldMoveOnDrop(payload, stage)) return;
     const toId = stageIdByName.get(stage);
@@ -184,7 +187,7 @@ function BoardColumn({
   return (
     <div
       className={cn(
-        "flex w-72 shrink-0 flex-col overflow-hidden rounded-[12px] border bg-card transition-colors",
+        "flex w-[min(18rem,calc(100vw-2.5rem))] shrink-0 flex-col overflow-hidden rounded-[12px] border bg-card transition-colors",
         isOver && "border-primary bg-primary/5",
       )}
       onDragOver={(event) => {
@@ -261,6 +264,15 @@ export function BoardView({
   const options: readonly string[] = stages.map((stage) => stage.name);
   const [headline, chip] = fields;
   const [draggingId, setDraggingId] = React.useState<string | null>(null);
+
+  // Belt-and-suspenders: if the drag source unmounts mid-drop, React's
+  // onDragEnd may never fire - still reset the faded state.
+  React.useEffect(() => {
+    if (!draggingId) return;
+    const clear = () => setDraggingId(null);
+    window.addEventListener("dragend", clear);
+    return () => window.removeEventListener("dragend", clear);
+  }, [draggingId]);
 
   if (stages.length === 0) {
     return (

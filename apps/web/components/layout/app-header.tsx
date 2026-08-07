@@ -116,13 +116,13 @@ export function AppHeader() {
   const displayEmail = profile?.user.email ?? "";
 
   return (
-    <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center gap-2 border-b border-border/80 bg-background/90 px-4 backdrop-blur-sm">
+    <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center gap-2 border-b border-border/80 bg-background/90 px-3 backdrop-blur-sm sm:px-4">
       <SidebarTrigger className="-ml-1" />
       <Separator
         orientation="vertical"
-        className="mr-1 data-[orientation=vertical]:h-4"
+        className="mr-1 hidden data-[orientation=vertical]:h-4 sm:block"
       />
-      <span className="truncate text-sm font-semibold tracking-tight">
+      <span className="min-w-0 truncate text-sm font-semibold tracking-tight">
         {titleForPath(pathname)}
       </span>
 
@@ -149,7 +149,10 @@ export function AppHeader() {
               </span>
             ) : null}
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-80 rounded-[12px] p-0">
+          <DropdownMenuContent
+            align="end"
+            className="w-[min(20rem,calc(100vw-1.5rem))] rounded-[12px] p-0"
+          >
             <DropdownMenuGroup>
               <DropdownMenuLabel className="px-3 py-2.5 text-foreground">
                 Notifications

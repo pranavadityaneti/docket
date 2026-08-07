@@ -119,7 +119,7 @@ export default function ConversationsPage() {
       <ErrorBanner>{error}</ErrorBanner>
 
       <Card className="gap-0 overflow-hidden py-0">
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b p-4">
+        <div className="flex flex-col gap-2 border-b p-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
           <div className="relative min-w-0 flex-1 sm:max-w-sm">
             <Icon
               name="search"
