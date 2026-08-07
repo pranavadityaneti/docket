@@ -1,20 +1,34 @@
 import type { ChecklistItemStatus } from "@/features/case-detail/api";
+import {
+  DANGER_BANNER,
+  SKY_BANNER,
+  SUCCESS_BANNER,
+  WARNING_BANNER,
+} from "@/lib/tones";
 
 export const STATUS_META: Record<
   ChecklistItemStatus,
   { label: string; tone: string; icon: string }
 > = {
-  missing: { label: "Not received", tone: "border-border bg-muted text-muted-foreground", icon: "radio_button_unchecked" },
-  received: { label: "Received", tone: "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-900 dark:bg-sky-950 dark:text-sky-300", icon: "inbox" },
-  needs_review: { label: "Needs review", tone: "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300", icon: "pending_actions" },
-  accepted: { label: "Accepted", tone: "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300", icon: "check_circle" },
-  rejected: { label: "Rejected", tone: "border-red-200 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300", icon: "cancel" },
-  expired: { label: "Expired", tone: "border-orange-200 bg-orange-50 text-orange-800 dark:border-orange-900 dark:bg-orange-950 dark:text-orange-300", icon: "schedule" },
+  missing: {
+    label: "Not received",
+    tone: "border-border bg-muted text-muted-foreground",
+    icon: "radio_button_unchecked",
+  },
+  received: { label: "Received", tone: SKY_BANNER, icon: "inbox" },
+  needs_review: {
+    label: "Needs review",
+    tone: WARNING_BANNER,
+    icon: "pending_actions",
+  },
+  accepted: { label: "Accepted", tone: SUCCESS_BANNER, icon: "check_circle" },
+  rejected: { label: "Rejected", tone: DANGER_BANNER, icon: "cancel" },
+  expired: { label: "Expired", tone: WARNING_BANNER, icon: "schedule" },
 };
 
 export const INCOMPLETE_META = {
   label: "Incomplete",
-  tone: "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300",
+  tone: WARNING_BANNER,
   icon: "error_outline",
 };
 

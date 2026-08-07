@@ -249,10 +249,10 @@ export const workflows = pgTable(
     name: text("name").notNull(),
     slug: text("slug").notNull(),
     description: text("description"),
-    // Vocabulary. A lender says Borrower/Application, a college says
-    // Student/Admission, a CA firm says Client/Engagement. The UI reads these
-    // rather than hardcoding a noun, which is what stops Docket being a
-    // lending tool with other industries bolted on.
+    // Vocabulary. subjectLabel is who the case is about (Borrower / Student /
+    // Client). caseLabel is what each run is called - defaults to Case; tenants
+    // can rename, but Docket's product term is Case. The UI reads these rather
+    // than hardcoding a noun.
     subjectLabel: text("subject_label").notNull().default("Contact"),
     caseLabel: text("case_label").notNull().default("Case"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -321,7 +321,8 @@ export const contacts = pgTable(
   ],
 );
 
-/** One instance of a workflow: a loan application, an admission, an audit engagement. */
+/** One instance of a workflow: a business-loan case, a college admission, an
+ * audit engagement. Always a Case in product terms. */
 export const cases = pgTable(
   "cases",
   {
@@ -458,6 +459,13 @@ export const documents = pgTable(
     sourceChannel: text("source_channel", { enum: DOCUMENT_CHANNELS }),
     /** The WhatsApp number / email address it actually came from, for audit. */
     sourceIdentifier: text("source_identifier"),
+    /**
+     * Provider id of the inbound message this file arrived with (email
+     * Message-ID / WhatsApp message id). Same value as
+     * conversation_messages.external_id, so the Conversations tab can show
+     * attachment chips without a message↔document FK on every arrival path.
+     */
+    sourceExternalId: text("source_external_id"),
 
     /* ---- AI classification (see classify.ts) ---- */
     /**
@@ -526,6 +534,10 @@ export const documents = pgTable(
     index("documents_tenant_status_idx").on(t.tenantId, t.status),
     // Cross-channel duplicate detection (same file on WhatsApp and email).
     index("documents_tenant_checksum_idx").on(t.tenantId, t.checksum),
+    // Conversation thread joins docs by the inbound message's external id.
+    index("documents_case_source_ext_idx")
+      .on(t.caseId, t.sourceExternalId)
+      .where(sql`${t.sourceExternalId} is not null`),
     // Every checklist read is "this case's documents that are still here", so
     // the live-only filter belongs in the index rather than being applied to
     // the result of a wider scan.
@@ -710,6 +722,51 @@ export const unmatchedDocuments = pgTable(
   ],
 );
 
+/* ------------------------------- notifications ------------------------------- */
+
+/**
+ * Workspace inbox behind the bell. Operational alerts - a document arrived,
+ * something needs review, an unmatched file is waiting - not marketing.
+ *
+ * tenant-scoped (every member sees them). Optional user_id for a future
+ * per-person feed; leave null for workspace-wide items.
+ */
+export const NOTIFICATION_KINDS = [
+  "document_received",
+  "document_needs_review",
+  "unmatched",
+  "follow_up_due",
+  "comment",
+  "stage_changed",
+  "generic",
+] as const;
+export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
+
+export const notifications = pgTable(
+  "notifications",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
+    /** Null = workspace-wide; set to target one member. */
+    userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }),
+    kind: text("kind", { enum: NOTIFICATION_KINDS }).notNull(),
+    title: text("title").notNull(),
+    body: text("body"),
+    /** In-app path, e.g. /cases/<id>?tab=checklist */
+    href: text("href"),
+    caseId: uuid("case_id").references(() => cases.id, { onDelete: "set null" }),
+    readAt: timestamp("read_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("notifications_tenant_created_idx").on(t.tenantId, t.createdAt),
+    index("notifications_tenant_unread_idx")
+      .on(t.tenantId, t.createdAt)
+      .where(sql`${t.readAt} is null`),
+    index("notifications_user_idx").on(t.userId).where(sql`${t.userId} is not null`),
+  ],
+);
+
 /* ------------------------------- inferred types ------------------------------- */
 
 export type Tenant = typeof tenants.$inferSelect;
@@ -727,3 +784,5 @@ export type DocumentRow = typeof documents.$inferSelect;
 export type NewDocumentRow = typeof documents.$inferInsert;
 export type CaseMessage = typeof caseMessages.$inferSelect;
 export type UnmatchedDocument = typeof unmatchedDocuments.$inferSelect;
+export type Notification = typeof notifications.$inferSelect;
+export type NewNotification = typeof notifications.$inferInsert;

@@ -229,14 +229,14 @@ function CasesPage() {
       </div>
 
       {moveError ? (
-        <div className="flex items-center justify-between gap-2 border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+        <div className="flex items-center justify-between gap-2 border border-danger-border bg-danger-muted px-3 py-2 text-sm text-danger-muted-foreground">
           <span className="flex items-center gap-1.5">
             <Icon name="error" size={16} /> {moveError}
           </span>
           <button
             onClick={() => setMoveError(null)}
             aria-label="Dismiss"
-            className="text-red-700/70 hover:text-red-700"
+            className="text-danger/70 hover:text-danger"
           >
             <Icon name="close" size={16} />
           </button>
@@ -244,8 +244,8 @@ function CasesPage() {
       ) : null}
 
       {error ? (
-        <Card className="flex flex-col items-center gap-3 border-red-200 py-16 text-center">
-          <div className="flex size-11 items-center justify-center rounded-full bg-red-50 text-red-600">
+        <Card className="flex flex-col items-center gap-3 border-danger-border py-16 text-center">
+          <div className="flex size-11 items-center justify-center rounded-full bg-danger-muted text-danger">
             <Icon name="error" size={22} />
           </div>
           <div>
@@ -312,11 +312,22 @@ function CasesPage() {
         selectedSlug={selectedSlug}
         onCreate={async (input) => {
           try {
-            // The new case belongs to the workflow this screen is showing.
-            // Without the slug, POST /cases rejects the moment a tenant runs
-            // more than one workflow - the create-dialog sibling of the same
-            // bug the picker fixes.
-            const created = await createCase({ ...input, workflow: selectedSlug ?? undefined });
+            // Honour the dialog's "What is this for?" choice. Fall back to the
+            // open workflow only when the dialog somehow omitted a slug
+            // (single-workflow tenants never show the picker).
+            const workflowSlug = input.workflow ?? selectedSlug ?? undefined;
+            const created = await createCase({
+              ...input,
+              workflow: workflowSlug,
+            });
+            if (
+              workflowSlug &&
+              workflowSlug !== selectedSlug &&
+              typeof window !== "undefined"
+            ) {
+              setSelectedSlug(workflowSlug);
+              window.localStorage.setItem(WORKFLOW_STORAGE_KEY, workflowSlug);
+            }
             // Straight to the checklist. Creating a case and then hunting for
             // it in the table is the wrong next step - what the case needs is
             // the only reason it was created.

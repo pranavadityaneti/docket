@@ -1,30 +1,60 @@
 "use client";
 
 import { Badge } from "@/components/ui/badge";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Icon } from "@/components/ui/icon";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ErrorBanner } from "@/components/shared/page-state";
+import { ErrorBanner, NoticeBanner } from "@/components/shared/page-state";
 import { useAsyncResource } from "@/hooks/use-async-resource";
-import { listStages, listWorkflows } from "@/features/workflows/api";
-import type { ApiStage, ApiWorkflow } from "@/features/workflows/api";
+import { AuthRequiredError, getStoredProfile } from "@/lib/http";
+import { cn } from "@/lib/utils";
 import { TONE_CLASS } from "@/lib/tones";
+import {
+  canEditWorkflows,
+  createWorkflow,
+  deleteWorkflow,
+  listStages,
+  listWorkflows,
+  type ApiStage,
+  type ApiWorkflow,
+} from "@/features/workflows/api";
+import Link from "next/link";
 import * as React from "react";
+import { useRouter } from "next/navigation";
 
-/* ------------------------------------------------------------------ *
- * Workflows - what this workspace actually runs.
- *
- * Read-only on purpose. A workflow's stages, vocabulary and field
- * definitions are what every other screen reads: the board's columns,
- * the create dialog's fields, the checklist's conditions. Editing them
- * is a real feature with real consequences (a live case sitting in a
- * stage somebody deleted), so this shows the configuration honestly and
- * says plainly that changing it is not here yet.
- * ------------------------------------------------------------------ */
+function slugPreview(name: string): string {
+  return name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 64);
+}
 
-function WorkflowCard({ workflow }: { workflow: ApiWorkflow }) {
+function WorkflowCard({
+  workflow,
+  canEdit,
+  onDeleted,
+}: {
+  workflow: ApiWorkflow;
+  canEdit: boolean;
+  onDeleted: () => void;
+}) {
   const [stages, setStages] = React.useState<ApiStage[] | null>(null);
   const [stageError, setStageError] = React.useState(false);
+  const [deleting, setDeleting] = React.useState(false);
+  const [confirmOpen, setConfirmOpen] = React.useState(false);
+  const [deleteError, setDeleteError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -42,19 +72,64 @@ function WorkflowCard({ workflow }: { workflow: ApiWorkflow }) {
 
   const fields = [...(workflow.fields ?? [])].sort((a, b) => a.order - b.order);
 
+  async function confirmDelete() {
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await deleteWorkflow(workflow.slug);
+      setConfirmOpen(false);
+      onDeleted();
+    } catch (e) {
+      if (e instanceof AuthRequiredError) return;
+      setDeleteError(e instanceof Error ? e.message : "Couldn't delete that workflow.");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   return (
     <Card className="gap-0 overflow-hidden py-0">
       <div className="flex flex-wrap items-start justify-between gap-3 border-b p-4">
         <div className="min-w-0">
-          <div className="font-medium">{workflow.name}</div>
+          <Link
+            href={`/workflows/${encodeURIComponent(workflow.slug)}`}
+            className="font-medium hover:underline"
+          >
+            {workflow.name}
+          </Link>
           <p className="mt-0.5 text-sm text-muted-foreground">
-            Calls its subject a <strong>{workflow.subjectLabel}</strong> and each run an{" "}
-            <strong>{workflow.caseLabel}</strong>.
+            Calls its subject a <strong>{workflow.subjectLabel}</strong> and each
+            run a <strong>{workflow.caseLabel}</strong>.
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {workflow.stageCount ?? stages?.length ?? "…"} stages · {fields.length}{" "}
+            fields · {workflow.requirementCount ?? 0} checklist items
           </p>
         </div>
-        <code className="rounded bg-muted px-2 py-1 text-xs text-muted-foreground">
-          {workflow.slug}
-        </code>
+        <div className="flex flex-wrap items-center gap-2">
+          <code className="rounded bg-muted px-2 py-1 text-xs text-muted-foreground">
+            {workflow.slug}
+          </code>
+          <Link
+            href={`/workflows/${encodeURIComponent(workflow.slug)}`}
+            className={cn(buttonVariants({ size: "sm", variant: "outline" }))}
+          >
+            {canEdit ? "Edit" : "View"}
+          </Link>
+          {canEdit ? (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="text-destructive"
+              onClick={() => {
+                setDeleteError(null);
+                setConfirmOpen(true);
+              }}
+            >
+              Delete
+            </Button>
+          ) : null}
+        </div>
       </div>
 
       <div className="border-b p-4">
@@ -66,8 +141,6 @@ function WorkflowCard({ workflow }: { workflow: ApiWorkflow }) {
         ) : stageError ? (
           <p className="text-sm text-muted-foreground">Couldn&rsquo;t load stages.</p>
         ) : stages && stages.length > 0 ? (
-          // In board order, with the arrows that make it read as a pipeline
-          // rather than a set of labels.
           <div className="flex flex-wrap items-center gap-1.5">
             {stages.map((s, i) => (
               <React.Fragment key={s.id}>
@@ -94,81 +167,226 @@ function WorkflowCard({ workflow }: { workflow: ApiWorkflow }) {
         </div>
         {fields.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            No custom fields - this workflow collects only the subject&rsquo;s name and contact
-            details.
+            No custom fields - this workflow collects only the subject&rsquo;s name
+            and contact details.
           </p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left text-xs uppercase tracking-wide text-muted-foreground">
-                  <th className="pb-2 pr-4 font-medium">Label</th>
-                  <th className="pb-2 pr-4 font-medium">Type</th>
-                  <th className="pb-2 pr-4 font-medium">Options</th>
-                  <th className="pb-2 font-medium">Shown in table</th>
-                </tr>
-              </thead>
-              <tbody>
-                {fields.map((f) => (
-                  <tr key={f.field_key} className="border-t">
-                    <td className="py-2 pr-4">
-                      <div>{f.label}</div>
-                      <code className="text-xs text-muted-foreground">{f.field_key}</code>
-                    </td>
-                    <td className="py-2 pr-4 text-muted-foreground">
-                      {f.input_type}
-                      {f.required ? <span className="ml-1 text-red-600">*</span> : null}
-                    </td>
-                    <td className="py-2 pr-4 text-muted-foreground">
-                      {f.options?.length ? f.options.join(", ") : "-"}
-                    </td>
-                    <td className="py-2 text-muted-foreground">
-                      {f.show_in_table ? "Yes" : "-"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="flex flex-wrap gap-1.5">
+            {fields.slice(0, 8).map((f) => (
+              <Badge key={f.field_key} variant="outline" className="font-normal">
+                {f.label}
+                {f.required ? <span className="ml-0.5 text-danger">*</span> : null}
+              </Badge>
+            ))}
+            {fields.length > 8 ? (
+              <Badge variant="outline" className="font-normal text-muted-foreground">
+                +{fields.length - 8} more
+              </Badge>
+            ) : null}
           </div>
         )}
       </div>
+
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete {workflow.name}?</DialogTitle>
+            <DialogDescription>
+              This removes the workflow, its stages, fields and checklist. It is
+              blocked if any cases still exist under it.
+            </DialogDescription>
+          </DialogHeader>
+          {deleteError ? (
+            <p className="px-5 text-sm text-destructive">{deleteError}</p>
+          ) : null}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmOpen(false)} disabled={deleting}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={() => void confirmDelete()} disabled={deleting}>
+              {deleting ? "Deleting…" : "Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
 
+function NewWorkflowDialog({
+  open,
+  onOpenChange,
+  onCreated,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onCreated: (slug: string) => void;
+}) {
+  const [name, setName] = React.useState("");
+  const [slug, setSlug] = React.useState("");
+  const [slugTouched, setSlugTouched] = React.useState(false);
+  const [subjectLabel, setSubjectLabel] = React.useState("Contact");
+  const [caseLabel, setCaseLabel] = React.useState("Case");
+  const [busy, setBusy] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (!open) return;
+    setName("");
+    setSlug("");
+    setSlugTouched(false);
+    setSubjectLabel("Contact");
+    setCaseLabel("Case");
+    setError(null);
+  }, [open]);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      const wf = await createWorkflow({
+        name: name.trim(),
+        slug: slug.trim() || undefined,
+        subjectLabel: subjectLabel.trim(),
+        caseLabel: caseLabel.trim(),
+      });
+      onOpenChange(false);
+      onCreated(wf.slug);
+    } catch (err) {
+      if (err instanceof AuthRequiredError) return;
+      setError(err instanceof Error ? err.message : "Couldn't create workflow.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <form onSubmit={(e) => void submit(e)}>
+          <DialogHeader>
+            <DialogTitle>New workflow</DialogTitle>
+            <DialogDescription>
+              A process this workspace runs - you can add stages, fields and a
+              document checklist after creating it.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-3 px-5 pb-2">
+            <label className="flex flex-col gap-1.5 text-sm">
+              <span className="font-medium">Name</span>
+              <Input
+                value={name}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setName(v);
+                  if (!slugTouched) setSlug(slugPreview(v));
+                }}
+                required
+                autoFocus
+                maxLength={120}
+              />
+            </label>
+            <label className="flex flex-col gap-1.5 text-sm">
+              <span className="font-medium">Slug</span>
+              <Input
+                value={slug}
+                onChange={(e) => {
+                  setSlugTouched(true);
+                  setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""));
+                }}
+                placeholder="derived-from-name"
+                pattern="[a-z0-9]+(?:-[a-z0-9]+)*"
+                maxLength={64}
+              />
+              <span className="text-xs text-muted-foreground">
+                Locked after create. Used in URLs and APIs.
+              </span>
+            </label>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="flex flex-col gap-1.5 text-sm">
+                <span className="font-medium">Subject label</span>
+                <Input
+                  value={subjectLabel}
+                  onChange={(e) => setSubjectLabel(e.target.value)}
+                  required
+                  maxLength={64}
+                  placeholder="Contact, Borrower, Student…"
+                />
+              </label>
+              <label className="flex flex-col gap-1.5 text-sm">
+                <span className="font-medium">Case label</span>
+                <Input
+                  value={caseLabel}
+                  onChange={(e) => setCaseLabel(e.target.value)}
+                  required
+                  maxLength={64}
+                  placeholder="Case"
+                />
+              </label>
+            </div>
+            {error ? <p className="text-sm text-destructive">{error}</p> : null}
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={busy || !name.trim()}>
+              {busy ? "Creating…" : "Create"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function WorkflowsPage() {
+  const canEdit = canEditWorkflows(getStoredProfile()?.role);
+  const router = useRouter();
+  const [newOpen, setNewOpen] = React.useState(false);
+  const [notice, setNotice] = React.useState<string | null>(null);
   const {
     data: workflows,
     error,
     loading,
+    reload,
   } = useAsyncResource(listWorkflows, [], {
     fallbackError: "Couldn't load workflows.",
   });
 
   return (
     <div className="flex w-full flex-col gap-5">
-      <div className="space-y-1">
-        <p className="text-[11px] font-medium uppercase tracking-[0.1em] text-muted-foreground">
-          Setup
-        </p>
-        <h1 className="text-2xl font-semibold tracking-tight text-balance">Workflows</h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">
-          The processes this workspace runs - their vocabulary, stages and the fields each one
-          collects.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="space-y-1">
+          <p className="text-[11px] font-medium uppercase tracking-[0.1em] text-muted-foreground">
+            Setup
+          </p>
+          <h1 className="text-2xl font-semibold tracking-tight text-balance">Workflows</h1>
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            The processes this workspace runs - their vocabulary, stages and the
+            fields each one collects.
+          </p>
+        </div>
+        {canEdit ? (
+          <Button className="gap-1.5" onClick={() => setNewOpen(true)}>
+            <Icon name="add" size={16} />
+            New workflow
+          </Button>
+        ) : null}
       </div>
 
       <ErrorBanner>{error}</ErrorBanner>
+      <NoticeBanner>{notice}</NoticeBanner>
 
-      {/* Said out loud rather than implied by the absence of buttons: this
-          screen shows configuration, it does not change it. */}
-      <div className="flex items-start gap-1.5 rounded-md border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
-        <Icon name="info" size={15} className="mt-0.5 shrink-0" />
-        <span>
-          Read-only for now. Stages, fields and document checklists are configured by the Docket
-          team - editing them here is on the roadmap.
-        </span>
-      </div>
+      {!canEdit ? (
+        <div className="flex items-start gap-1.5 rounded-md border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+          <Icon name="info" size={15} className="mt-0.5 shrink-0" />
+          <span>
+            You can view workflow configuration. Owners and admins can edit it.
+          </span>
+        </div>
+      ) : null}
 
       {loading && workflows === null && !error ? (
         <Skeleton className="h-48 w-full" />
@@ -176,10 +394,35 @@ export default function WorkflowsPage() {
         <Card className="flex flex-col items-center gap-2 border-dashed py-16 text-center">
           <Icon name="account_tree" size={22} className="text-muted-foreground" />
           <div className="text-sm font-medium">No workflows configured</div>
+          {canEdit ? (
+            <Button size="sm" className="mt-2" onClick={() => setNewOpen(true)}>
+              Create the first one
+            </Button>
+          ) : null}
         </Card>
       ) : (
-        (workflows ?? []).map((w) => <WorkflowCard key={w.id} workflow={w} />)
+        (workflows ?? []).map((w) => (
+          <WorkflowCard
+            key={w.id}
+            workflow={w}
+            canEdit={canEdit}
+            onDeleted={() => {
+              setNotice(`Deleted ${w.name}.`);
+              reload();
+            }}
+          />
+        ))
       )}
+
+      <NewWorkflowDialog
+        open={newOpen}
+        onOpenChange={setNewOpen}
+        onCreated={(slug) => {
+          setNotice("Workflow created - finish stages, fields and the checklist.");
+          reload();
+          router.push(`/workflows/${encodeURIComponent(slug)}`);
+        }}
+      />
     </div>
   );
 }

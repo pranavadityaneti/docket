@@ -80,14 +80,14 @@ export function DeleteDialog({
       <DialogContent className="gap-0 p-0">
         <DialogHeader className="border-b pr-10">
           <DialogTitle className="flex items-center gap-2">
-            <Icon name="warning" size={18} className="text-red-600 dark:text-red-400" />
+            <Icon name="warning" size={18} className="text-danger" />
             {title}
           </DialogTitle>
           <DialogDescription>This cannot be undone from here.</DialogDescription>
         </DialogHeader>
 
         <div className="max-h-[60vh] min-h-0 flex-1 overflow-y-auto px-5 py-4">
-          <div className="mb-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
+          <div className="mb-4 rounded-md border border-danger-border bg-danger-muted p-3 text-sm text-danger-muted-foreground">
             {consequences}
           </div>
 
@@ -156,7 +156,7 @@ export function DeleteDialog({
         </div>
 
         {error ? (
-          <div className="flex items-center gap-1.5 border-t bg-red-50 px-4 py-2 text-sm text-red-600 dark:bg-red-950 dark:text-red-300">
+          <div className="flex items-center gap-1.5 border-t bg-danger-muted px-4 py-2 text-sm text-danger">
             <Icon name="error" size={15} /> {error}
           </div>
         ) : null}

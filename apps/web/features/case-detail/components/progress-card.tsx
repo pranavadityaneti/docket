@@ -36,7 +36,7 @@ export function ProgressCard({
       >
         <div
           className={`h-full rounded-full transition-[width] duration-500 ${
-            done ? "bg-emerald-500" : "bg-primary"
+            done ? "bg-success" : "bg-primary"
           }`}
           style={{ width: `${pct}%` }}
         />
@@ -55,7 +55,7 @@ export function ProgressCard({
           waiting on you
         </span>
         {done ? (
-          <span className="text-emerald-600 dark:text-emerald-400">
+          <span className="text-success">
             Everything required is in - nothing to ask the{" "}
             {subjectLabel.toLowerCase()} for.
           </span>

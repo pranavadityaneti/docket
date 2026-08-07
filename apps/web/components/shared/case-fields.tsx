@@ -44,10 +44,10 @@ export function Field({
     <div className="flex min-w-0 flex-col gap-1.5">
       <label className="text-sm font-medium">
         {label}
-        {required ? <span className="ml-0.5 text-red-600">*</span> : null}
+        {required ? <span className="ml-0.5 text-danger">*</span> : null}
       </label>
       {children}
-      {error ? <span className="text-xs text-red-600">{error}</span> : null}
+      {error ? <span className="text-xs text-danger">{error}</span> : null}
     </div>
   );
 }

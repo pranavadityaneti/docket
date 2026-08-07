@@ -48,10 +48,11 @@ import { DbService } from "../db/db";
 import { NudgeService, NudgesModule } from "../nudges/nudges";
 
 /**
- * A case is one run of a workflow: a loan application, a college admission, an
- * audit engagement, an insurance claim. Nothing in this module names an
- * industry - the subject's own fields live in `data` and are described by the
- * workflow's field config, so adding a vertical is configuration, not code.
+ * A case is one run of a workflow: a business-loan case, a college admission,
+ * a company registration, an audit engagement, an insurance claim. Product
+ * term is Case; workflow name carries the type. Nothing in this module names
+ * an industry - the subject's own fields live in `data` and are described by
+ * the workflow's field config, so adding a vertical is configuration, not code.
  */
 
 // Guard on the JSONB payload: without a bound, a client could push an
@@ -594,13 +595,38 @@ export class CasesService {
         .limit(1);
       if (!row) throw new NotFoundException("Case not found");
 
-      const [inbound, outbound] = await Promise.all([
+      const [inbound, outbound, docs] = await Promise.all([
         tx
           .select()
           .from(conversationMessages)
           .where(eq(conversationMessages.caseId, caseId)),
         tx.select().from(caseMessages).where(eq(caseMessages.caseId, caseId)),
+        tx
+          .select({
+            id: documents.id,
+            fileName: documents.fileName,
+            mimeType: documents.mimeType,
+            sourceExternalId: documents.sourceExternalId,
+            storageKey: documents.storageKey,
+          })
+          .from(documents)
+          .where(and(eq(documents.caseId, caseId), isNull(documents.deletedAt))),
       ]);
+
+      const attachmentsByExternal = new Map<
+        string,
+        { id: string; fileName: string; mimeType: string | null }[]
+      >();
+      for (const d of docs) {
+        if (!d.sourceExternalId || !d.storageKey) continue;
+        const list = attachmentsByExternal.get(d.sourceExternalId) ?? [];
+        list.push({
+          id: d.id,
+          fileName: d.fileName,
+          mimeType: d.mimeType,
+        });
+        attachmentsByExternal.set(d.sourceExternalId, list);
+      }
 
       const thread = [
         ...inbound.map((m) => ({
@@ -613,6 +639,9 @@ export class CasesService {
           kind: null as string | null,
           failed: false,
           at: m.sentAt,
+          attachments: m.externalId
+            ? (attachmentsByExternal.get(m.externalId) ?? [])
+            : [],
         })),
         ...outbound.map((m) => ({
           id: m.id,
@@ -625,6 +654,11 @@ export class CasesService {
           kind: m.kind as string | null,
           failed: m.status === "failed",
           at: m.sentAt,
+          attachments: [] as {
+            id: string;
+            fileName: string;
+            mimeType: string | null;
+          }[],
         })),
       ].sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime());
 

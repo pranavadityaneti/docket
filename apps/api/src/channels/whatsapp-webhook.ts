@@ -295,6 +295,8 @@ export class WhatsappService {
           status: "received",
           sourceChannel: "whatsapp",
           sourceIdentifier: message.from,
+          // Same Meta message id as conversation_messages.external_id.
+          sourceExternalId: message.id,
         })
         .returning();
 

@@ -52,7 +52,22 @@ export {
 } from "@/features/unmatched/api";
 
 export {
-  listStages, listWorkflows, type ApiFieldDef, type ApiStage, type ApiWorkflow
+  canEditWorkflows,
+  createWorkflow,
+  deleteWorkflow,
+  getWorkflow,
+  listFields,
+  listRequirements,
+  listStages,
+  listWorkflows,
+  putFields,
+  putRequirements,
+  putStages,
+  updateWorkflow,
+  type ApiFieldDef,
+  type ApiRequirement,
+  type ApiStage,
+  type ApiWorkflow,
 } from "@/features/workflows/api";
 
 export {

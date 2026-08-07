@@ -69,7 +69,7 @@ export function composeEmail(items: NudgeSnapshotItem[], ctx: ComposeContext): C
   const lines: string[] = [
     `Hi ${ctx.contactName},`,
     ``,
-    `${ctx.tenantName} still needs the following to move your application (${ctx.caseReference}) forward:`,
+    `${ctx.tenantName} still needs the following to move your case (${ctx.caseReference}) forward:`,
     ``,
   ];
   for (const it of items) {
@@ -81,7 +81,7 @@ export function composeEmail(items: NudgeSnapshotItem[], ctx: ComposeContext): C
   }
   lines.push(
     ``,
-    `Just reply to this email with the documents attached, and keep the subject line unchanged so we can match them to your application automatically.`,
+    `Just reply to this email with the documents attached, and keep the subject line unchanged so we can match them to your case automatically.`,
     ``,
     `Thank you,`,
     ctx.tenantName,

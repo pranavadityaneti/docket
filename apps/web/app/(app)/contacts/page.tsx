@@ -3,12 +3,10 @@
 import {
   SelectCheckbox,
   SelectionBar,
-  csvFilename,
-  downloadCsv,
-  toCsv,
   useSelection,
   type CsvColumn,
 } from "@/components/shared/bulk-select";
+import { ExportDownloadMenu } from "@/components/shared/export-download-menu";
 import { DeleteDialog, type DeleteLine } from "@/components/shared/delete-dialog";
 import { ListPager } from "@/components/shared/list-pager";
 import { Badge } from "@/components/ui/badge";
@@ -74,10 +72,6 @@ export default function ContactsPage() {
     { header: "Cases", value: (c) => c.caseCount },
     { header: "Most recent case", value: (c) => (c.lastCaseAt ? formatDate(c.lastCaseAt) : "") },
   ];
-
-  function exportCsv(list: ApiContact[]) {
-    downloadCsv(csvFilename("contacts"), toCsv(list, csvColumns));
-  }
 
   const [deleteOpen, setDeleteOpen] = React.useState(false);
   const [deleteLines, setDeleteLines] = React.useState<DeleteLine[]>([]);
@@ -176,27 +170,24 @@ export default function ContactsPage() {
                 {refreshing ? " · refreshing…" : ""}
               </span>
             ) : null}
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-1.5"
+            <ExportDownloadMenu
+              rows={filtered}
+              columns={csvColumns}
+              kind="contacts"
+              title="Contacts export"
               disabled={filtered.length === 0}
-              onClick={() => exportCsv(filtered)}
-            >
-              <Icon name="download" size={15} /> Download
-            </Button>
+            />
           </div>
         </div>
 
         <SelectionBar count={sel.count} noun="contact" onClear={sel.clear}>
-          <Button
-            size="sm"
-            variant="outline"
-            className="gap-1.5"
-            onClick={() => exportCsv(filtered.filter((c) => sel.isSelected(c.id)))}
-          >
-            <Icon name="download" size={14} /> Download CSV
-          </Button>
+          <ExportDownloadMenu
+            rows={filtered.filter((c) => sel.isSelected(c.id))}
+            columns={csvColumns}
+            kind="contacts"
+            title="Contacts export"
+            label="Download"
+          />
           <Button
             size="sm"
             variant="destructive"

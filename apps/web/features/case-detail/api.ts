@@ -34,6 +34,12 @@ export type ApiCaseEvent = {
   createdAt: string;
 };
 
+export type ApiConversationAttachment = {
+  id: string;
+  fileName: string;
+  mimeType: string | null;
+};
+
 export type ApiConversationEntry = {
   id: string;
   channel: "email" | "whatsapp";
@@ -44,6 +50,7 @@ export type ApiConversationEntry = {
   kind: string | null;
   failed: boolean;
   at: string;
+  attachments: ApiConversationAttachment[];
 };
 
 export type DocumentStatus = "received" | "needs_review" | "accepted" | "rejected" | "expired";

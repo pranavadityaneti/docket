@@ -194,7 +194,7 @@ export default function ConversationsPage() {
                     {t.direction === "inbound" ? (
                       <Badge
                         variant="outline"
-                        className="border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-900 dark:bg-sky-950 dark:text-sky-300"
+                        className="border-sky-border bg-sky-muted text-sky-muted-foreground"
                       >
                         Their turn
                       </Badge>

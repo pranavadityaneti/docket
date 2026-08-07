@@ -121,7 +121,7 @@ function OwnerAssign({
           </option>
         ))}
       </select>
-      {error ? <p className="text-xs text-red-600">{error}</p> : null}
+      {error ? <p className="text-xs text-danger">{error}</p> : null}
     </div>
   );
 }
@@ -281,7 +281,7 @@ export function OverviewTab({
               <Input value={phone} onChange={(event) => setPhone(event.target.value)} />
             </Field>
           </div>
-          <div className="mt-3 inline-flex max-w-xl items-start gap-1.5 rounded-[12px] border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300">
+          <div className="mt-3 inline-flex max-w-xl items-start gap-1.5 rounded-[12px] border border-warning-border bg-warning-muted px-3 py-2 text-xs text-warning-muted-foreground">
             <Icon name="info" size={14} className="mt-0.5 shrink-0" />
             <span>
               Email and phone decide which documents reach this {detail.caseLabel.toLowerCase()}.
@@ -316,7 +316,7 @@ export function OverviewTab({
         </Card>
       ) : null}
       {saveError ? (
-        <div className="border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
+        <div className="border border-danger-border bg-danger-muted px-3 py-2 text-sm text-danger-muted-foreground">
           {saveError}
         </div>
       ) : null}

@@ -19,7 +19,7 @@ export const WORKFLOW = {
   name: "Company Registration",
   slug: "company-registration",
   subjectLabel: "Promoter",
-  caseLabel: "Registration",
+  caseLabel: "Case",
 } as const;
 
 /**

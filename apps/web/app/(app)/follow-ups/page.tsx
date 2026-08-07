@@ -30,7 +30,7 @@ function statusOf(f: ApiFollowUp): { label: string; tone: string; hint: string }
   if (f.unreachable) {
     return {
       label: "Unreachable",
-      tone: "border-red-200 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300",
+      tone: "border-danger-border bg-danger-muted text-danger-muted-foreground",
       hint: "No email or phone on file - nothing can be sent.",
     };
   }
@@ -44,21 +44,21 @@ function statusOf(f: ApiFollowUp): { label: string; tone: string; hint: string }
   if (f.requestsSent === 0) {
     return {
       label: "Never asked",
-      tone: "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300",
+      tone: "border-warning-border bg-warning-muted text-warning-muted-foreground",
       hint: "No document request has gone out yet.",
     };
   }
   if (f.remindersSent >= 3) {
     return {
       label: "Reminders spent",
-      tone: "border-orange-200 bg-orange-50 text-orange-800 dark:border-orange-900 dark:bg-orange-950 dark:text-orange-300",
+      tone: "border-warning-border bg-warning-muted text-warning-muted-foreground",
       hint: "All three automatic reminders have been sent. A person needs to step in.",
     };
   }
   if (f.reminderDue) {
     return {
       label: "Reminder due",
-      tone: "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-900 dark:bg-sky-950 dark:text-sky-300",
+      tone: "border-sky-border bg-sky-muted text-sky-muted-foreground",
       hint: "The scheduler will send one on its next run.",
     };
   }
@@ -149,7 +149,7 @@ export default function FollowUpsPage() {
         </div>
       ) : rows && rows.length === 0 ? (
         <Card className="flex flex-col items-center gap-2 border-dashed py-16 text-center">
-          <Icon name="check_circle" size={22} className="text-emerald-600 dark:text-emerald-400" />
+          <Icon name="check_circle" size={22} className="text-success" />
           <div className="text-sm font-medium">Nothing outstanding</div>
           <p className="max-w-md px-4 text-sm text-muted-foreground">
             Every case has all of its required documents. There is nobody to chase.

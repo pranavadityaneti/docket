@@ -103,7 +103,7 @@ export default function ChannelsPage() {
                     variant="outline"
                     className={
                       c.enabled
-                        ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300"
+                        ? "border-success-border bg-success-muted text-success-muted-foreground"
                         : undefined
                     }
                   >
@@ -149,7 +149,7 @@ export default function ChannelsPage() {
                   <dt className="text-muted-foreground">Status</dt>
                   <dd className="mt-0.5">
                     {c.lastError ? (
-                      <span className="text-red-600 dark:text-red-400">Needs attention</span>
+                      <span className="text-danger">Needs attention</span>
                     ) : c.lastPolledAt ? (
                       "Healthy"
                     ) : (
@@ -162,7 +162,7 @@ export default function ChannelsPage() {
               {/* A mailbox that stopped polling is documents not arriving, so
                   the failure is shown in full rather than summarised away. */}
               {c.lastError ? (
-                <div className="border-t bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
+                <div className="border-t bg-danger-muted px-4 py-3 text-sm text-danger-muted-foreground">
                   <div className="mb-0.5 font-medium">Last error</div>
                   <div className="break-words">{c.lastError}</div>
                 </div>

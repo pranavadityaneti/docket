@@ -5,8 +5,10 @@
  *
  * Usage: DATABASE_URL=... pnpm --filter @docket/db seed:dummy
  */
-import { and, eq, isNull } from "drizzle-orm";
-import { createHash } from "node:crypto";
+import { and, eq, isNull, like, or } from "drizzle-orm";
+import { createHash, randomUUID } from "node:crypto";
+import { mkdir, writeFile } from "node:fs/promises";
+import path from "node:path";
 import {
   LEAD_FIELDS,
   DOCUMENT_REQUIREMENTS as LOAN_REQS,
@@ -34,9 +36,207 @@ type Db = ReturnType<typeof createDb>;
 
 const TENANT_SLUG = process.env.TENANT_SLUG?.trim() || "finlot";
 const AGENT_PASSWORD = process.env.SEED_AGENT_PASSWORD ?? "DocketAgent!2026";
+const STORAGE_ROOT =
+  process.env.STORAGE_LOCAL_ROOT?.trim() || "/tmp/docket-storage";
 
 function checksum(seed: string): string {
   return createHash("sha256").update(seed).digest("hex");
+}
+
+function checksumBuf(buf: Buffer): string {
+  return createHash("sha256").update(buf).digest("hex");
+}
+
+/** Minimal valid PDF the preview iframe can open. */
+function dummyPdf(label: string): Buffer {
+  const escaped = label.replace(/[()\\]/g, " ");
+  const content = `BT /F1 18 Tf 72 720 Td (${escaped}) Tj ET`;
+  const objects = [
+    "1 0 obj<< /Type /Catalog /Pages 2 0 R >>endobj\n",
+    "2 0 obj<< /Type /Pages /Kids [3 0 R] /Count 1 >>endobj\n",
+    "3 0 obj<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources<< /Font<< /F1 5 0 R >> >> >>endobj\n",
+    `4 0 obj<< /Length ${content.length} >>stream\n${content}\nendstream\nendobj\n`,
+    "5 0 obj<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>endobj\n",
+  ];
+  let body = "%PDF-1.4\n";
+  const offsets = [0];
+  for (const obj of objects) {
+    offsets.push(Buffer.byteLength(body, "utf8"));
+    body += obj;
+  }
+  const xrefAt = Buffer.byteLength(body, "utf8");
+  body += `xref\n0 ${objects.length + 1}\n`;
+  body += "0000000000 65535 f \n";
+  for (let i = 1; i < offsets.length; i++) {
+    body += `${String(offsets[i]).padStart(10, "0")} 00000 n \n`;
+  }
+  body += `trailer<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefAt}\n%%EOF\n`;
+  return Buffer.from(body, "utf8");
+}
+
+/** 1×1 PNG (green pixel) - enough for image preview. */
+const DUMMY_PNG = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+  "base64",
+);
+
+async function putLocalObject(
+  key: string,
+  body: Buffer,
+): Promise<{ sizeBytes: number; checksum: string }> {
+  const abs = path.join(STORAGE_ROOT, key);
+  await mkdir(path.dirname(abs), { recursive: true });
+  await writeFile(abs, body);
+  return { sizeBytes: body.length, checksum: checksumBuf(body) };
+}
+
+/**
+ * Ensure a conversation message has previewable attachments on disk + in DB.
+ * Idempotent via source_external_id + fileName.
+ */
+async function ensureAttachment(
+  db: Db,
+  opts: {
+    tenantId: string;
+    caseId: string;
+    externalId: string;
+    channel: "email" | "whatsapp";
+    sender: string;
+    fileName: string;
+    mimeType: string;
+    bytes: Buffer;
+    requirementId?: string | null;
+  },
+) {
+  const existing = await db
+    .select({ id: schema.documents.id, storageKey: schema.documents.storageKey })
+    .from(schema.documents)
+    .where(
+      and(
+        eq(schema.documents.caseId, opts.caseId),
+        eq(schema.documents.sourceExternalId, opts.externalId),
+        eq(schema.documents.fileName, opts.fileName),
+        isNull(schema.documents.deletedAt),
+      ),
+    )
+    .limit(1);
+
+  let docId = existing[0]?.id;
+  if (!docId) {
+    docId = randomUUID();
+    const key = `tenants/${opts.tenantId}/cases/${opts.caseId}/${docId}`;
+    const stored = await putLocalObject(key, opts.bytes);
+    await db.insert(schema.documents).values({
+      id: docId,
+      tenantId: opts.tenantId,
+      caseId: opts.caseId,
+      requirementId: opts.requirementId ?? null,
+      fileName: opts.fileName,
+      mimeType: opts.mimeType,
+      sizeBytes: stored.sizeBytes,
+      checksum: stored.checksum,
+      storageKey: key,
+      status: "received",
+      sourceChannel: opts.channel,
+      sourceIdentifier: opts.sender,
+      sourceExternalId: opts.externalId,
+      classifiedType: opts.fileName.endsWith(".png") ? "Photograph" : "PDF",
+      classificationConfidence: "high",
+      classifiedAt: new Date(),
+      autoFiled: false,
+    });
+    return { created: true as const };
+  }
+
+  if (!existing[0]?.storageKey) {
+    const key = `tenants/${opts.tenantId}/cases/${opts.caseId}/${docId}`;
+    const stored = await putLocalObject(key, opts.bytes);
+    await db
+      .update(schema.documents)
+      .set({
+        storageKey: key,
+        sizeBytes: stored.sizeBytes,
+        checksum: stored.checksum,
+        sourceExternalId: opts.externalId,
+      })
+      .where(eq(schema.documents.id, docId));
+  } else {
+    // Make sure the bytes still exist for preview after /tmp clears.
+    await putLocalObject(existing[0].storageKey, opts.bytes);
+  }
+  return { created: false as const };
+}
+
+/** Backfill previewable attachments onto every demo inbound conversation. */
+async function seedConversationAttachments(db: Db, tenantId: string) {
+  const msgs = await db
+    .select()
+    .from(schema.conversationMessages)
+    .where(
+      and(
+        eq(schema.conversationMessages.tenantId, tenantId),
+        eq(schema.conversationMessages.direction, "inbound"),
+        or(
+          like(schema.conversationMessages.externalId, "wa-demo-%"),
+          like(schema.conversationMessages.externalId, "email-demo-%"),
+        ),
+      ),
+    );
+
+  let created = 0;
+  for (const m of msgs) {
+    if (!m.externalId) continue;
+    const ref = m.externalId.replace(/^(wa|email)-demo-/, "").replace(/-\d+$/, "");
+
+    if (m.channel === "whatsapp") {
+      const r = await ensureAttachment(db, {
+        tenantId,
+        caseId: m.caseId,
+        externalId: m.externalId,
+        channel: "whatsapp",
+        sender: m.sender,
+        fileName: `photo-${ref}.png`,
+        mimeType: "image/png",
+        bytes: DUMMY_PNG,
+      });
+      if (r.created) created++;
+      const r2 = await ensureAttachment(db, {
+        tenantId,
+        caseId: m.caseId,
+        externalId: m.externalId,
+        channel: "whatsapp",
+        sender: m.sender,
+        fileName: `pan-card-${ref}.pdf`,
+        mimeType: "application/pdf",
+        bytes: dummyPdf(`PAN Card - ${ref}`),
+      });
+      if (r2.created) created++;
+    } else {
+      const r = await ensureAttachment(db, {
+        tenantId,
+        caseId: m.caseId,
+        externalId: m.externalId,
+        channel: "email",
+        sender: m.sender,
+        fileName: `address-proof-${ref}.pdf`,
+        mimeType: "application/pdf",
+        bytes: dummyPdf(`Address proof - ${ref}`),
+      });
+      if (r.created) created++;
+      const r2 = await ensureAttachment(db, {
+        tenantId,
+        caseId: m.caseId,
+        externalId: m.externalId,
+        channel: "email",
+        sender: m.sender,
+        fileName: `scan-${ref}.png`,
+        mimeType: "image/png",
+        bytes: DUMMY_PNG,
+      });
+      if (r2.created) created++;
+    }
+  }
+  return created;
 }
 
 async function ensureWorkflow(
@@ -613,6 +813,114 @@ async function seedCaseBundle(
   return { created: true as const, caseId: caseRow.id, reference: caseRow.reference };
 }
 
+async function seedNotifications(db: Db, tenantId: string) {
+  const existing = await db
+    .select({ id: schema.notifications.id })
+    .from(schema.notifications)
+    .where(eq(schema.notifications.tenantId, tenantId))
+    .limit(1);
+  if (existing[0]) return 0;
+
+  const cases = await db
+    .select({
+      id: schema.cases.id,
+      reference: schema.cases.reference,
+      contactName: schema.contacts.name,
+    })
+    .from(schema.cases)
+    .innerJoin(schema.contacts, eq(schema.cases.contactId, schema.contacts.id))
+    .where(
+      and(eq(schema.cases.tenantId, tenantId), isNull(schema.cases.deletedAt)),
+    )
+    .limit(8);
+
+  const hoursAgo = (h: number) => new Date(Date.now() - h * 60 * 60 * 1000);
+  const c0 = cases[0];
+  const c1 = cases[1];
+  const c2 = cases[2];
+
+  const rows: schema.NewNotification[] = [
+    c0
+      ? {
+          tenantId,
+          kind: "document_received" as const,
+          title: `New document on ${c0.reference}`,
+          body: `${c0.contactName} uploaded a file for review.`,
+          href: `/cases/${c0.id}?tab=checklist`,
+          caseId: c0.id,
+          createdAt: hoursAgo(1),
+        }
+      : null,
+    c0
+      ? {
+          tenantId,
+          kind: "document_needs_review" as const,
+          title: "Document needs review",
+          body: `Classification confidence is medium on ${c0.reference}.`,
+          href: `/cases/${c0.id}?tab=checklist`,
+          caseId: c0.id,
+          createdAt: hoursAgo(3),
+        }
+      : null,
+    c1
+      ? {
+          tenantId,
+          kind: "follow_up_due" as const,
+          title: "Follow-up due",
+          body: `${c1.contactName} still owes outstanding documents.`,
+          href: `/cases/${c1.id}?tab=checklist`,
+          caseId: c1.id,
+          createdAt: hoursAgo(6),
+        }
+      : null,
+    c2
+      ? {
+          tenantId,
+          kind: "stage_changed" as const,
+          title: `${c2.reference} moved stages`,
+          body: "Stage update recorded on the case.",
+          href: `/cases/${c2.id}?tab=activity`,
+          caseId: c2.id,
+          readAt: hoursAgo(20),
+          createdAt: hoursAgo(24),
+        }
+      : null,
+    {
+      tenantId,
+      kind: "unmatched" as const,
+      title: "Unmatched file waiting",
+      body: "statement-unknown.pdf could not be matched to a case.",
+      href: "/unmatched",
+      createdAt: hoursAgo(8),
+    },
+    c1
+      ? {
+          tenantId,
+          kind: "comment" as const,
+          title: "Note added",
+          body: `Demo note on ${c1.reference}.`,
+          href: `/cases/${c1.id}?tab=activity`,
+          caseId: c1.id,
+          readAt: hoursAgo(30),
+          createdAt: hoursAgo(36),
+        }
+      : null,
+    {
+      tenantId,
+      kind: "generic" as const,
+      title: "Workspace digest",
+      body: "Dummy seed loaded a full demo inbox — poke around.",
+      href: "/notifications",
+      createdAt: hoursAgo(48),
+      readAt: hoursAgo(47),
+    },
+  ].filter((r): r is NonNullable<typeof r> => r !== null);
+
+  if (rows.length === 0) return 0;
+  await db.insert(schema.notifications).values(rows);
+  return rows.length;
+}
+
 async function seedUnmatched(db: Db, tenantId: string) {
   const samples = [
     {
@@ -808,6 +1116,8 @@ async function main() {
   }
 
   summary.unmatchedCreated = await seedUnmatched(db, tenant.id);
+  const attachmentsCreated = await seedConversationAttachments(db, tenant.id);
+  const notificationsCreated = await seedNotifications(db, tenant.id);
 
   // Soft-deleted contact leftover for the contacts screen delete UX (optional 1).
   const ghostEmail = "deleted.contact@example.com";
@@ -847,7 +1157,9 @@ async function main() {
   console.log(
     `Dummy seed for tenant "${tenant.slug}": ` +
     `casesCreated=${summary.casesCreated} casesSkipped=${summary.casesSkipped} ` +
-    `unmatchedCreated=${summary.unmatchedCreated} liveContacts=${liveContacts.length}`,
+    `unmatchedCreated=${summary.unmatchedCreated} conversationAttachments=${attachmentsCreated} ` +
+    `notificationsCreated=${notificationsCreated} ` +
+    `liveContacts=${liveContacts.length} storageRoot=${STORAGE_ROOT}`,
   );
   console.log("Logins:");
   console.log(

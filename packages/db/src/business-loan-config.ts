@@ -5,14 +5,14 @@
 // field changes.
 import type { FieldDef, NewDocumentRequirement } from "./schema";
 
-/* Vocabulary for this workflow. Docket itself is industry-agnostic - these
- * nouns are what make this particular workflow a lending one. A college's
- * workflow would carry Student/Admission, a CA firm's Client/Engagement. */
+/* Vocabulary for this workflow. The run is always a Case; subjectLabel is
+ * the person noun (Borrower / Student / Client). Workflow name carries the
+ * vertical (business loan, admission, registration). */
 export const WORKFLOW = {
   name: "Business Loan",
   slug: "business-loan",
   subjectLabel: "Borrower",
-  caseLabel: "Application",
+  caseLabel: "Case",
 } as const;
 
 /* The Business-Loan workflow's 12 stages (mirrors the live Gain tenant). */
@@ -56,7 +56,7 @@ export const LEAD_FIELDS: FieldDef[] = [
  * from the subject's other cases. A PAN card is the same PAN card forever, so
  * it is reused indefinitely. Bank statements and GST returns are reusable only
  * while fresh - a 12-month statement collected 8 months ago must NOT be pulled
- * into a new application, so it carries a validity window instead. Anything
+ * into a new case, so it carries a validity window instead. Anything
  * describing this particular deal is not reusable at all.
  *
  * `condition` gates a requirement on the case's own data. A Partnership Deed is

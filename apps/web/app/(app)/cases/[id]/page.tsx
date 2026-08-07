@@ -542,7 +542,7 @@ function CaseDetailPageInner() {
       </div>
 
       {actionError && actionError.id === null ? (
-        <div className="border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
+        <div className="border border-danger-border bg-danger-muted px-3 py-2 text-sm text-danger-muted-foreground">
           {actionError.message}
         </div>
       ) : null}
@@ -577,7 +577,11 @@ function CaseDetailPageInner() {
       ) : null}
 
       {tab === "conversations" ? (
-        <ConversationsTab entries={conversation} subject={subject} />
+        <ConversationsTab
+          entries={conversation}
+          subject={subject}
+          onPreview={setPreviewing}
+        />
       ) : null}
 
       {tab === "calls" ? <CallsPlaceholder subject={subject} /> : null}
@@ -656,7 +660,7 @@ function CaseDetailPageInner() {
                     <Icon
                       name={d.suggestedLabel ? "auto_awesome" : "help"}
                       size={16}
-                      className={`shrink-0 ${d.suggestedLabel ? "text-violet-600 dark:text-violet-400" : "text-muted-foreground"}`}
+                      className={`shrink-0 ${d.suggestedLabel ? "text-info" : "text-muted-foreground"}`}
                     />
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-sm">{d.fileName}</div>
@@ -681,7 +685,7 @@ function CaseDetailPageInner() {
                       <>
                         <Badge
                           variant="outline"
-                          className="whitespace-nowrap border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-900 dark:bg-violet-950 dark:text-violet-300"
+                          className="whitespace-nowrap border-info-border bg-info-muted text-info-muted-foreground"
                         >
                           {d.suggestedLabel}?
                         </Badge>

@@ -37,19 +37,19 @@ function StatusDot({
 }) {
   const dot =
     tone === "amber"
-      ? "bg-amber-400"
+      ? "bg-warning"
       : tone === "red"
-        ? "bg-red-400"
+        ? "bg-danger"
         : tone === "green"
-          ? "bg-emerald-400"
+          ? "bg-success"
           : "bg-muted-foreground/40";
   const text =
     tone === "amber"
-      ? "text-amber-700"
+      ? "text-warning"
       : tone === "red"
-        ? "text-red-600"
+        ? "text-danger"
         : tone === "green"
-          ? "text-emerald-700"
+          ? "text-success-muted-foreground"
           : "text-muted-foreground";
   return (
     <span className={cn("inline-flex items-center gap-1.5 text-xs font-medium", text)}>

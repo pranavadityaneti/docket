@@ -15,14 +15,17 @@ import {
   Controller,
   createParamDecorator,
   ExecutionContext,
+  ForbiddenException,
   Get,
   Injectable,
   Module,
   Post,
   Res,
+  SetMetadata,
   UnauthorizedException,
   UseGuards,
 } from "@nestjs/common";
+import { Reflector } from "@nestjs/core";
 import { JwtService } from "@nestjs/jwt";
 import { Throttle, ThrottlerGuard } from "@nestjs/throttler";
 import { IsEmail, IsString, MaxLength, MinLength } from "class-validator";
@@ -34,6 +37,35 @@ import { EmailModule, EmailService } from "../email/email";
 import { clearAuthCookies, extractAccessToken, setAuthCookies } from "./cookies";
 
 export type AuthUser = { userId: string; tenantId: string; role: string };
+
+const ROLES_KEY = "roles";
+
+/** Restrict a route to the given membership roles (JWT `role`). */
+export const Roles = (...roles: string[]) => SetMetadata(ROLES_KEY, roles);
+
+/**
+ * Enforces `@Roles(...)`. Must sit after JwtAuthGuard so `req.user` exists.
+ * Missing decorator = allow (this guard only denies when roles were declared).
+ */
+@Injectable()
+export class RolesGuard implements CanActivate {
+  constructor(private readonly reflector: Reflector) {}
+
+  canActivate(ctx: ExecutionContext): boolean {
+    const roles = this.reflector.getAllAndOverride<string[]>(ROLES_KEY, [
+      ctx.getHandler(),
+      ctx.getClass(),
+    ]);
+    if (!roles?.length) return true;
+    const user = ctx.switchToHttp().getRequest().user as AuthUser | undefined;
+    if (!user || !roles.includes(user.role)) {
+      throw new ForbiddenException(
+        "Only workspace owners and admins can change this.",
+      );
+    }
+    return true;
+  }
+}
 
 export class LoginDto {
   @IsEmail()
@@ -280,7 +312,7 @@ export class AuthController {
 @Module({
   imports: [EmailModule],
   controllers: [AuthController],
-  providers: [AuthService, JwtAuthGuard],
-  exports: [JwtAuthGuard],
+  providers: [AuthService, JwtAuthGuard, RolesGuard],
+  exports: [JwtAuthGuard, RolesGuard],
 })
 export class AuthModule {}

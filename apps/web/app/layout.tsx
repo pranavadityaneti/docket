@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { Geist_Mono, Outfit } from "next/font/google";
+/* Palette first so CSS variables exist before any component CSS. */
+import "../styles/colors.css";
 import "./globals.css";
 
 const outfit = Outfit({

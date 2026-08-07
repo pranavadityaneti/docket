@@ -19,13 +19,12 @@
 // question staff answer for nothing.
 import type { FieldDef, NewDocumentRequirement } from "./schema";
 
-/* Vocabulary. A college says Student/Admission where a lender says
- * Borrower/Application - the same engine, different nouns. */
+/* Vocabulary. The run is a Case; subjectLabel is Student for this vertical. */
 export const WORKFLOW = {
   name: "College Admissions",
   slug: "college-admissions",
   subjectLabel: "Student",
-  caseLabel: "Admission",
+  caseLabel: "Case",
 } as const;
 
 /* The 5 stages already live in production, kept exactly as they are. */

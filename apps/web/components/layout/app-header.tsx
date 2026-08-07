@@ -14,12 +14,18 @@ import {
 import { Icon } from "@/components/ui/icon";
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import { fetchMe, getWorkspacePrefs, logout } from "@/features/auth/api";
-import { getOverview } from "@/features/overview/api";
-import { listUnmatched } from "@/features/unmatched/api";
+import { fetchMe, logout } from "@/features/auth/api";
+import {
+  listNotifications,
+  markNotificationRead,
+  NOTIFICATION_KIND_META,
+  unreadNotificationCount,
+  type ApiNotification,
+} from "@/features/notifications/api";
 import { getStoredProfile } from "@/lib/http";
 import type { LoginProfile } from "@/lib/http";
-import { initials } from "@/lib/format";
+import { initials, relativeTime } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import { usePathname, useRouter } from "next/navigation";
 import * as React from "react";
 
@@ -33,6 +39,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/workflows": "Workflows",
   "/channels": "Channels",
   "/settings": "Settings",
+  "/notifications": "Notifications",
 };
 
 function titleForPath(pathname: string): string {
@@ -43,26 +50,16 @@ function titleForPath(pathname: string): string {
   return match ? PAGE_TITLES[match] : "Docket";
 }
 
-type AttentionCounts = {
-  needsReview: number;
-  unmatched: number;
-  followUps: number;
-};
-
 export function AppHeader() {
   const pathname = usePathname();
   const router = useRouter();
   const [profile, setProfile] = React.useState<LoginProfile | null>(null);
-  const [prefs, setPrefs] = React.useState(() => getWorkspacePrefs());
-  const [counts, setCounts] = React.useState<AttentionCounts>({
-    needsReview: 0,
-    unmatched: 0,
-    followUps: 0,
-  });
+  const [unread, setUnread] = React.useState(0);
+  const [preview, setPreview] = React.useState<ApiNotification[]>([]);
+  const [menuOpen, setMenuOpen] = React.useState(false);
 
   React.useEffect(() => {
     setProfile(getStoredProfile());
-    setPrefs(getWorkspacePrefs());
     let cancelled = false;
     void fetchMe()
       .then((me) => {
@@ -76,38 +73,44 @@ export function AppHeader() {
     };
   }, [pathname]);
 
+  const refreshBell = React.useCallback(async () => {
+    try {
+      const [count, rows] = await Promise.all([
+        unreadNotificationCount(),
+        listNotifications(),
+      ]);
+      setUnread(count.count);
+      setPreview(rows.slice(0, 6));
+    } catch {
+      // Badge is best-effort - don't block the header.
+    }
+  }, []);
+
   React.useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      try {
-        const [overview, unmatched] = await Promise.all([
-          getOverview(),
-          listUnmatched().catch(() => []),
-        ]);
-        if (cancelled) return;
-        setCounts({
-          needsReview: overview.totals.documentsAwaitingReview,
-          unmatched: unmatched.length,
-          followUps: overview.totals.documentsOutstanding,
-        });
-      } catch {
-        // Badge is best-effort - don't block the header.
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [pathname]);
+    void refreshBell();
+  }, [pathname, refreshBell]);
+
+  React.useEffect(() => {
+    if (menuOpen) void refreshBell();
+  }, [menuOpen, refreshBell]);
 
   async function handleLogout() {
     await logout();
     router.push("/login");
   }
 
-  const badgeTotal =
-    (prefs.notifyNeedsReview ? counts.needsReview : 0) +
-    (prefs.notifyUnmatched ? counts.unmatched : 0) +
-    (prefs.notifyFollowUps ? counts.followUps : 0);
+  async function openNotification(n: ApiNotification) {
+    try {
+      if (!n.readAt) {
+        await markNotificationRead(n.id);
+        void refreshBell();
+      }
+    } catch {
+      // Still navigate; read state can catch up on the inbox page.
+    }
+    if (n.href) router.push(n.href);
+    else router.push("/notifications");
+  }
 
   const displayName = profile?.user.name ?? "Account";
   const displayEmail = profile?.user.email ?? "";
@@ -124,7 +127,7 @@ export function AppHeader() {
       </span>
 
       <div className="ml-auto flex items-center gap-2">
-        <DropdownMenu>
+        <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
           <DropdownMenuTrigger
             render={
               <Button
@@ -132,43 +135,89 @@ export function AppHeader() {
                 size="icon"
                 className="relative"
                 aria-label={
-                  badgeTotal > 0
-                    ? `${badgeTotal} items need attention`
-                    : "Attention inbox"
+                  unread > 0
+                    ? `${unread} unread notification${unread === 1 ? "" : "s"}`
+                    : "Notifications"
                 }
               />
             }
           >
             <Icon name="notifications" size={20} />
-            {badgeTotal > 0 ? (
+            {unread > 0 ? (
               <span className="absolute right-1 top-1 flex size-4 items-center justify-center rounded-full bg-destructive text-[10px] font-semibold text-destructive-foreground">
-                {badgeTotal > 9 ? "9+" : badgeTotal}
+                {unread > 9 ? "9+" : unread}
               </span>
             ) : null}
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-64">
-            <DropdownMenuLabel>Needs attention</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => router.push("/")}>
-              <Icon name="rate_review" size={16} />
-              <span className="flex-1">Awaiting review</span>
-              <span className="tabular-nums text-muted-foreground">{counts.needsReview}</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => router.push("/unmatched")}>
-              <Icon name="mark_email_unread" size={16} />
-              <span className="flex-1">Unmatched</span>
-              <span className="tabular-nums text-muted-foreground">{counts.unmatched}</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => router.push("/follow-ups")}>
-              <Icon name="schedule_send" size={16} />
-              <span className="flex-1">Outstanding docs</span>
-              <span className="tabular-nums text-muted-foreground">{counts.followUps}</span>
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => router.push("/settings")}>
-              <Icon name="tune" size={16} />
-              Notification preferences
-            </DropdownMenuItem>
+          <DropdownMenuContent align="end" className="w-80 rounded-[12px] p-0">
+            <DropdownMenuGroup>
+              <DropdownMenuLabel className="px-3 py-2.5 text-foreground">
+                Notifications
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator className="m-0" />
+              {preview.length === 0 ? (
+                <div className="px-3 py-8 text-center text-sm text-muted-foreground">
+                  Nothing in the inbox yet.
+                </div>
+              ) : (
+                preview.map((n) => {
+                  const meta =
+                    NOTIFICATION_KIND_META[n.kind] ??
+                    NOTIFICATION_KIND_META.generic;
+                  const isUnread = !n.readAt;
+                  return (
+                    <DropdownMenuItem
+                      key={n.id}
+                      className={cn(
+                        "items-start gap-2.5 rounded-none px-3 py-2.5",
+                        isUnread && "bg-primary/5",
+                      )}
+                      onClick={() => void openNotification(n)}
+                    >
+                      <Icon
+                        name={meta.icon}
+                        size={16}
+                        className={cn(
+                          "mt-0.5 shrink-0",
+                          isUnread ? "text-primary" : "text-muted-foreground",
+                        )}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div
+                          className={cn(
+                            "truncate text-sm",
+                            isUnread ? "font-semibold" : "font-medium",
+                          )}
+                        >
+                          {n.title}
+                        </div>
+                        {n.body ? (
+                          <div className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
+                            {n.body}
+                          </div>
+                        ) : null}
+                        <div className="mt-1 text-[11px] text-muted-foreground/80">
+                          {relativeTime(n.createdAt)}
+                        </div>
+                      </div>
+                      {isUnread ? (
+                        <span
+                          className="mt-1.5 size-1.5 shrink-0 rounded-full bg-primary"
+                          aria-hidden
+                        />
+                      ) : null}
+                    </DropdownMenuItem>
+                  );
+                })
+              )}
+              <DropdownMenuSeparator className="m-0" />
+              <DropdownMenuItem
+                className="justify-center rounded-none py-2.5 text-sm font-medium text-primary"
+                onClick={() => router.push("/notifications")}
+              >
+                View all notifications
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
           </DropdownMenuContent>
         </DropdownMenu>
 
@@ -193,9 +242,13 @@ export function AppHeader() {
             <DropdownMenuGroup>
               <DropdownMenuLabel className="py-1.5">
                 <div className="grid leading-tight">
-                  <span className="text-sm font-medium text-foreground">{displayName}</span>
+                  <span className="text-sm font-medium text-foreground">
+                    {displayName}
+                  </span>
                   {displayEmail ? (
-                    <span className="text-xs font-normal text-muted-foreground">{displayEmail}</span>
+                    <span className="text-xs font-normal text-muted-foreground">
+                      {displayEmail}
+                    </span>
                   ) : null}
                 </div>
               </DropdownMenuLabel>
@@ -205,7 +258,10 @@ export function AppHeader() {
                 Settings
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem variant="destructive" onClick={() => void handleLogout()}>
+              <DropdownMenuItem
+                variant="destructive"
+                onClick={() => void handleLogout()}
+              >
                 <Icon name="logout" size={16} />
                 Log out
               </DropdownMenuItem>

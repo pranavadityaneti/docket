@@ -162,6 +162,20 @@
       "when": 1786000000000,
       "tag": "0022_company_registration_workflow",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1786090000000,
+      "tag": "0023_document_source_external_id",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1786100000000,
+      "tag": "0024_notifications",
+      "breakpoints": true
     }
   ]
 }

@@ -125,28 +125,33 @@ async function main() {
         subjectLabel: WORKFLOW.subjectLabel,
         caseLabel: WORKFLOW.caseLabel,
       })
-      // Reconcile rather than skip. onConflictDoNothing meant a workflow that
-      // already existed could never receive a value it did not have when it was
-      // created - which is exactly how every pre-0005 workflow kept the neutral
-      // 'Contact'/'Case' defaults after a vocabulary had been declared in
-      // config, and why re-running bootstrap could not repair it. This tool's
-      // contract is "make the workspace match the declared configuration", so
-      // the config-owned columns are written on every run.
-      //
-      // These three fields only: tenant_id and slug are the conflict target and
-      // must not move, and nothing here touches a workspace's own data.
-      //
-      // When tenants can edit their own vocabulary in the product, this will
-      // need a policy for whose value wins; today config is its only author.
-      .onConflictDoUpdate({
+      // Insert-once for identity columns. Tenants can edit name / vocabulary
+      // in the product; re-running bootstrap must not clobber those edits.
+      // Stages, field configs and requirements already insert only when empty.
+      .onConflictDoNothing({
         target: [schema.workflows.tenantId, schema.workflows.slug],
-        set: {
-          name: WORKFLOW.name,
-          subjectLabel: WORKFLOW.subjectLabel,
-          caseLabel: WORKFLOW.caseLabel,
-        },
       })
       .returning();
+
+    // onConflictDoNothing returns nothing when the row already existed - load it.
+    const resolved =
+      workflow ??
+      (
+        await tx
+          .select()
+          .from(schema.workflows)
+          .where(
+            and(
+              eq(schema.workflows.tenantId, tenant.id),
+              eq(schema.workflows.slug, workflowSlug),
+            ),
+          )
+          .limit(1)
+      )[0];
+    if (!resolved) {
+      throw new Error(`Failed to resolve workflow "${workflowSlug}" after upsert.`);
+    }
+    const workflowRow = resolved;
 
     /* ---- stages & field config ----
      * workflow_stages and field_configs have no unique constraint, so there is
@@ -155,14 +160,14 @@ async function main() {
     const existingStages = await tx
       .select({ id: schema.workflowStages.id })
       .from(schema.workflowStages)
-      .where(eq(schema.workflowStages.workflowId, workflow.id))
+      .where(eq(schema.workflowStages.workflowId, workflowRow.id))
       .limit(1);
     let stagesInserted = 0;
     if (existingStages.length === 0) {
       await tx.insert(schema.workflowStages).values(
         STAGES.map((s, i) => ({
           tenantId: tenant.id,
-          workflowId: workflow.id,
+          workflowId: workflowRow.id,
           name: s.name,
           position: i,
           tone: s.tone,
@@ -174,13 +179,13 @@ async function main() {
     const existingConfigs = await tx
       .select({ id: schema.fieldConfigs.id })
       .from(schema.fieldConfigs)
-      .where(eq(schema.fieldConfigs.workflowId, workflow.id))
+      .where(eq(schema.fieldConfigs.workflowId, workflowRow.id))
       .limit(1);
     let configInserted = false;
     if (existingConfigs.length === 0) {
       await tx.insert(schema.fieldConfigs).values({
         tenantId: tenant.id,
-        workflowId: workflow.id,
+        workflowId: workflowRow.id,
         name: WORKFLOW.name,
         fields: LEAD_FIELDS,
         visibleRoles: [],
@@ -199,7 +204,7 @@ async function main() {
           DOCUMENT_REQUIREMENTS.map((r) => ({
             ...r,
             tenantId: tenant.id,
-            workflowId: workflow.id,
+            workflowId: workflowRow.id,
           })),
         )
         .onConflictDoNothing({

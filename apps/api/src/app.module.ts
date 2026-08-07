@@ -11,6 +11,7 @@ import { DbModule } from "./db/db";
 import { DocumentsModule } from "./documents/documents";
 import { IntakeModule } from "./intake/intake";
 import { NudgesModule } from "./nudges/nudges";
+import { NotificationsModule } from "./notifications/notifications";
 import { OverviewModule } from "./overview/overview";
 import { StorageModule } from "./storage/storage";
 import { UnmatchedModule } from "./unmatched/unmatched";
@@ -45,6 +46,7 @@ class HealthController {
     OverviewModule,
     ChannelsModule,
     NudgesModule,
+    NotificationsModule,
     UnmatchedModule,
     IntakeModule,
     ActivityModule,

@@ -1,14 +1,12 @@
 "use client";
 
 import {
-  csvFilename,
-  downloadCsv,
   SelectCheckbox,
   SelectionBar,
-  toCsv,
   useSelection,
   type CsvColumn,
 } from "@/components/shared/bulk-select";
+import { ExportDownloadMenu } from "@/components/shared/export-download-menu";
 import { DeleteDialog, type DeleteLine } from "@/components/shared/delete-dialog";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -87,12 +85,8 @@ export function AllCasesView({
     [fields, subjectLabel],
   );
 
-  function exportCsv(rows: Lead[]) {
-    downloadCsv(
-      csvFilename(plural(caseLabel).toLowerCase()),
-      toCsv(rows, csvColumns),
-    );
-  }
+  const exportKind = plural(caseLabel).toLowerCase();
+  const exportTitle = `${plural(caseLabel)} export`;
 
   const [deleteOpen, setDeleteOpen] = React.useState(false);
   const [deleteLines, setDeleteLines] = React.useState<DeleteLine[]>([]);
@@ -156,15 +150,13 @@ export function AllCasesView({
             className="pl-8"
           />
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          className="gap-1.5"
+        <ExportDownloadMenu
+          rows={filtered}
+          columns={csvColumns}
+          kind={exportKind}
+          title={exportTitle}
           disabled={filtered.length === 0}
-          onClick={() => exportCsv(filtered)}
-        >
-          <Icon name="download" size={16} /> Download
-        </Button>
+        />
         <Button
           variant="outline"
           size="sm"
@@ -180,18 +172,14 @@ export function AllCasesView({
         noun={caseLabel.toLowerCase()}
         onClear={selection.clear}
       >
-        <Button
+        <ExportDownloadMenu
+          rows={filtered.filter((lead) => selection.isSelected(lead.id))}
+          columns={csvColumns}
+          kind={exportKind}
+          title={exportTitle}
           size="sm"
-          variant="outline"
-          className="gap-1.5"
-          onClick={() =>
-            exportCsv(
-              filtered.filter((lead) => selection.isSelected(lead.id)),
-            )
-          }
-        >
-          <Icon name="download" size={14} /> Download CSV
-        </Button>
+          label="Download"
+        />
         <Button
           size="sm"
           variant="destructive"
@@ -368,7 +356,7 @@ export function AllCasesView({
       />
 
       {deleteError ? (
-        <div className="border-t bg-red-50 px-4 py-2 text-sm text-red-600 dark:bg-red-950 dark:text-red-300">
+        <div className="border-t bg-danger-muted px-4 py-2 text-sm text-danger">
           {deleteError}
         </div>
       ) : null}

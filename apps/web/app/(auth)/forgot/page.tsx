@@ -49,7 +49,7 @@ export default function ForgotPasswordPage() {
 
       {sent ? (
         <div className="flex flex-col gap-4 p-6">
-          <div className="flex items-start gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300">
+          <div className="flex items-start gap-2 rounded-md border border-success-border bg-success-muted px-3 py-2.5 text-sm text-success-muted-foreground">
             <Icon name="check_circle" size={16} className="mt-0.5 shrink-0" />
             <span>
               If that email is registered, we&rsquo;ve sent a reset link. It expires in 1 hour.
@@ -80,7 +80,7 @@ export default function ForgotPasswordPage() {
           </div>
 
           {error ? (
-            <div className="flex items-center gap-1.5 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            <div className="flex items-center gap-1.5 rounded-md border border-danger-border bg-danger-muted px-3 py-2 text-sm text-danger-muted-foreground">
               <Icon name="error" size={15} /> {error}
             </div>
           ) : null}

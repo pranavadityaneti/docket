@@ -318,6 +318,8 @@ export class EmailPollerService {
             status: "received",
             sourceChannel: "email",
             sourceIdentifier: fromEmail,
+            // Same Message-ID as conversation_messages.external_id for this mail.
+            sourceExternalId: parsed.messageId ?? null,
           })
           .returning();
 

@@ -255,7 +255,7 @@ export class NudgeService {
           and(
             isNull(cases.nudgesPausedAt),
             // A deleted case must never be chased - the borrower would get a
-            // reminder for an application nobody can open.
+            // reminder for a case nobody can open.
             isNull(cases.deletedAt),
             isNull(contacts.deletedAt),
             sql`(${contacts.email} is not null or ${contacts.phone} is not null)`,

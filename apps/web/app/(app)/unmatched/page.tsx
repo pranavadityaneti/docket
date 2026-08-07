@@ -163,7 +163,7 @@ function AssignDialog({
             </select>
           </label>
 
-          {error ? <p className="text-sm text-red-600">{error}</p> : null}
+          {error ? <p className="text-sm text-danger">{error}</p> : null}
         </div>
 
         <DialogFooter className="flex-row justify-end gap-2 border-t">
@@ -234,7 +234,7 @@ function DiscardDialog({
               maxLength={500}
             />
           </label>
-          {error ? <p className="text-sm text-red-600">{error}</p> : null}
+          {error ? <p className="text-sm text-danger">{error}</p> : null}
         </div>
         <DialogFooter className="border-t">
           <Button variant="outline" onClick={onCancel} disabled={busy}>
@@ -385,7 +385,7 @@ export default function UnmatchedPage() {
       </div>
 
       {actionError ? (
-        <div className="border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
+        <div className="border border-danger-border bg-danger-muted px-3 py-2 text-sm text-danger-muted-foreground">
           {actionError}
         </div>
       ) : null}

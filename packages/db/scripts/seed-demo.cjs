@@ -40,7 +40,7 @@ const ADMISSIONS = {
   name: "College Admissions",
   slug: "college-admissions",
   subjectLabel: "Student",
-  caseLabel: "Admission",
+  caseLabel: "Case",
   stages: [
     { name: "New enquiry", tone: "muted" },
     { name: "Documents pending", tone: "teal" },

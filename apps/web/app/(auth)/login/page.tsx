@@ -43,7 +43,7 @@ function LoginForm() {
   return (
     <form onSubmit={submit} className="flex flex-col gap-4 p-6">
       {justReset ? (
-        <div className="flex items-center gap-1.5 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300">
+        <div className="flex items-center gap-1.5 rounded-md border border-success-border bg-success-muted px-3 py-2 text-sm text-success-muted-foreground">
           <Icon name="check_circle" size={15} /> Password updated - sign in with your new password.
         </div>
       ) : null}
@@ -81,7 +81,7 @@ function LoginForm() {
       </div>
 
       {error ? (
-        <div className="flex items-center gap-1.5 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+        <div className="flex items-center gap-1.5 rounded-md border border-danger-border bg-danger-muted px-3 py-2 text-sm text-danger-muted-foreground">
           <Icon name="error" size={15} /> {error}
         </div>
       ) : null}

@@ -115,7 +115,7 @@ describe("cases types helpers", () => {
       name: "W",
       slug: "w",
       subjectLabel: "Student",
-      caseLabel: "Admission",
+      caseLabel: "Case",
       fields,
     };
     const cols = tableFields(wf);

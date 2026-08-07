@@ -238,7 +238,7 @@ export function CreateLeadDialog({
         </div>
 
         {submitError ? (
-          <div className="flex items-center gap-1.5 border-t bg-red-50 px-4 py-2 text-sm text-red-600">
+          <div className="flex items-center gap-1.5 border-t bg-danger-muted px-4 py-2 text-sm text-danger">
             <Icon name="error" size={15} /> {submitError}
           </div>
         ) : null}

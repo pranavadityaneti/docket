@@ -4,15 +4,14 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
 import { Skeleton } from "@/components/ui/skeleton";
+import { DANGER_BANNER } from "@/lib/tones";
 import * as React from "react";
 
 /** Inline error strip used above tables and cards. */
 export function ErrorBanner({ children }: { children: React.ReactNode }) {
   if (!children) return null;
   return (
-    <div className="border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
-      {children}
-    </div>
+    <div className={`${DANGER_BANNER} px-3 py-2 text-sm`}>{children}</div>
   );
 }
 
