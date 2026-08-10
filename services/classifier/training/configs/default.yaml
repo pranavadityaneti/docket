@@ -1,0 +1,20 @@
+model_name: efficientnet_b0
+img_size: 224
+num_workers: 2
+batch_size: 16
+learning_rate: 0.0003
+max_epochs: 12
+classes:
+  - pan_card
+  - aadhaar_front
+  - aadhaar_back
+  - passport
+  - photograph
+  - bank_statement
+  - rental_agreement
+  - cancelled_cheque
+  - salary_slip
+  - utility_bill
+  - form_16
+  - gst_certificate
+  - other

@@ -1,0 +1,54 @@
+version: 1
+labels:
+  - id: pan_card
+    title: PAN card
+    description: Indian Permanent Account Number card issued by Income Tax Department
+    aliases: [pan, pan card, income tax pan]
+  - id: aadhaar_front
+    title: Aadhaar front
+    description: Front of UIDAI Aadhaar card with photo and demographic details
+    aliases: [aadhaar, aadhar, uidai]
+  - id: aadhaar_back
+    title: Aadhaar back
+    description: Back of UIDAI Aadhaar card with address
+    aliases: [aadhaar back, aadhar back]
+  - id: passport
+    title: Passport
+    description: Passport biodata page
+    aliases: [passport, passport copy]
+  - id: photograph
+    title: Photograph
+    description: Passport-style personal photograph, not a document containing a photo
+    aliases: [photo, passport photo, passport size photo]
+  - id: bank_statement
+    title: Bank statement
+    description: Bank account statement showing transactions over a period
+    aliases: [bank statement, account statement, passbook]
+  - id: rental_agreement
+    title: Rental agreement
+    description: Lease or rental agreement document
+    aliases: [rent agreement, lease]
+  - id: cancelled_cheque
+    title: Cancelled cheque
+    description: Cancelled cheque leaf showing account details
+    aliases: [cheque, canceled cheque]
+  - id: salary_slip
+    title: Salary slip
+    description: Payslip or salary statement
+    aliases: [payslip, salary]
+  - id: utility_bill
+    title: Utility bill
+    description: Electricity, water, gas or similar utility bill
+    aliases: [electricity bill, water bill]
+  - id: form_16
+    title: Form 16
+    description: Indian Form 16 tax certificate
+    aliases: [form16, form 16]
+  - id: gst_certificate
+    title: GST certificate
+    description: GST registration certificate
+    aliases: [gst, gstin]
+  - id: other
+    title: Other
+    description: Document that does not match known ontology types
+    aliases: []

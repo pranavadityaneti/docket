@@ -1,0 +1,5202 @@
+[
+  {
+    "path": "blobs/pan_card/pan_card_000.jpg",
+    "label": "pan_card",
+    "split": "val"
+  },
+  {
+    "path": "blobs/pan_card/pan_card_001.jpg",
+    "label": "pan_card",
+    "split": "train"
+  },
+  {
+    "path": "blobs/pan_card/pan_card_002.jpg",
+    "label": "pan_card",
+    "split": "train"
+  },
+  {
+    "path": "blobs/pan_card/pan_card_003.jpg",
+    "label": "pan_card",
+    "split": "train"
+  },
+  {
+    "path": "blobs/pan_card/pan_card_004.jpg",
+    "label": "pan_card",
+    "split": "train"
+  },
+  {
+    "path": "blobs/pan_card/pan_card_005.jpg",
+    "label": "pan_card",
+    "split": "val"
+  },
+  {
+    "path": "blobs/pan_card/pan_card_006.jpg",
+    "label": "pan_card",
+    "split": "train"
+  },
+  {
+    "path": "blobs/pan_card/pan_card_007.jpg",
+    "label": "pan_card",
+    "split": "train"
+  },
+  {
+    "path": "blobs/pan_card/pan_card_008.jpg",
+    "label": "pan_card",
+    "split": "train"
+  },
+  {
+    "path": "blobs/pan_card/pan_card_009.jpg",
+    "label": "pan_card",
+    "split": "train"
+  },
+  {
+    "path": "blobs/pan_card/pan_card_010.jpg",
+    "label": "pan_card",
+    "split": "val"
+  },
+  {
+    "path": "blobs/pan_card/pan_card_011.jpg",
+    "label": "pan_card",
+    "split": "train"
+  },
+  {
+    "path": "blobs/pan_card/pan_card_012.jpg",
+    "label": "pan_card",
+    "split": "train"
+  },
+  {
+    "path": "blobs/pan_card/pan_card_013.jpg",
+    "label": "pan_card",
+    "split": "train"
+  },
+  {
+    "path": "blobs/pan_card/pan_card_014.jpg",
+    "label": "pan_card",
+    "split": "train"
+  },
+  {
+    "path": "blobs/pan_card/pan_card_015.jpg",
+    "label": "pan_card",
+    "split": "val"
+  },
+  {
+    "path": "blobs/pan_card/pan_card_016.jpg",
+    "label": "pan_card",
+    "split": "train"
+  },
+  {
+    "path": "blobs/pan_card/pan_card_017.jpg",
+    "label": "pan_card",
+    "split": "train"
+  },
+  {
+    "path": "blobs/pan_card/pan_card_018.jpg",
+    "label": "pan_card",
+    "split": "train"
+  },
+  {
+    "path": "blobs/pan_card/pan_card_019.jpg",
+    "label": "pan_card",
+    "split": "train"
+  },
+  {
+    "path": "blobs/pan_card/pan_card_020.jpg",
+    "label": "pan_card",
+    "split": "val"
+  },
+  {
+    "path": "blobs/pan_card/pan_card_021.jpg",
+    "label": "pan_card",
+    "split": "train"
+  },
+  {
+    "path": "blobs/pan_card/pan_card_022.jpg",
+    "label": "pan_card",
+    "split": "train"
+  },
+  {
+    "path": "blobs/pan_card/pan_card_023.jpg",
+    "label": "pan_card",
+    "split": "train"
+  },
+  {
+    "path": "blobs/pan_card/pan_card_024.jpg",
+    "label": "pan_card",
+    "split": "train"
+  },
+  {
+    "path": "blobs/pan_card/pan_card_025.jpg",
+    "label": "pan_card",
+    "split": "val"
+  },
+  {
+    "path": "blobs/pan_card/pan_card_026.jpg",
+    "label": "pan_card",
+    "split": "train"
+  },
+  {
+    "path": "blobs/pan_card/pan_card_027.jpg",
+    "label": "pan_card",
+    "split": "train"
+  },
+  {
+    "path": "blobs/pan_card/pan_card_028.jpg",
+    "label": "pan_card",
+    "split": "train"
+  },
+  {
+    "path": "blobs/pan_card/pan_card_029.jpg",
+    "label": "pan_card",
+    "split": "train"
+  },
+  {
+    "path": "blobs/pan_card/pan_card_030.jpg",
+    "label": "pan_card",
+    "split": "val"
+  },
+  {
+    "path": "blobs/pan_card/pan_card_031.jpg",
+    "label": "pan_card",
+    "split": "train"
+  },
+  {
+    "path": "blobs/pan_card/pan_card_032.jpg",
+    "label": "pan_card",
+    "split": "train"
+  },
+  {
+    "path": "blobs/pan_card/pan_card_033.jpg",
+    "label": "pan_card",
+    "split": "train"
+  },
+  {
+    "path": "blobs/pan_card/pan_card_034.jpg",
+    "label": "pan_card",
+    "split": "train"
+  },
+  {
+    "path": "blobs/pan_card/pan_card_035.jpg",
+    "label": "pan_card",
+    "split": "val"
+  },
+  {
+    "path": "blobs/pan_card/pan_card_036.jpg",
+    "label": "pan_card",
+    "split": "train"
+  },
+  {
+    "path": "blobs/pan_card/pan_card_037.jpg",
+    "label": "pan_card",
+    "split": "train"
+  },
+  {
+    "path": "blobs/pan_card/pan_card_038.jpg",
+    "label": "pan_card",
+    "split": "train"
+  },
+  {
+    "path": "blobs/pan_card/pan_card_039.jpg",
+    "label": "pan_card",
+    "split": "train"
+  },
+  {
+    "path": "blobs/pan_card/pan_card_040.jpg",
+    "label": "pan_card",
+    "split": "val"
+  },
+  {
+    "path": "blobs/pan_card/pan_card_041.jpg",
+    "label": "pan_card",
+    "split": "train"
+  },
+  {
+    "path": "blobs/pan_card/pan_card_042.jpg",
+    "label": "pan_card",
+    "split": "train"
+  },
+  {
+    "path": "blobs/pan_card/pan_card_043.jpg",
+    "label": "pan_card",
+    "split": "train"
+  },
+  {
+    "path": "blobs/pan_card/pan_card_044.jpg",
+    "label": "pan_card",
+    "split": "train"
+  },
+  {
+    "path": "blobs/pan_card/pan_card_045.jpg",
+    "label": "pan_card",
+    "split": "val"
+  },
+  {
+    "path": "blobs/pan_card/pan_card_046.jpg",
+    "label": "pan_card",
+    "split": "train"
+  },
+  {
+    "path": "blobs/pan_card/pan_card_047.jpg",
+    "label": "pan_card",
+    "split": "train"
+  },
+  {
+    "path": "blobs/pan_card/pan_card_048.jpg",
+    "label": "pan_card",
+    "split": "train"
+  },
+  {
+    "path": "blobs/pan_card/pan_card_049.jpg",
+    "label": "pan_card",
+    "split": "train"
+  },
+  {
+    "path": "blobs/pan_card/pan_card_050.jpg",
+    "label": "pan_card",
+    "split": "val"
+  },
+  {
+    "path": "blobs/pan_card/pan_card_051.jpg",
+    "label": "pan_card",
+    "split": "train"
+  },
+  {
+    "path": "blobs/pan_card/pan_card_052.jpg",
+    "label": "pan_card",
+    "split": "train"
+  },
+  {
+    "path": "blobs/pan_card/pan_card_053.jpg",
+    "label": "pan_card",
+    "split": "train"
+  },
+  {
+    "path": "blobs/pan_card/pan_card_054.jpg",
+    "label": "pan_card",
+    "split": "train"
+  },
+  {
+    "path": "blobs/pan_card/pan_card_055.jpg",
+    "label": "pan_card",
+    "split": "val"
+  },
+  {
+    "path": "blobs/pan_card/pan_card_056.jpg",
+    "label": "pan_card",
+    "split": "train"
+  },
+  {
+    "path": "blobs/pan_card/pan_card_057.jpg",
+    "label": "pan_card",
+    "split": "train"
+  },
+  {
+    "path": "blobs/pan_card/pan_card_058.jpg",
+    "label": "pan_card",
+    "split": "train"
+  },
+  {
+    "path": "blobs/pan_card/pan_card_059.jpg",
+    "label": "pan_card",
+    "split": "train"
+  },
+  {
+    "path": "blobs/pan_card/pan_card_060.jpg",
+    "label": "pan_card",
+    "split": "val"
+  },
+  {
+    "path": "blobs/pan_card/pan_card_061.jpg",
+    "label": "pan_card",
+    "split": "train"
+  },
+  {
+    "path": "blobs/pan_card/pan_card_062.jpg",
+    "label": "pan_card",
+    "split": "train"
+  },
+  {
+    "path": "blobs/pan_card/pan_card_063.jpg",
+    "label": "pan_card",
+    "split": "train"
+  },
+  {
+    "path": "blobs/pan_card/pan_card_064.jpg",
+    "label": "pan_card",
+    "split": "train"
+  },
+  {
+    "path": "blobs/pan_card/pan_card_065.jpg",
+    "label": "pan_card",
+    "split": "val"
+  },
+  {
+    "path": "blobs/pan_card/pan_card_066.jpg",
+    "label": "pan_card",
+    "split": "train"
+  },
+  {
+    "path": "blobs/pan_card/pan_card_067.jpg",
+    "label": "pan_card",
+    "split": "train"
+  },
+  {
+    "path": "blobs/pan_card/pan_card_068.jpg",
+    "label": "pan_card",
+    "split": "train"
+  },
+  {
+    "path": "blobs/pan_card/pan_card_069.jpg",
+    "label": "pan_card",
+    "split": "train"
+  },
+  {
+    "path": "blobs/pan_card/pan_card_070.jpg",
+    "label": "pan_card",
+    "split": "val"
+  },
+  {
+    "path": "blobs/pan_card/pan_card_071.jpg",
+    "label": "pan_card",
+    "split": "train"
+  },
+  {
+    "path": "blobs/pan_card/pan_card_072.jpg",
+    "label": "pan_card",
+    "split": "train"
+  },
+  {
+    "path": "blobs/pan_card/pan_card_073.jpg",
+    "label": "pan_card",
+    "split": "train"
+  },
+  {
+    "path": "blobs/pan_card/pan_card_074.jpg",
+    "label": "pan_card",
+    "split": "train"
+  },
+  {
+    "path": "blobs/pan_card/pan_card_075.jpg",
+    "label": "pan_card",
+    "split": "val"
+  },
+  {
+    "path": "blobs/pan_card/pan_card_076.jpg",
+    "label": "pan_card",
+    "split": "train"
+  },
+  {
+    "path": "blobs/pan_card/pan_card_077.jpg",
+    "label": "pan_card",
+    "split": "train"
+  },
+  {
+    "path": "blobs/pan_card/pan_card_078.jpg",
+    "label": "pan_card",
+    "split": "train"
+  },
+  {
+    "path": "blobs/pan_card/pan_card_079.jpg",
+    "label": "pan_card",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_front/aadhaar_front_000.jpg",
+    "label": "aadhaar_front",
+    "split": "val"
+  },
+  {
+    "path": "blobs/aadhaar_front/aadhaar_front_001.jpg",
+    "label": "aadhaar_front",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_front/aadhaar_front_002.jpg",
+    "label": "aadhaar_front",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_front/aadhaar_front_003.jpg",
+    "label": "aadhaar_front",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_front/aadhaar_front_004.jpg",
+    "label": "aadhaar_front",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_front/aadhaar_front_005.jpg",
+    "label": "aadhaar_front",
+    "split": "val"
+  },
+  {
+    "path": "blobs/aadhaar_front/aadhaar_front_006.jpg",
+    "label": "aadhaar_front",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_front/aadhaar_front_007.jpg",
+    "label": "aadhaar_front",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_front/aadhaar_front_008.jpg",
+    "label": "aadhaar_front",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_front/aadhaar_front_009.jpg",
+    "label": "aadhaar_front",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_front/aadhaar_front_010.jpg",
+    "label": "aadhaar_front",
+    "split": "val"
+  },
+  {
+    "path": "blobs/aadhaar_front/aadhaar_front_011.jpg",
+    "label": "aadhaar_front",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_front/aadhaar_front_012.jpg",
+    "label": "aadhaar_front",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_front/aadhaar_front_013.jpg",
+    "label": "aadhaar_front",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_front/aadhaar_front_014.jpg",
+    "label": "aadhaar_front",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_front/aadhaar_front_015.jpg",
+    "label": "aadhaar_front",
+    "split": "val"
+  },
+  {
+    "path": "blobs/aadhaar_front/aadhaar_front_016.jpg",
+    "label": "aadhaar_front",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_front/aadhaar_front_017.jpg",
+    "label": "aadhaar_front",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_front/aadhaar_front_018.jpg",
+    "label": "aadhaar_front",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_front/aadhaar_front_019.jpg",
+    "label": "aadhaar_front",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_front/aadhaar_front_020.jpg",
+    "label": "aadhaar_front",
+    "split": "val"
+  },
+  {
+    "path": "blobs/aadhaar_front/aadhaar_front_021.jpg",
+    "label": "aadhaar_front",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_front/aadhaar_front_022.jpg",
+    "label": "aadhaar_front",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_front/aadhaar_front_023.jpg",
+    "label": "aadhaar_front",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_front/aadhaar_front_024.jpg",
+    "label": "aadhaar_front",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_front/aadhaar_front_025.jpg",
+    "label": "aadhaar_front",
+    "split": "val"
+  },
+  {
+    "path": "blobs/aadhaar_front/aadhaar_front_026.jpg",
+    "label": "aadhaar_front",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_front/aadhaar_front_027.jpg",
+    "label": "aadhaar_front",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_front/aadhaar_front_028.jpg",
+    "label": "aadhaar_front",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_front/aadhaar_front_029.jpg",
+    "label": "aadhaar_front",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_front/aadhaar_front_030.jpg",
+    "label": "aadhaar_front",
+    "split": "val"
+  },
+  {
+    "path": "blobs/aadhaar_front/aadhaar_front_031.jpg",
+    "label": "aadhaar_front",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_front/aadhaar_front_032.jpg",
+    "label": "aadhaar_front",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_front/aadhaar_front_033.jpg",
+    "label": "aadhaar_front",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_front/aadhaar_front_034.jpg",
+    "label": "aadhaar_front",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_front/aadhaar_front_035.jpg",
+    "label": "aadhaar_front",
+    "split": "val"
+  },
+  {
+    "path": "blobs/aadhaar_front/aadhaar_front_036.jpg",
+    "label": "aadhaar_front",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_front/aadhaar_front_037.jpg",
+    "label": "aadhaar_front",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_front/aadhaar_front_038.jpg",
+    "label": "aadhaar_front",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_front/aadhaar_front_039.jpg",
+    "label": "aadhaar_front",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_front/aadhaar_front_040.jpg",
+    "label": "aadhaar_front",
+    "split": "val"
+  },
+  {
+    "path": "blobs/aadhaar_front/aadhaar_front_041.jpg",
+    "label": "aadhaar_front",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_front/aadhaar_front_042.jpg",
+    "label": "aadhaar_front",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_front/aadhaar_front_043.jpg",
+    "label": "aadhaar_front",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_front/aadhaar_front_044.jpg",
+    "label": "aadhaar_front",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_front/aadhaar_front_045.jpg",
+    "label": "aadhaar_front",
+    "split": "val"
+  },
+  {
+    "path": "blobs/aadhaar_front/aadhaar_front_046.jpg",
+    "label": "aadhaar_front",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_front/aadhaar_front_047.jpg",
+    "label": "aadhaar_front",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_front/aadhaar_front_048.jpg",
+    "label": "aadhaar_front",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_front/aadhaar_front_049.jpg",
+    "label": "aadhaar_front",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_front/aadhaar_front_050.jpg",
+    "label": "aadhaar_front",
+    "split": "val"
+  },
+  {
+    "path": "blobs/aadhaar_front/aadhaar_front_051.jpg",
+    "label": "aadhaar_front",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_front/aadhaar_front_052.jpg",
+    "label": "aadhaar_front",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_front/aadhaar_front_053.jpg",
+    "label": "aadhaar_front",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_front/aadhaar_front_054.jpg",
+    "label": "aadhaar_front",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_front/aadhaar_front_055.jpg",
+    "label": "aadhaar_front",
+    "split": "val"
+  },
+  {
+    "path": "blobs/aadhaar_front/aadhaar_front_056.jpg",
+    "label": "aadhaar_front",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_front/aadhaar_front_057.jpg",
+    "label": "aadhaar_front",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_front/aadhaar_front_058.jpg",
+    "label": "aadhaar_front",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_front/aadhaar_front_059.jpg",
+    "label": "aadhaar_front",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_front/aadhaar_front_060.jpg",
+    "label": "aadhaar_front",
+    "split": "val"
+  },
+  {
+    "path": "blobs/aadhaar_front/aadhaar_front_061.jpg",
+    "label": "aadhaar_front",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_front/aadhaar_front_062.jpg",
+    "label": "aadhaar_front",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_front/aadhaar_front_063.jpg",
+    "label": "aadhaar_front",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_front/aadhaar_front_064.jpg",
+    "label": "aadhaar_front",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_front/aadhaar_front_065.jpg",
+    "label": "aadhaar_front",
+    "split": "val"
+  },
+  {
+    "path": "blobs/aadhaar_front/aadhaar_front_066.jpg",
+    "label": "aadhaar_front",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_front/aadhaar_front_067.jpg",
+    "label": "aadhaar_front",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_front/aadhaar_front_068.jpg",
+    "label": "aadhaar_front",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_front/aadhaar_front_069.jpg",
+    "label": "aadhaar_front",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_front/aadhaar_front_070.jpg",
+    "label": "aadhaar_front",
+    "split": "val"
+  },
+  {
+    "path": "blobs/aadhaar_front/aadhaar_front_071.jpg",
+    "label": "aadhaar_front",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_front/aadhaar_front_072.jpg",
+    "label": "aadhaar_front",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_front/aadhaar_front_073.jpg",
+    "label": "aadhaar_front",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_front/aadhaar_front_074.jpg",
+    "label": "aadhaar_front",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_front/aadhaar_front_075.jpg",
+    "label": "aadhaar_front",
+    "split": "val"
+  },
+  {
+    "path": "blobs/aadhaar_front/aadhaar_front_076.jpg",
+    "label": "aadhaar_front",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_front/aadhaar_front_077.jpg",
+    "label": "aadhaar_front",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_front/aadhaar_front_078.jpg",
+    "label": "aadhaar_front",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_front/aadhaar_front_079.jpg",
+    "label": "aadhaar_front",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_back/aadhaar_back_000.jpg",
+    "label": "aadhaar_back",
+    "split": "val"
+  },
+  {
+    "path": "blobs/aadhaar_back/aadhaar_back_001.jpg",
+    "label": "aadhaar_back",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_back/aadhaar_back_002.jpg",
+    "label": "aadhaar_back",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_back/aadhaar_back_003.jpg",
+    "label": "aadhaar_back",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_back/aadhaar_back_004.jpg",
+    "label": "aadhaar_back",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_back/aadhaar_back_005.jpg",
+    "label": "aadhaar_back",
+    "split": "val"
+  },
+  {
+    "path": "blobs/aadhaar_back/aadhaar_back_006.jpg",
+    "label": "aadhaar_back",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_back/aadhaar_back_007.jpg",
+    "label": "aadhaar_back",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_back/aadhaar_back_008.jpg",
+    "label": "aadhaar_back",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_back/aadhaar_back_009.jpg",
+    "label": "aadhaar_back",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_back/aadhaar_back_010.jpg",
+    "label": "aadhaar_back",
+    "split": "val"
+  },
+  {
+    "path": "blobs/aadhaar_back/aadhaar_back_011.jpg",
+    "label": "aadhaar_back",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_back/aadhaar_back_012.jpg",
+    "label": "aadhaar_back",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_back/aadhaar_back_013.jpg",
+    "label": "aadhaar_back",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_back/aadhaar_back_014.jpg",
+    "label": "aadhaar_back",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_back/aadhaar_back_015.jpg",
+    "label": "aadhaar_back",
+    "split": "val"
+  },
+  {
+    "path": "blobs/aadhaar_back/aadhaar_back_016.jpg",
+    "label": "aadhaar_back",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_back/aadhaar_back_017.jpg",
+    "label": "aadhaar_back",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_back/aadhaar_back_018.jpg",
+    "label": "aadhaar_back",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_back/aadhaar_back_019.jpg",
+    "label": "aadhaar_back",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_back/aadhaar_back_020.jpg",
+    "label": "aadhaar_back",
+    "split": "val"
+  },
+  {
+    "path": "blobs/aadhaar_back/aadhaar_back_021.jpg",
+    "label": "aadhaar_back",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_back/aadhaar_back_022.jpg",
+    "label": "aadhaar_back",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_back/aadhaar_back_023.jpg",
+    "label": "aadhaar_back",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_back/aadhaar_back_024.jpg",
+    "label": "aadhaar_back",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_back/aadhaar_back_025.jpg",
+    "label": "aadhaar_back",
+    "split": "val"
+  },
+  {
+    "path": "blobs/aadhaar_back/aadhaar_back_026.jpg",
+    "label": "aadhaar_back",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_back/aadhaar_back_027.jpg",
+    "label": "aadhaar_back",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_back/aadhaar_back_028.jpg",
+    "label": "aadhaar_back",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_back/aadhaar_back_029.jpg",
+    "label": "aadhaar_back",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_back/aadhaar_back_030.jpg",
+    "label": "aadhaar_back",
+    "split": "val"
+  },
+  {
+    "path": "blobs/aadhaar_back/aadhaar_back_031.jpg",
+    "label": "aadhaar_back",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_back/aadhaar_back_032.jpg",
+    "label": "aadhaar_back",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_back/aadhaar_back_033.jpg",
+    "label": "aadhaar_back",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_back/aadhaar_back_034.jpg",
+    "label": "aadhaar_back",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_back/aadhaar_back_035.jpg",
+    "label": "aadhaar_back",
+    "split": "val"
+  },
+  {
+    "path": "blobs/aadhaar_back/aadhaar_back_036.jpg",
+    "label": "aadhaar_back",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_back/aadhaar_back_037.jpg",
+    "label": "aadhaar_back",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_back/aadhaar_back_038.jpg",
+    "label": "aadhaar_back",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_back/aadhaar_back_039.jpg",
+    "label": "aadhaar_back",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_back/aadhaar_back_040.jpg",
+    "label": "aadhaar_back",
+    "split": "val"
+  },
+  {
+    "path": "blobs/aadhaar_back/aadhaar_back_041.jpg",
+    "label": "aadhaar_back",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_back/aadhaar_back_042.jpg",
+    "label": "aadhaar_back",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_back/aadhaar_back_043.jpg",
+    "label": "aadhaar_back",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_back/aadhaar_back_044.jpg",
+    "label": "aadhaar_back",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_back/aadhaar_back_045.jpg",
+    "label": "aadhaar_back",
+    "split": "val"
+  },
+  {
+    "path": "blobs/aadhaar_back/aadhaar_back_046.jpg",
+    "label": "aadhaar_back",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_back/aadhaar_back_047.jpg",
+    "label": "aadhaar_back",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_back/aadhaar_back_048.jpg",
+    "label": "aadhaar_back",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_back/aadhaar_back_049.jpg",
+    "label": "aadhaar_back",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_back/aadhaar_back_050.jpg",
+    "label": "aadhaar_back",
+    "split": "val"
+  },
+  {
+    "path": "blobs/aadhaar_back/aadhaar_back_051.jpg",
+    "label": "aadhaar_back",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_back/aadhaar_back_052.jpg",
+    "label": "aadhaar_back",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_back/aadhaar_back_053.jpg",
+    "label": "aadhaar_back",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_back/aadhaar_back_054.jpg",
+    "label": "aadhaar_back",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_back/aadhaar_back_055.jpg",
+    "label": "aadhaar_back",
+    "split": "val"
+  },
+  {
+    "path": "blobs/aadhaar_back/aadhaar_back_056.jpg",
+    "label": "aadhaar_back",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_back/aadhaar_back_057.jpg",
+    "label": "aadhaar_back",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_back/aadhaar_back_058.jpg",
+    "label": "aadhaar_back",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_back/aadhaar_back_059.jpg",
+    "label": "aadhaar_back",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_back/aadhaar_back_060.jpg",
+    "label": "aadhaar_back",
+    "split": "val"
+  },
+  {
+    "path": "blobs/aadhaar_back/aadhaar_back_061.jpg",
+    "label": "aadhaar_back",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_back/aadhaar_back_062.jpg",
+    "label": "aadhaar_back",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_back/aadhaar_back_063.jpg",
+    "label": "aadhaar_back",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_back/aadhaar_back_064.jpg",
+    "label": "aadhaar_back",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_back/aadhaar_back_065.jpg",
+    "label": "aadhaar_back",
+    "split": "val"
+  },
+  {
+    "path": "blobs/aadhaar_back/aadhaar_back_066.jpg",
+    "label": "aadhaar_back",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_back/aadhaar_back_067.jpg",
+    "label": "aadhaar_back",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_back/aadhaar_back_068.jpg",
+    "label": "aadhaar_back",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_back/aadhaar_back_069.jpg",
+    "label": "aadhaar_back",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_back/aadhaar_back_070.jpg",
+    "label": "aadhaar_back",
+    "split": "val"
+  },
+  {
+    "path": "blobs/aadhaar_back/aadhaar_back_071.jpg",
+    "label": "aadhaar_back",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_back/aadhaar_back_072.jpg",
+    "label": "aadhaar_back",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_back/aadhaar_back_073.jpg",
+    "label": "aadhaar_back",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_back/aadhaar_back_074.jpg",
+    "label": "aadhaar_back",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_back/aadhaar_back_075.jpg",
+    "label": "aadhaar_back",
+    "split": "val"
+  },
+  {
+    "path": "blobs/aadhaar_back/aadhaar_back_076.jpg",
+    "label": "aadhaar_back",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_back/aadhaar_back_077.jpg",
+    "label": "aadhaar_back",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_back/aadhaar_back_078.jpg",
+    "label": "aadhaar_back",
+    "split": "train"
+  },
+  {
+    "path": "blobs/aadhaar_back/aadhaar_back_079.jpg",
+    "label": "aadhaar_back",
+    "split": "train"
+  },
+  {
+    "path": "blobs/passport/passport_000.jpg",
+    "label": "passport",
+    "split": "val"
+  },
+  {
+    "path": "blobs/passport/passport_001.jpg",
+    "label": "passport",
+    "split": "train"
+  },
+  {
+    "path": "blobs/passport/passport_002.jpg",
+    "label": "passport",
+    "split": "train"
+  },
+  {
+    "path": "blobs/passport/passport_003.jpg",
+    "label": "passport",
+    "split": "train"
+  },
+  {
+    "path": "blobs/passport/passport_004.jpg",
+    "label": "passport",
+    "split": "train"
+  },
+  {
+    "path": "blobs/passport/passport_005.jpg",
+    "label": "passport",
+    "split": "val"
+  },
+  {
+    "path": "blobs/passport/passport_006.jpg",
+    "label": "passport",
+    "split": "train"
+  },
+  {
+    "path": "blobs/passport/passport_007.jpg",
+    "label": "passport",
+    "split": "train"
+  },
+  {
+    "path": "blobs/passport/passport_008.jpg",
+    "label": "passport",
+    "split": "train"
+  },
+  {
+    "path": "blobs/passport/passport_009.jpg",
+    "label": "passport",
+    "split": "train"
+  },
+  {
+    "path": "blobs/passport/passport_010.jpg",
+    "label": "passport",
+    "split": "val"
+  },
+  {
+    "path": "blobs/passport/passport_011.jpg",
+    "label": "passport",
+    "split": "train"
+  },
+  {
+    "path": "blobs/passport/passport_012.jpg",
+    "label": "passport",
+    "split": "train"
+  },
+  {
+    "path": "blobs/passport/passport_013.jpg",
+    "label": "passport",
+    "split": "train"
+  },
+  {
+    "path": "blobs/passport/passport_014.jpg",
+    "label": "passport",
+    "split": "train"
+  },
+  {
+    "path": "blobs/passport/passport_015.jpg",
+    "label": "passport",
+    "split": "val"
+  },
+  {
+    "path": "blobs/passport/passport_016.jpg",
+    "label": "passport",
+    "split": "train"
+  },
+  {
+    "path": "blobs/passport/passport_017.jpg",
+    "label": "passport",
+    "split": "train"
+  },
+  {
+    "path": "blobs/passport/passport_018.jpg",
+    "label": "passport",
+    "split": "train"
+  },
+  {
+    "path": "blobs/passport/passport_019.jpg",
+    "label": "passport",
+    "split": "train"
+  },
+  {
+    "path": "blobs/passport/passport_020.jpg",
+    "label": "passport",
+    "split": "val"
+  },
+  {
+    "path": "blobs/passport/passport_021.jpg",
+    "label": "passport",
+    "split": "train"
+  },
+  {
+    "path": "blobs/passport/passport_022.jpg",
+    "label": "passport",
+    "split": "train"
+  },
+  {
+    "path": "blobs/passport/passport_023.jpg",
+    "label": "passport",
+    "split": "train"
+  },
+  {
+    "path": "blobs/passport/passport_024.jpg",
+    "label": "passport",
+    "split": "train"
+  },
+  {
+    "path": "blobs/passport/passport_025.jpg",
+    "label": "passport",
+    "split": "val"
+  },
+  {
+    "path": "blobs/passport/passport_026.jpg",
+    "label": "passport",
+    "split": "train"
+  },
+  {
+    "path": "blobs/passport/passport_027.jpg",
+    "label": "passport",
+    "split": "train"
+  },
+  {
+    "path": "blobs/passport/passport_028.jpg",
+    "label": "passport",
+    "split": "train"
+  },
+  {
+    "path": "blobs/passport/passport_029.jpg",
+    "label": "passport",
+    "split": "train"
+  },
+  {
+    "path": "blobs/passport/passport_030.jpg",
+    "label": "passport",
+    "split": "val"
+  },
+  {
+    "path": "blobs/passport/passport_031.jpg",
+    "label": "passport",
+    "split": "train"
+  },
+  {
+    "path": "blobs/passport/passport_032.jpg",
+    "label": "passport",
+    "split": "train"
+  },
+  {
+    "path": "blobs/passport/passport_033.jpg",
+    "label": "passport",
+    "split": "train"
+  },
+  {
+    "path": "blobs/passport/passport_034.jpg",
+    "label": "passport",
+    "split": "train"
+  },
+  {
+    "path": "blobs/passport/passport_035.jpg",
+    "label": "passport",
+    "split": "val"
+  },
+  {
+    "path": "blobs/passport/passport_036.jpg",
+    "label": "passport",
+    "split": "train"
+  },
+  {
+    "path": "blobs/passport/passport_037.jpg",
+    "label": "passport",
+    "split": "train"
+  },
+  {
+    "path": "blobs/passport/passport_038.jpg",
+    "label": "passport",
+    "split": "train"
+  },
+  {
+    "path": "blobs/passport/passport_039.jpg",
+    "label": "passport",
+    "split": "train"
+  },
+  {
+    "path": "blobs/passport/passport_040.jpg",
+    "label": "passport",
+    "split": "val"
+  },
+  {
+    "path": "blobs/passport/passport_041.jpg",
+    "label": "passport",
+    "split": "train"
+  },
+  {
+    "path": "blobs/passport/passport_042.jpg",
+    "label": "passport",
+    "split": "train"
+  },
+  {
+    "path": "blobs/passport/passport_043.jpg",
+    "label": "passport",
+    "split": "train"
+  },
+  {
+    "path": "blobs/passport/passport_044.jpg",
+    "label": "passport",
+    "split": "train"
+  },
+  {
+    "path": "blobs/passport/passport_045.jpg",
+    "label": "passport",
+    "split": "val"
+  },
+  {
+    "path": "blobs/passport/passport_046.jpg",
+    "label": "passport",
+    "split": "train"
+  },
+  {
+    "path": "blobs/passport/passport_047.jpg",
+    "label": "passport",
+    "split": "train"
+  },
+  {
+    "path": "blobs/passport/passport_048.jpg",
+    "label": "passport",
+    "split": "train"
+  },
+  {
+    "path": "blobs/passport/passport_049.jpg",
+    "label": "passport",
+    "split": "train"
+  },
+  {
+    "path": "blobs/passport/passport_050.jpg",
+    "label": "passport",
+    "split": "val"
+  },
+  {
+    "path": "blobs/passport/passport_051.jpg",
+    "label": "passport",
+    "split": "train"
+  },
+  {
+    "path": "blobs/passport/passport_052.jpg",
+    "label": "passport",
+    "split": "train"
+  },
+  {
+    "path": "blobs/passport/passport_053.jpg",
+    "label": "passport",
+    "split": "train"
+  },
+  {
+    "path": "blobs/passport/passport_054.jpg",
+    "label": "passport",
+    "split": "train"
+  },
+  {
+    "path": "blobs/passport/passport_055.jpg",
+    "label": "passport",
+    "split": "val"
+  },
+  {
+    "path": "blobs/passport/passport_056.jpg",
+    "label": "passport",
+    "split": "train"
+  },
+  {
+    "path": "blobs/passport/passport_057.jpg",
+    "label": "passport",
+    "split": "train"
+  },
+  {
+    "path": "blobs/passport/passport_058.jpg",
+    "label": "passport",
+    "split": "train"
+  },
+  {
+    "path": "blobs/passport/passport_059.jpg",
+    "label": "passport",
+    "split": "train"
+  },
+  {
+    "path": "blobs/passport/passport_060.jpg",
+    "label": "passport",
+    "split": "val"
+  },
+  {
+    "path": "blobs/passport/passport_061.jpg",
+    "label": "passport",
+    "split": "train"
+  },
+  {
+    "path": "blobs/passport/passport_062.jpg",
+    "label": "passport",
+    "split": "train"
+  },
+  {
+    "path": "blobs/passport/passport_063.jpg",
+    "label": "passport",
+    "split": "train"
+  },
+  {
+    "path": "blobs/passport/passport_064.jpg",
+    "label": "passport",
+    "split": "train"
+  },
+  {
+    "path": "blobs/passport/passport_065.jpg",
+    "label": "passport",
+    "split": "val"
+  },
+  {
+    "path": "blobs/passport/passport_066.jpg",
+    "label": "passport",
+    "split": "train"
+  },
+  {
+    "path": "blobs/passport/passport_067.jpg",
+    "label": "passport",
+    "split": "train"
+  },
+  {
+    "path": "blobs/passport/passport_068.jpg",
+    "label": "passport",
+    "split": "train"
+  },
+  {
+    "path": "blobs/passport/passport_069.jpg",
+    "label": "passport",
+    "split": "train"
+  },
+  {
+    "path": "blobs/passport/passport_070.jpg",
+    "label": "passport",
+    "split": "val"
+  },
+  {
+    "path": "blobs/passport/passport_071.jpg",
+    "label": "passport",
+    "split": "train"
+  },
+  {
+    "path": "blobs/passport/passport_072.jpg",
+    "label": "passport",
+    "split": "train"
+  },
+  {
+    "path": "blobs/passport/passport_073.jpg",
+    "label": "passport",
+    "split": "train"
+  },
+  {
+    "path": "blobs/passport/passport_074.jpg",
+    "label": "passport",
+    "split": "train"
+  },
+  {
+    "path": "blobs/passport/passport_075.jpg",
+    "label": "passport",
+    "split": "val"
+  },
+  {
+    "path": "blobs/passport/passport_076.jpg",
+    "label": "passport",
+    "split": "train"
+  },
+  {
+    "path": "blobs/passport/passport_077.jpg",
+    "label": "passport",
+    "split": "train"
+  },
+  {
+    "path": "blobs/passport/passport_078.jpg",
+    "label": "passport",
+    "split": "train"
+  },
+  {
+    "path": "blobs/passport/passport_079.jpg",
+    "label": "passport",
+    "split": "train"
+  },
+  {
+    "path": "blobs/photograph/photograph_000.jpg",
+    "label": "photograph",
+    "split": "val"
+  },
+  {
+    "path": "blobs/photograph/photograph_001.jpg",
+    "label": "photograph",
+    "split": "train"
+  },
+  {
+    "path": "blobs/photograph/photograph_002.jpg",
+    "label": "photograph",
+    "split": "train"
+  },
+  {
+    "path": "blobs/photograph/photograph_003.jpg",
+    "label": "photograph",
+    "split": "train"
+  },
+  {
+    "path": "blobs/photograph/photograph_004.jpg",
+    "label": "photograph",
+    "split": "train"
+  },
+  {
+    "path": "blobs/photograph/photograph_005.jpg",
+    "label": "photograph",
+    "split": "val"
+  },
+  {
+    "path": "blobs/photograph/photograph_006.jpg",
+    "label": "photograph",
+    "split": "train"
+  },
+  {
+    "path": "blobs/photograph/photograph_007.jpg",
+    "label": "photograph",
+    "split": "train"
+  },
+  {
+    "path": "blobs/photograph/photograph_008.jpg",
+    "label": "photograph",
+    "split": "train"
+  },
+  {
+    "path": "blobs/photograph/photograph_009.jpg",
+    "label": "photograph",
+    "split": "train"
+  },
+  {
+    "path": "blobs/photograph/photograph_010.jpg",
+    "label": "photograph",
+    "split": "val"
+  },
+  {
+    "path": "blobs/photograph/photograph_011.jpg",
+    "label": "photograph",
+    "split": "train"
+  },
+  {
+    "path": "blobs/photograph/photograph_012.jpg",
+    "label": "photograph",
+    "split": "train"
+  },
+  {
+    "path": "blobs/photograph/photograph_013.jpg",
+    "label": "photograph",
+    "split": "train"
+  },
+  {
+    "path": "blobs/photograph/photograph_014.jpg",
+    "label": "photograph",
+    "split": "train"
+  },
+  {
+    "path": "blobs/photograph/photograph_015.jpg",
+    "label": "photograph",
+    "split": "val"
+  },
+  {
+    "path": "blobs/photograph/photograph_016.jpg",
+    "label": "photograph",
+    "split": "train"
+  },
+  {
+    "path": "blobs/photograph/photograph_017.jpg",
+    "label": "photograph",
+    "split": "train"
+  },
+  {
+    "path": "blobs/photograph/photograph_018.jpg",
+    "label": "photograph",
+    "split": "train"
+  },
+  {
+    "path": "blobs/photograph/photograph_019.jpg",
+    "label": "photograph",
+    "split": "train"
+  },
+  {
+    "path": "blobs/photograph/photograph_020.jpg",
+    "label": "photograph",
+    "split": "val"
+  },
+  {
+    "path": "blobs/photograph/photograph_021.jpg",
+    "label": "photograph",
+    "split": "train"
+  },
+  {
+    "path": "blobs/photograph/photograph_022.jpg",
+    "label": "photograph",
+    "split": "train"
+  },
+  {
+    "path": "blobs/photograph/photograph_023.jpg",
+    "label": "photograph",
+    "split": "train"
+  },
+  {
+    "path": "blobs/photograph/photograph_024.jpg",
+    "label": "photograph",
+    "split": "train"
+  },
+  {
+    "path": "blobs/photograph/photograph_025.jpg",
+    "label": "photograph",
+    "split": "val"
+  },
+  {
+    "path": "blobs/photograph/photograph_026.jpg",
+    "label": "photograph",
+    "split": "train"
+  },
+  {
+    "path": "blobs/photograph/photograph_027.jpg",
+    "label": "photograph",
+    "split": "train"
+  },
+  {
+    "path": "blobs/photograph/photograph_028.jpg",
+    "label": "photograph",
+    "split": "train"
+  },
+  {
+    "path": "blobs/photograph/photograph_029.jpg",
+    "label": "photograph",
+    "split": "train"
+  },
+  {
+    "path": "blobs/photograph/photograph_030.jpg",
+    "label": "photograph",
+    "split": "val"
+  },
+  {
+    "path": "blobs/photograph/photograph_031.jpg",
+    "label": "photograph",
+    "split": "train"
+  },
+  {
+    "path": "blobs/photograph/photograph_032.jpg",
+    "label": "photograph",
+    "split": "train"
+  },
+  {
+    "path": "blobs/photograph/photograph_033.jpg",
+    "label": "photograph",
+    "split": "train"
+  },
+  {
+    "path": "blobs/photograph/photograph_034.jpg",
+    "label": "photograph",
+    "split": "train"
+  },
+  {
+    "path": "blobs/photograph/photograph_035.jpg",
+    "label": "photograph",
+    "split": "val"
+  },
+  {
+    "path": "blobs/photograph/photograph_036.jpg",
+    "label": "photograph",
+    "split": "train"
+  },
+  {
+    "path": "blobs/photograph/photograph_037.jpg",
+    "label": "photograph",
+    "split": "train"
+  },
+  {
+    "path": "blobs/photograph/photograph_038.jpg",
+    "label": "photograph",
+    "split": "train"
+  },
+  {
+    "path": "blobs/photograph/photograph_039.jpg",
+    "label": "photograph",
+    "split": "train"
+  },
+  {
+    "path": "blobs/photograph/photograph_040.jpg",
+    "label": "photograph",
+    "split": "val"
+  },
+  {
+    "path": "blobs/photograph/photograph_041.jpg",
+    "label": "photograph",
+    "split": "train"
+  },
+  {
+    "path": "blobs/photograph/photograph_042.jpg",
+    "label": "photograph",
+    "split": "train"
+  },
+  {
+    "path": "blobs/photograph/photograph_043.jpg",
+    "label": "photograph",
+    "split": "train"
+  },
+  {
+    "path": "blobs/photograph/photograph_044.jpg",
+    "label": "photograph",
+    "split": "train"
+  },
+  {
+    "path": "blobs/photograph/photograph_045.jpg",
+    "label": "photograph",
+    "split": "val"
+  },
+  {
+    "path": "blobs/photograph/photograph_046.jpg",
+    "label": "photograph",
+    "split": "train"
+  },
+  {
+    "path": "blobs/photograph/photograph_047.jpg",
+    "label": "photograph",
+    "split": "train"
+  },
+  {
+    "path": "blobs/photograph/photograph_048.jpg",
+    "label": "photograph",
+    "split": "train"
+  },
+  {
+    "path": "blobs/photograph/photograph_049.jpg",
+    "label": "photograph",
+    "split": "train"
+  },
+  {
+    "path": "blobs/photograph/photograph_050.jpg",
+    "label": "photograph",
+    "split": "val"
+  },
+  {
+    "path": "blobs/photograph/photograph_051.jpg",
+    "label": "photograph",
+    "split": "train"
+  },
+  {
+    "path": "blobs/photograph/photograph_052.jpg",
+    "label": "photograph",
+    "split": "train"
+  },
+  {
+    "path": "blobs/photograph/photograph_053.jpg",
+    "label": "photograph",
+    "split": "train"
+  },
+  {
+    "path": "blobs/photograph/photograph_054.jpg",
+    "label": "photograph",
+    "split": "train"
+  },
+  {
+    "path": "blobs/photograph/photograph_055.jpg",
+    "label": "photograph",
+    "split": "val"
+  },
+  {
+    "path": "blobs/photograph/photograph_056.jpg",
+    "label": "photograph",
+    "split": "train"
+  },
+  {
+    "path": "blobs/photograph/photograph_057.jpg",
+    "label": "photograph",
+    "split": "train"
+  },
+  {
+    "path": "blobs/photograph/photograph_058.jpg",
+    "label": "photograph",
+    "split": "train"
+  },
+  {
+    "path": "blobs/photograph/photograph_059.jpg",
+    "label": "photograph",
+    "split": "train"
+  },
+  {
+    "path": "blobs/photograph/photograph_060.jpg",
+    "label": "photograph",
+    "split": "val"
+  },
+  {
+    "path": "blobs/photograph/photograph_061.jpg",
+    "label": "photograph",
+    "split": "train"
+  },
+  {
+    "path": "blobs/photograph/photograph_062.jpg",
+    "label": "photograph",
+    "split": "train"
+  },
+  {
+    "path": "blobs/photograph/photograph_063.jpg",
+    "label": "photograph",
+    "split": "train"
+  },
+  {
+    "path": "blobs/photograph/photograph_064.jpg",
+    "label": "photograph",
+    "split": "train"
+  },
+  {
+    "path": "blobs/photograph/photograph_065.jpg",
+    "label": "photograph",
+    "split": "val"
+  },
+  {
+    "path": "blobs/photograph/photograph_066.jpg",
+    "label": "photograph",
+    "split": "train"
+  },
+  {
+    "path": "blobs/photograph/photograph_067.jpg",
+    "label": "photograph",
+    "split": "train"
+  },
+  {
+    "path": "blobs/photograph/photograph_068.jpg",
+    "label": "photograph",
+    "split": "train"
+  },
+  {
+    "path": "blobs/photograph/photograph_069.jpg",
+    "label": "photograph",
+    "split": "train"
+  },
+  {
+    "path": "blobs/photograph/photograph_070.jpg",
+    "label": "photograph",
+    "split": "val"
+  },
+  {
+    "path": "blobs/photograph/photograph_071.jpg",
+    "label": "photograph",
+    "split": "train"
+  },
+  {
+    "path": "blobs/photograph/photograph_072.jpg",
+    "label": "photograph",
+    "split": "train"
+  },
+  {
+    "path": "blobs/photograph/photograph_073.jpg",
+    "label": "photograph",
+    "split": "train"
+  },
+  {
+    "path": "blobs/photograph/photograph_074.jpg",
+    "label": "photograph",
+    "split": "train"
+  },
+  {
+    "path": "blobs/photograph/photograph_075.jpg",
+    "label": "photograph",
+    "split": "val"
+  },
+  {
+    "path": "blobs/photograph/photograph_076.jpg",
+    "label": "photograph",
+    "split": "train"
+  },
+  {
+    "path": "blobs/photograph/photograph_077.jpg",
+    "label": "photograph",
+    "split": "train"
+  },
+  {
+    "path": "blobs/photograph/photograph_078.jpg",
+    "label": "photograph",
+    "split": "train"
+  },
+  {
+    "path": "blobs/photograph/photograph_079.jpg",
+    "label": "photograph",
+    "split": "train"
+  },
+  {
+    "path": "blobs/bank_statement/bank_statement_000.jpg",
+    "label": "bank_statement",
+    "split": "val"
+  },
+  {
+    "path": "blobs/bank_statement/bank_statement_001.jpg",
+    "label": "bank_statement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/bank_statement/bank_statement_002.jpg",
+    "label": "bank_statement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/bank_statement/bank_statement_003.jpg",
+    "label": "bank_statement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/bank_statement/bank_statement_004.jpg",
+    "label": "bank_statement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/bank_statement/bank_statement_005.jpg",
+    "label": "bank_statement",
+    "split": "val"
+  },
+  {
+    "path": "blobs/bank_statement/bank_statement_006.jpg",
+    "label": "bank_statement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/bank_statement/bank_statement_007.jpg",
+    "label": "bank_statement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/bank_statement/bank_statement_008.jpg",
+    "label": "bank_statement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/bank_statement/bank_statement_009.jpg",
+    "label": "bank_statement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/bank_statement/bank_statement_010.jpg",
+    "label": "bank_statement",
+    "split": "val"
+  },
+  {
+    "path": "blobs/bank_statement/bank_statement_011.jpg",
+    "label": "bank_statement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/bank_statement/bank_statement_012.jpg",
+    "label": "bank_statement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/bank_statement/bank_statement_013.jpg",
+    "label": "bank_statement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/bank_statement/bank_statement_014.jpg",
+    "label": "bank_statement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/bank_statement/bank_statement_015.jpg",
+    "label": "bank_statement",
+    "split": "val"
+  },
+  {
+    "path": "blobs/bank_statement/bank_statement_016.jpg",
+    "label": "bank_statement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/bank_statement/bank_statement_017.jpg",
+    "label": "bank_statement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/bank_statement/bank_statement_018.jpg",
+    "label": "bank_statement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/bank_statement/bank_statement_019.jpg",
+    "label": "bank_statement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/bank_statement/bank_statement_020.jpg",
+    "label": "bank_statement",
+    "split": "val"
+  },
+  {
+    "path": "blobs/bank_statement/bank_statement_021.jpg",
+    "label": "bank_statement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/bank_statement/bank_statement_022.jpg",
+    "label": "bank_statement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/bank_statement/bank_statement_023.jpg",
+    "label": "bank_statement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/bank_statement/bank_statement_024.jpg",
+    "label": "bank_statement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/bank_statement/bank_statement_025.jpg",
+    "label": "bank_statement",
+    "split": "val"
+  },
+  {
+    "path": "blobs/bank_statement/bank_statement_026.jpg",
+    "label": "bank_statement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/bank_statement/bank_statement_027.jpg",
+    "label": "bank_statement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/bank_statement/bank_statement_028.jpg",
+    "label": "bank_statement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/bank_statement/bank_statement_029.jpg",
+    "label": "bank_statement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/bank_statement/bank_statement_030.jpg",
+    "label": "bank_statement",
+    "split": "val"
+  },
+  {
+    "path": "blobs/bank_statement/bank_statement_031.jpg",
+    "label": "bank_statement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/bank_statement/bank_statement_032.jpg",
+    "label": "bank_statement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/bank_statement/bank_statement_033.jpg",
+    "label": "bank_statement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/bank_statement/bank_statement_034.jpg",
+    "label": "bank_statement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/bank_statement/bank_statement_035.jpg",
+    "label": "bank_statement",
+    "split": "val"
+  },
+  {
+    "path": "blobs/bank_statement/bank_statement_036.jpg",
+    "label": "bank_statement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/bank_statement/bank_statement_037.jpg",
+    "label": "bank_statement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/bank_statement/bank_statement_038.jpg",
+    "label": "bank_statement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/bank_statement/bank_statement_039.jpg",
+    "label": "bank_statement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/bank_statement/bank_statement_040.jpg",
+    "label": "bank_statement",
+    "split": "val"
+  },
+  {
+    "path": "blobs/bank_statement/bank_statement_041.jpg",
+    "label": "bank_statement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/bank_statement/bank_statement_042.jpg",
+    "label": "bank_statement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/bank_statement/bank_statement_043.jpg",
+    "label": "bank_statement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/bank_statement/bank_statement_044.jpg",
+    "label": "bank_statement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/bank_statement/bank_statement_045.jpg",
+    "label": "bank_statement",
+    "split": "val"
+  },
+  {
+    "path": "blobs/bank_statement/bank_statement_046.jpg",
+    "label": "bank_statement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/bank_statement/bank_statement_047.jpg",
+    "label": "bank_statement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/bank_statement/bank_statement_048.jpg",
+    "label": "bank_statement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/bank_statement/bank_statement_049.jpg",
+    "label": "bank_statement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/bank_statement/bank_statement_050.jpg",
+    "label": "bank_statement",
+    "split": "val"
+  },
+  {
+    "path": "blobs/bank_statement/bank_statement_051.jpg",
+    "label": "bank_statement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/bank_statement/bank_statement_052.jpg",
+    "label": "bank_statement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/bank_statement/bank_statement_053.jpg",
+    "label": "bank_statement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/bank_statement/bank_statement_054.jpg",
+    "label": "bank_statement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/bank_statement/bank_statement_055.jpg",
+    "label": "bank_statement",
+    "split": "val"
+  },
+  {
+    "path": "blobs/bank_statement/bank_statement_056.jpg",
+    "label": "bank_statement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/bank_statement/bank_statement_057.jpg",
+    "label": "bank_statement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/bank_statement/bank_statement_058.jpg",
+    "label": "bank_statement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/bank_statement/bank_statement_059.jpg",
+    "label": "bank_statement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/bank_statement/bank_statement_060.jpg",
+    "label": "bank_statement",
+    "split": "val"
+  },
+  {
+    "path": "blobs/bank_statement/bank_statement_061.jpg",
+    "label": "bank_statement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/bank_statement/bank_statement_062.jpg",
+    "label": "bank_statement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/bank_statement/bank_statement_063.jpg",
+    "label": "bank_statement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/bank_statement/bank_statement_064.jpg",
+    "label": "bank_statement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/bank_statement/bank_statement_065.jpg",
+    "label": "bank_statement",
+    "split": "val"
+  },
+  {
+    "path": "blobs/bank_statement/bank_statement_066.jpg",
+    "label": "bank_statement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/bank_statement/bank_statement_067.jpg",
+    "label": "bank_statement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/bank_statement/bank_statement_068.jpg",
+    "label": "bank_statement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/bank_statement/bank_statement_069.jpg",
+    "label": "bank_statement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/bank_statement/bank_statement_070.jpg",
+    "label": "bank_statement",
+    "split": "val"
+  },
+  {
+    "path": "blobs/bank_statement/bank_statement_071.jpg",
+    "label": "bank_statement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/bank_statement/bank_statement_072.jpg",
+    "label": "bank_statement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/bank_statement/bank_statement_073.jpg",
+    "label": "bank_statement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/bank_statement/bank_statement_074.jpg",
+    "label": "bank_statement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/bank_statement/bank_statement_075.jpg",
+    "label": "bank_statement",
+    "split": "val"
+  },
+  {
+    "path": "blobs/bank_statement/bank_statement_076.jpg",
+    "label": "bank_statement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/bank_statement/bank_statement_077.jpg",
+    "label": "bank_statement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/bank_statement/bank_statement_078.jpg",
+    "label": "bank_statement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/bank_statement/bank_statement_079.jpg",
+    "label": "bank_statement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/rental_agreement/rental_agreement_000.jpg",
+    "label": "rental_agreement",
+    "split": "val"
+  },
+  {
+    "path": "blobs/rental_agreement/rental_agreement_001.jpg",
+    "label": "rental_agreement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/rental_agreement/rental_agreement_002.jpg",
+    "label": "rental_agreement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/rental_agreement/rental_agreement_003.jpg",
+    "label": "rental_agreement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/rental_agreement/rental_agreement_004.jpg",
+    "label": "rental_agreement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/rental_agreement/rental_agreement_005.jpg",
+    "label": "rental_agreement",
+    "split": "val"
+  },
+  {
+    "path": "blobs/rental_agreement/rental_agreement_006.jpg",
+    "label": "rental_agreement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/rental_agreement/rental_agreement_007.jpg",
+    "label": "rental_agreement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/rental_agreement/rental_agreement_008.jpg",
+    "label": "rental_agreement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/rental_agreement/rental_agreement_009.jpg",
+    "label": "rental_agreement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/rental_agreement/rental_agreement_010.jpg",
+    "label": "rental_agreement",
+    "split": "val"
+  },
+  {
+    "path": "blobs/rental_agreement/rental_agreement_011.jpg",
+    "label": "rental_agreement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/rental_agreement/rental_agreement_012.jpg",
+    "label": "rental_agreement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/rental_agreement/rental_agreement_013.jpg",
+    "label": "rental_agreement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/rental_agreement/rental_agreement_014.jpg",
+    "label": "rental_agreement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/rental_agreement/rental_agreement_015.jpg",
+    "label": "rental_agreement",
+    "split": "val"
+  },
+  {
+    "path": "blobs/rental_agreement/rental_agreement_016.jpg",
+    "label": "rental_agreement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/rental_agreement/rental_agreement_017.jpg",
+    "label": "rental_agreement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/rental_agreement/rental_agreement_018.jpg",
+    "label": "rental_agreement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/rental_agreement/rental_agreement_019.jpg",
+    "label": "rental_agreement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/rental_agreement/rental_agreement_020.jpg",
+    "label": "rental_agreement",
+    "split": "val"
+  },
+  {
+    "path": "blobs/rental_agreement/rental_agreement_021.jpg",
+    "label": "rental_agreement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/rental_agreement/rental_agreement_022.jpg",
+    "label": "rental_agreement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/rental_agreement/rental_agreement_023.jpg",
+    "label": "rental_agreement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/rental_agreement/rental_agreement_024.jpg",
+    "label": "rental_agreement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/rental_agreement/rental_agreement_025.jpg",
+    "label": "rental_agreement",
+    "split": "val"
+  },
+  {
+    "path": "blobs/rental_agreement/rental_agreement_026.jpg",
+    "label": "rental_agreement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/rental_agreement/rental_agreement_027.jpg",
+    "label": "rental_agreement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/rental_agreement/rental_agreement_028.jpg",
+    "label": "rental_agreement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/rental_agreement/rental_agreement_029.jpg",
+    "label": "rental_agreement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/rental_agreement/rental_agreement_030.jpg",
+    "label": "rental_agreement",
+    "split": "val"
+  },
+  {
+    "path": "blobs/rental_agreement/rental_agreement_031.jpg",
+    "label": "rental_agreement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/rental_agreement/rental_agreement_032.jpg",
+    "label": "rental_agreement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/rental_agreement/rental_agreement_033.jpg",
+    "label": "rental_agreement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/rental_agreement/rental_agreement_034.jpg",
+    "label": "rental_agreement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/rental_agreement/rental_agreement_035.jpg",
+    "label": "rental_agreement",
+    "split": "val"
+  },
+  {
+    "path": "blobs/rental_agreement/rental_agreement_036.jpg",
+    "label": "rental_agreement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/rental_agreement/rental_agreement_037.jpg",
+    "label": "rental_agreement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/rental_agreement/rental_agreement_038.jpg",
+    "label": "rental_agreement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/rental_agreement/rental_agreement_039.jpg",
+    "label": "rental_agreement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/rental_agreement/rental_agreement_040.jpg",
+    "label": "rental_agreement",
+    "split": "val"
+  },
+  {
+    "path": "blobs/rental_agreement/rental_agreement_041.jpg",
+    "label": "rental_agreement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/rental_agreement/rental_agreement_042.jpg",
+    "label": "rental_agreement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/rental_agreement/rental_agreement_043.jpg",
+    "label": "rental_agreement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/rental_agreement/rental_agreement_044.jpg",
+    "label": "rental_agreement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/rental_agreement/rental_agreement_045.jpg",
+    "label": "rental_agreement",
+    "split": "val"
+  },
+  {
+    "path": "blobs/rental_agreement/rental_agreement_046.jpg",
+    "label": "rental_agreement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/rental_agreement/rental_agreement_047.jpg",
+    "label": "rental_agreement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/rental_agreement/rental_agreement_048.jpg",
+    "label": "rental_agreement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/rental_agreement/rental_agreement_049.jpg",
+    "label": "rental_agreement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/rental_agreement/rental_agreement_050.jpg",
+    "label": "rental_agreement",
+    "split": "val"
+  },
+  {
+    "path": "blobs/rental_agreement/rental_agreement_051.jpg",
+    "label": "rental_agreement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/rental_agreement/rental_agreement_052.jpg",
+    "label": "rental_agreement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/rental_agreement/rental_agreement_053.jpg",
+    "label": "rental_agreement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/rental_agreement/rental_agreement_054.jpg",
+    "label": "rental_agreement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/rental_agreement/rental_agreement_055.jpg",
+    "label": "rental_agreement",
+    "split": "val"
+  },
+  {
+    "path": "blobs/rental_agreement/rental_agreement_056.jpg",
+    "label": "rental_agreement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/rental_agreement/rental_agreement_057.jpg",
+    "label": "rental_agreement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/rental_agreement/rental_agreement_058.jpg",
+    "label": "rental_agreement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/rental_agreement/rental_agreement_059.jpg",
+    "label": "rental_agreement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/rental_agreement/rental_agreement_060.jpg",
+    "label": "rental_agreement",
+    "split": "val"
+  },
+  {
+    "path": "blobs/rental_agreement/rental_agreement_061.jpg",
+    "label": "rental_agreement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/rental_agreement/rental_agreement_062.jpg",
+    "label": "rental_agreement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/rental_agreement/rental_agreement_063.jpg",
+    "label": "rental_agreement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/rental_agreement/rental_agreement_064.jpg",
+    "label": "rental_agreement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/rental_agreement/rental_agreement_065.jpg",
+    "label": "rental_agreement",
+    "split": "val"
+  },
+  {
+    "path": "blobs/rental_agreement/rental_agreement_066.jpg",
+    "label": "rental_agreement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/rental_agreement/rental_agreement_067.jpg",
+    "label": "rental_agreement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/rental_agreement/rental_agreement_068.jpg",
+    "label": "rental_agreement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/rental_agreement/rental_agreement_069.jpg",
+    "label": "rental_agreement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/rental_agreement/rental_agreement_070.jpg",
+    "label": "rental_agreement",
+    "split": "val"
+  },
+  {
+    "path": "blobs/rental_agreement/rental_agreement_071.jpg",
+    "label": "rental_agreement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/rental_agreement/rental_agreement_072.jpg",
+    "label": "rental_agreement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/rental_agreement/rental_agreement_073.jpg",
+    "label": "rental_agreement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/rental_agreement/rental_agreement_074.jpg",
+    "label": "rental_agreement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/rental_agreement/rental_agreement_075.jpg",
+    "label": "rental_agreement",
+    "split": "val"
+  },
+  {
+    "path": "blobs/rental_agreement/rental_agreement_076.jpg",
+    "label": "rental_agreement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/rental_agreement/rental_agreement_077.jpg",
+    "label": "rental_agreement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/rental_agreement/rental_agreement_078.jpg",
+    "label": "rental_agreement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/rental_agreement/rental_agreement_079.jpg",
+    "label": "rental_agreement",
+    "split": "train"
+  },
+  {
+    "path": "blobs/cancelled_cheque/cancelled_cheque_000.jpg",
+    "label": "cancelled_cheque",
+    "split": "val"
+  },
+  {
+    "path": "blobs/cancelled_cheque/cancelled_cheque_001.jpg",
+    "label": "cancelled_cheque",
+    "split": "train"
+  },
+  {
+    "path": "blobs/cancelled_cheque/cancelled_cheque_002.jpg",
+    "label": "cancelled_cheque",
+    "split": "train"
+  },
+  {
+    "path": "blobs/cancelled_cheque/cancelled_cheque_003.jpg",
+    "label": "cancelled_cheque",
+    "split": "train"
+  },
+  {
+    "path": "blobs/cancelled_cheque/cancelled_cheque_004.jpg",
+    "label": "cancelled_cheque",
+    "split": "train"
+  },
+  {
+    "path": "blobs/cancelled_cheque/cancelled_cheque_005.jpg",
+    "label": "cancelled_cheque",
+    "split": "val"
+  },
+  {
+    "path": "blobs/cancelled_cheque/cancelled_cheque_006.jpg",
+    "label": "cancelled_cheque",
+    "split": "train"
+  },
+  {
+    "path": "blobs/cancelled_cheque/cancelled_cheque_007.jpg",
+    "label": "cancelled_cheque",
+    "split": "train"
+  },
+  {
+    "path": "blobs/cancelled_cheque/cancelled_cheque_008.jpg",
+    "label": "cancelled_cheque",
+    "split": "train"
+  },
+  {
+    "path": "blobs/cancelled_cheque/cancelled_cheque_009.jpg",
+    "label": "cancelled_cheque",
+    "split": "train"
+  },
+  {
+    "path": "blobs/cancelled_cheque/cancelled_cheque_010.jpg",
+    "label": "cancelled_cheque",
+    "split": "val"
+  },
+  {
+    "path": "blobs/cancelled_cheque/cancelled_cheque_011.jpg",
+    "label": "cancelled_cheque",
+    "split": "train"
+  },
+  {
+    "path": "blobs/cancelled_cheque/cancelled_cheque_012.jpg",
+    "label": "cancelled_cheque",
+    "split": "train"
+  },
+  {
+    "path": "blobs/cancelled_cheque/cancelled_cheque_013.jpg",
+    "label": "cancelled_cheque",
+    "split": "train"
+  },
+  {
+    "path": "blobs/cancelled_cheque/cancelled_cheque_014.jpg",
+    "label": "cancelled_cheque",
+    "split": "train"
+  },
+  {
+    "path": "blobs/cancelled_cheque/cancelled_cheque_015.jpg",
+    "label": "cancelled_cheque",
+    "split": "val"
+  },
+  {
+    "path": "blobs/cancelled_cheque/cancelled_cheque_016.jpg",
+    "label": "cancelled_cheque",
+    "split": "train"
+  },
+  {
+    "path": "blobs/cancelled_cheque/cancelled_cheque_017.jpg",
+    "label": "cancelled_cheque",
+    "split": "train"
+  },
+  {
+    "path": "blobs/cancelled_cheque/cancelled_cheque_018.jpg",
+    "label": "cancelled_cheque",
+    "split": "train"
+  },
+  {
+    "path": "blobs/cancelled_cheque/cancelled_cheque_019.jpg",
+    "label": "cancelled_cheque",
+    "split": "train"
+  },
+  {
+    "path": "blobs/cancelled_cheque/cancelled_cheque_020.jpg",
+    "label": "cancelled_cheque",
+    "split": "val"
+  },
+  {
+    "path": "blobs/cancelled_cheque/cancelled_cheque_021.jpg",
+    "label": "cancelled_cheque",
+    "split": "train"
+  },
+  {
+    "path": "blobs/cancelled_cheque/cancelled_cheque_022.jpg",
+    "label": "cancelled_cheque",
+    "split": "train"
+  },
+  {
+    "path": "blobs/cancelled_cheque/cancelled_cheque_023.jpg",
+    "label": "cancelled_cheque",
+    "split": "train"
+  },
+  {
+    "path": "blobs/cancelled_cheque/cancelled_cheque_024.jpg",
+    "label": "cancelled_cheque",
+    "split": "train"
+  },
+  {
+    "path": "blobs/cancelled_cheque/cancelled_cheque_025.jpg",
+    "label": "cancelled_cheque",
+    "split": "val"
+  },
+  {
+    "path": "blobs/cancelled_cheque/cancelled_cheque_026.jpg",
+    "label": "cancelled_cheque",
+    "split": "train"
+  },
+  {
+    "path": "blobs/cancelled_cheque/cancelled_cheque_027.jpg",
+    "label": "cancelled_cheque",
+    "split": "train"
+  },
+  {
+    "path": "blobs/cancelled_cheque/cancelled_cheque_028.jpg",
+    "label": "cancelled_cheque",
+    "split": "train"
+  },
+  {
+    "path": "blobs/cancelled_cheque/cancelled_cheque_029.jpg",
+    "label": "cancelled_cheque",
+    "split": "train"
+  },
+  {
+    "path": "blobs/cancelled_cheque/cancelled_cheque_030.jpg",
+    "label": "cancelled_cheque",
+    "split": "val"
+  },
+  {
+    "path": "blobs/cancelled_cheque/cancelled_cheque_031.jpg",
+    "label": "cancelled_cheque",
+    "split": "train"
+  },
+  {
+    "path": "blobs/cancelled_cheque/cancelled_cheque_032.jpg",
+    "label": "cancelled_cheque",
+    "split": "train"
+  },
+  {
+    "path": "blobs/cancelled_cheque/cancelled_cheque_033.jpg",
+    "label": "cancelled_cheque",
+    "split": "train"
+  },
+  {
+    "path": "blobs/cancelled_cheque/cancelled_cheque_034.jpg",
+    "label": "cancelled_cheque",
+    "split": "train"
+  },
+  {
+    "path": "blobs/cancelled_cheque/cancelled_cheque_035.jpg",
+    "label": "cancelled_cheque",
+    "split": "val"
+  },
+  {
+    "path": "blobs/cancelled_cheque/cancelled_cheque_036.jpg",
+    "label": "cancelled_cheque",
+    "split": "train"
+  },
+  {
+    "path": "blobs/cancelled_cheque/cancelled_cheque_037.jpg",
+    "label": "cancelled_cheque",
+    "split": "train"
+  },
+  {
+    "path": "blobs/cancelled_cheque/cancelled_cheque_038.jpg",
+    "label": "cancelled_cheque",
+    "split": "train"
+  },
+  {
+    "path": "blobs/cancelled_cheque/cancelled_cheque_039.jpg",
+    "label": "cancelled_cheque",
+    "split": "train"
+  },
+  {
+    "path": "blobs/cancelled_cheque/cancelled_cheque_040.jpg",
+    "label": "cancelled_cheque",
+    "split": "val"
+  },
+  {
+    "path": "blobs/cancelled_cheque/cancelled_cheque_041.jpg",
+    "label": "cancelled_cheque",
+    "split": "train"
+  },
+  {
+    "path": "blobs/cancelled_cheque/cancelled_cheque_042.jpg",
+    "label": "cancelled_cheque",
+    "split": "train"
+  },
+  {
+    "path": "blobs/cancelled_cheque/cancelled_cheque_043.jpg",
+    "label": "cancelled_cheque",
+    "split": "train"
+  },
+  {
+    "path": "blobs/cancelled_cheque/cancelled_cheque_044.jpg",
+    "label": "cancelled_cheque",
+    "split": "train"
+  },
+  {
+    "path": "blobs/cancelled_cheque/cancelled_cheque_045.jpg",
+    "label": "cancelled_cheque",
+    "split": "val"
+  },
+  {
+    "path": "blobs/cancelled_cheque/cancelled_cheque_046.jpg",
+    "label": "cancelled_cheque",
+    "split": "train"
+  },
+  {
+    "path": "blobs/cancelled_cheque/cancelled_cheque_047.jpg",
+    "label": "cancelled_cheque",
+    "split": "train"
+  },
+  {
+    "path": "blobs/cancelled_cheque/cancelled_cheque_048.jpg",
+    "label": "cancelled_cheque",
+    "split": "train"
+  },
+  {
+    "path": "blobs/cancelled_cheque/cancelled_cheque_049.jpg",
+    "label": "cancelled_cheque",
+    "split": "train"
+  },
+  {
+    "path": "blobs/cancelled_cheque/cancelled_cheque_050.jpg",
+    "label": "cancelled_cheque",
+    "split": "val"
+  },
+  {
+    "path": "blobs/cancelled_cheque/cancelled_cheque_051.jpg",
+    "label": "cancelled_cheque",
+    "split": "train"
+  },
+  {
+    "path": "blobs/cancelled_cheque/cancelled_cheque_052.jpg",
+    "label": "cancelled_cheque",
+    "split": "train"
+  },
+  {
+    "path": "blobs/cancelled_cheque/cancelled_cheque_053.jpg",
+    "label": "cancelled_cheque",
+    "split": "train"
+  },
+  {
+    "path": "blobs/cancelled_cheque/cancelled_cheque_054.jpg",
+    "label": "cancelled_cheque",
+    "split": "train"
+  },
+  {
+    "path": "blobs/cancelled_cheque/cancelled_cheque_055.jpg",
+    "label": "cancelled_cheque",
+    "split": "val"
+  },
+  {
+    "path": "blobs/cancelled_cheque/cancelled_cheque_056.jpg",
+    "label": "cancelled_cheque",
+    "split": "train"
+  },
+  {
+    "path": "blobs/cancelled_cheque/cancelled_cheque_057.jpg",
+    "label": "cancelled_cheque",
+    "split": "train"
+  },
+  {
+    "path": "blobs/cancelled_cheque/cancelled_cheque_058.jpg",
+    "label": "cancelled_cheque",
+    "split": "train"
+  },
+  {
+    "path": "blobs/cancelled_cheque/cancelled_cheque_059.jpg",
+    "label": "cancelled_cheque",
+    "split": "train"
+  },
+  {
+    "path": "blobs/cancelled_cheque/cancelled_cheque_060.jpg",
+    "label": "cancelled_cheque",
+    "split": "val"
+  },
+  {
+    "path": "blobs/cancelled_cheque/cancelled_cheque_061.jpg",
+    "label": "cancelled_cheque",
+    "split": "train"
+  },
+  {
+    "path": "blobs/cancelled_cheque/cancelled_cheque_062.jpg",
+    "label": "cancelled_cheque",
+    "split": "train"
+  },
+  {
+    "path": "blobs/cancelled_cheque/cancelled_cheque_063.jpg",
+    "label": "cancelled_cheque",
+    "split": "train"
+  },
+  {
+    "path": "blobs/cancelled_cheque/cancelled_cheque_064.jpg",
+    "label": "cancelled_cheque",
+    "split": "train"
+  },
+  {
+    "path": "blobs/cancelled_cheque/cancelled_cheque_065.jpg",
+    "label": "cancelled_cheque",
+    "split": "val"
+  },
+  {
+    "path": "blobs/cancelled_cheque/cancelled_cheque_066.jpg",
+    "label": "cancelled_cheque",
+    "split": "train"
+  },
+  {
+    "path": "blobs/cancelled_cheque/cancelled_cheque_067.jpg",
+    "label": "cancelled_cheque",
+    "split": "train"
+  },
+  {
+    "path": "blobs/cancelled_cheque/cancelled_cheque_068.jpg",
+    "label": "cancelled_cheque",
+    "split": "train"
+  },
+  {
+    "path": "blobs/cancelled_cheque/cancelled_cheque_069.jpg",
+    "label": "cancelled_cheque",
+    "split": "train"
+  },
+  {
+    "path": "blobs/cancelled_cheque/cancelled_cheque_070.jpg",
+    "label": "cancelled_cheque",
+    "split": "val"
+  },
+  {
+    "path": "blobs/cancelled_cheque/cancelled_cheque_071.jpg",
+    "label": "cancelled_cheque",
+    "split": "train"
+  },
+  {
+    "path": "blobs/cancelled_cheque/cancelled_cheque_072.jpg",
+    "label": "cancelled_cheque",
+    "split": "train"
+  },
+  {
+    "path": "blobs/cancelled_cheque/cancelled_cheque_073.jpg",
+    "label": "cancelled_cheque",
+    "split": "train"
+  },
+  {
+    "path": "blobs/cancelled_cheque/cancelled_cheque_074.jpg",
+    "label": "cancelled_cheque",
+    "split": "train"
+  },
+  {
+    "path": "blobs/cancelled_cheque/cancelled_cheque_075.jpg",
+    "label": "cancelled_cheque",
+    "split": "val"
+  },
+  {
+    "path": "blobs/cancelled_cheque/cancelled_cheque_076.jpg",
+    "label": "cancelled_cheque",
+    "split": "train"
+  },
+  {
+    "path": "blobs/cancelled_cheque/cancelled_cheque_077.jpg",
+    "label": "cancelled_cheque",
+    "split": "train"
+  },
+  {
+    "path": "blobs/cancelled_cheque/cancelled_cheque_078.jpg",
+    "label": "cancelled_cheque",
+    "split": "train"
+  },
+  {
+    "path": "blobs/cancelled_cheque/cancelled_cheque_079.jpg",
+    "label": "cancelled_cheque",
+    "split": "train"
+  },
+  {
+    "path": "blobs/salary_slip/salary_slip_000.jpg",
+    "label": "salary_slip",
+    "split": "val"
+  },
+  {
+    "path": "blobs/salary_slip/salary_slip_001.jpg",
+    "label": "salary_slip",
+    "split": "train"
+  },
+  {
+    "path": "blobs/salary_slip/salary_slip_002.jpg",
+    "label": "salary_slip",
+    "split": "train"
+  },
+  {
+    "path": "blobs/salary_slip/salary_slip_003.jpg",
+    "label": "salary_slip",
+    "split": "train"
+  },
+  {
+    "path": "blobs/salary_slip/salary_slip_004.jpg",
+    "label": "salary_slip",
+    "split": "train"
+  },
+  {
+    "path": "blobs/salary_slip/salary_slip_005.jpg",
+    "label": "salary_slip",
+    "split": "val"
+  },
+  {
+    "path": "blobs/salary_slip/salary_slip_006.jpg",
+    "label": "salary_slip",
+    "split": "train"
+  },
+  {
+    "path": "blobs/salary_slip/salary_slip_007.jpg",
+    "label": "salary_slip",
+    "split": "train"
+  },
+  {
+    "path": "blobs/salary_slip/salary_slip_008.jpg",
+    "label": "salary_slip",
+    "split": "train"
+  },
+  {
+    "path": "blobs/salary_slip/salary_slip_009.jpg",
+    "label": "salary_slip",
+    "split": "train"
+  },
+  {
+    "path": "blobs/salary_slip/salary_slip_010.jpg",
+    "label": "salary_slip",
+    "split": "val"
+  },
+  {
+    "path": "blobs/salary_slip/salary_slip_011.jpg",
+    "label": "salary_slip",
+    "split": "train"
+  },
+  {
+    "path": "blobs/salary_slip/salary_slip_012.jpg",
+    "label": "salary_slip",
+    "split": "train"
+  },
+  {
+    "path": "blobs/salary_slip/salary_slip_013.jpg",
+    "label": "salary_slip",
+    "split": "train"
+  },
+  {
+    "path": "blobs/salary_slip/salary_slip_014.jpg",
+    "label": "salary_slip",
+    "split": "train"
+  },
+  {
+    "path": "blobs/salary_slip/salary_slip_015.jpg",
+    "label": "salary_slip",
+    "split": "val"
+  },
+  {
+    "path": "blobs/salary_slip/salary_slip_016.jpg",
+    "label": "salary_slip",
+    "split": "train"
+  },
+  {
+    "path": "blobs/salary_slip/salary_slip_017.jpg",
+    "label": "salary_slip",
+    "split": "train"
+  },
+  {
+    "path": "blobs/salary_slip/salary_slip_018.jpg",
+    "label": "salary_slip",
+    "split": "train"
+  },
+  {
+    "path": "blobs/salary_slip/salary_slip_019.jpg",
+    "label": "salary_slip",
+    "split": "train"
+  },
+  {
+    "path": "blobs/salary_slip/salary_slip_020.jpg",
+    "label": "salary_slip",
+    "split": "val"
+  },
+  {
+    "path": "blobs/salary_slip/salary_slip_021.jpg",
+    "label": "salary_slip",
+    "split": "train"
+  },
+  {
+    "path": "blobs/salary_slip/salary_slip_022.jpg",
+    "label": "salary_slip",
+    "split": "train"
+  },
+  {
+    "path": "blobs/salary_slip/salary_slip_023.jpg",
+    "label": "salary_slip",
+    "split": "train"
+  },
+  {
+    "path": "blobs/salary_slip/salary_slip_024.jpg",
+    "label": "salary_slip",
+    "split": "train"
+  },
+  {
+    "path": "blobs/salary_slip/salary_slip_025.jpg",
+    "label": "salary_slip",
+    "split": "val"
+  },
+  {
+    "path": "blobs/salary_slip/salary_slip_026.jpg",
+    "label": "salary_slip",
+    "split": "train"
+  },
+  {
+    "path": "blobs/salary_slip/salary_slip_027.jpg",
+    "label": "salary_slip",
+    "split": "train"
+  },
+  {
+    "path": "blobs/salary_slip/salary_slip_028.jpg",
+    "label": "salary_slip",
+    "split": "train"
+  },
+  {
+    "path": "blobs/salary_slip/salary_slip_029.jpg",
+    "label": "salary_slip",
+    "split": "train"
+  },
+  {
+    "path": "blobs/salary_slip/salary_slip_030.jpg",
+    "label": "salary_slip",
+    "split": "val"
+  },
+  {
+    "path": "blobs/salary_slip/salary_slip_031.jpg",
+    "label": "salary_slip",
+    "split": "train"
+  },
+  {
+    "path": "blobs/salary_slip/salary_slip_032.jpg",
+    "label": "salary_slip",
+    "split": "train"
+  },
+  {
+    "path": "blobs/salary_slip/salary_slip_033.jpg",
+    "label": "salary_slip",
+    "split": "train"
+  },
+  {
+    "path": "blobs/salary_slip/salary_slip_034.jpg",
+    "label": "salary_slip",
+    "split": "train"
+  },
+  {
+    "path": "blobs/salary_slip/salary_slip_035.jpg",
+    "label": "salary_slip",
+    "split": "val"
+  },
+  {
+    "path": "blobs/salary_slip/salary_slip_036.jpg",
+    "label": "salary_slip",
+    "split": "train"
+  },
+  {
+    "path": "blobs/salary_slip/salary_slip_037.jpg",
+    "label": "salary_slip",
+    "split": "train"
+  },
+  {
+    "path": "blobs/salary_slip/salary_slip_038.jpg",
+    "label": "salary_slip",
+    "split": "train"
+  },
+  {
+    "path": "blobs/salary_slip/salary_slip_039.jpg",
+    "label": "salary_slip",
+    "split": "train"
+  },
+  {
+    "path": "blobs/salary_slip/salary_slip_040.jpg",
+    "label": "salary_slip",
+    "split": "val"
+  },
+  {
+    "path": "blobs/salary_slip/salary_slip_041.jpg",
+    "label": "salary_slip",
+    "split": "train"
+  },
+  {
+    "path": "blobs/salary_slip/salary_slip_042.jpg",
+    "label": "salary_slip",
+    "split": "train"
+  },
+  {
+    "path": "blobs/salary_slip/salary_slip_043.jpg",
+    "label": "salary_slip",
+    "split": "train"
+  },
+  {
+    "path": "blobs/salary_slip/salary_slip_044.jpg",
+    "label": "salary_slip",
+    "split": "train"
+  },
+  {
+    "path": "blobs/salary_slip/salary_slip_045.jpg",
+    "label": "salary_slip",
+    "split": "val"
+  },
+  {
+    "path": "blobs/salary_slip/salary_slip_046.jpg",
+    "label": "salary_slip",
+    "split": "train"
+  },
+  {
+    "path": "blobs/salary_slip/salary_slip_047.jpg",
+    "label": "salary_slip",
+    "split": "train"
+  },
+  {
+    "path": "blobs/salary_slip/salary_slip_048.jpg",
+    "label": "salary_slip",
+    "split": "train"
+  },
+  {
+    "path": "blobs/salary_slip/salary_slip_049.jpg",
+    "label": "salary_slip",
+    "split": "train"
+  },
+  {
+    "path": "blobs/salary_slip/salary_slip_050.jpg",
+    "label": "salary_slip",
+    "split": "val"
+  },
+  {
+    "path": "blobs/salary_slip/salary_slip_051.jpg",
+    "label": "salary_slip",
+    "split": "train"
+  },
+  {
+    "path": "blobs/salary_slip/salary_slip_052.jpg",
+    "label": "salary_slip",
+    "split": "train"
+  },
+  {
+    "path": "blobs/salary_slip/salary_slip_053.jpg",
+    "label": "salary_slip",
+    "split": "train"
+  },
+  {
+    "path": "blobs/salary_slip/salary_slip_054.jpg",
+    "label": "salary_slip",
+    "split": "train"
+  },
+  {
+    "path": "blobs/salary_slip/salary_slip_055.jpg",
+    "label": "salary_slip",
+    "split": "val"
+  },
+  {
+    "path": "blobs/salary_slip/salary_slip_056.jpg",
+    "label": "salary_slip",
+    "split": "train"
+  },
+  {
+    "path": "blobs/salary_slip/salary_slip_057.jpg",
+    "label": "salary_slip",
+    "split": "train"
+  },
+  {
+    "path": "blobs/salary_slip/salary_slip_058.jpg",
+    "label": "salary_slip",
+    "split": "train"
+  },
+  {
+    "path": "blobs/salary_slip/salary_slip_059.jpg",
+    "label": "salary_slip",
+    "split": "train"
+  },
+  {
+    "path": "blobs/salary_slip/salary_slip_060.jpg",
+    "label": "salary_slip",
+    "split": "val"
+  },
+  {
+    "path": "blobs/salary_slip/salary_slip_061.jpg",
+    "label": "salary_slip",
+    "split": "train"
+  },
+  {
+    "path": "blobs/salary_slip/salary_slip_062.jpg",
+    "label": "salary_slip",
+    "split": "train"
+  },
+  {
+    "path": "blobs/salary_slip/salary_slip_063.jpg",
+    "label": "salary_slip",
+    "split": "train"
+  },
+  {
+    "path": "blobs/salary_slip/salary_slip_064.jpg",
+    "label": "salary_slip",
+    "split": "train"
+  },
+  {
+    "path": "blobs/salary_slip/salary_slip_065.jpg",
+    "label": "salary_slip",
+    "split": "val"
+  },
+  {
+    "path": "blobs/salary_slip/salary_slip_066.jpg",
+    "label": "salary_slip",
+    "split": "train"
+  },
+  {
+    "path": "blobs/salary_slip/salary_slip_067.jpg",
+    "label": "salary_slip",
+    "split": "train"
+  },
+  {
+    "path": "blobs/salary_slip/salary_slip_068.jpg",
+    "label": "salary_slip",
+    "split": "train"
+  },
+  {
+    "path": "blobs/salary_slip/salary_slip_069.jpg",
+    "label": "salary_slip",
+    "split": "train"
+  },
+  {
+    "path": "blobs/salary_slip/salary_slip_070.jpg",
+    "label": "salary_slip",
+    "split": "val"
+  },
+  {
+    "path": "blobs/salary_slip/salary_slip_071.jpg",
+    "label": "salary_slip",
+    "split": "train"
+  },
+  {
+    "path": "blobs/salary_slip/salary_slip_072.jpg",
+    "label": "salary_slip",
+    "split": "train"
+  },
+  {
+    "path": "blobs/salary_slip/salary_slip_073.jpg",
+    "label": "salary_slip",
+    "split": "train"
+  },
+  {
+    "path": "blobs/salary_slip/salary_slip_074.jpg",
+    "label": "salary_slip",
+    "split": "train"
+  },
+  {
+    "path": "blobs/salary_slip/salary_slip_075.jpg",
+    "label": "salary_slip",
+    "split": "val"
+  },
+  {
+    "path": "blobs/salary_slip/salary_slip_076.jpg",
+    "label": "salary_slip",
+    "split": "train"
+  },
+  {
+    "path": "blobs/salary_slip/salary_slip_077.jpg",
+    "label": "salary_slip",
+    "split": "train"
+  },
+  {
+    "path": "blobs/salary_slip/salary_slip_078.jpg",
+    "label": "salary_slip",
+    "split": "train"
+  },
+  {
+    "path": "blobs/salary_slip/salary_slip_079.jpg",
+    "label": "salary_slip",
+    "split": "train"
+  },
+  {
+    "path": "blobs/utility_bill/utility_bill_000.jpg",
+    "label": "utility_bill",
+    "split": "val"
+  },
+  {
+    "path": "blobs/utility_bill/utility_bill_001.jpg",
+    "label": "utility_bill",
+    "split": "train"
+  },
+  {
+    "path": "blobs/utility_bill/utility_bill_002.jpg",
+    "label": "utility_bill",
+    "split": "train"
+  },
+  {
+    "path": "blobs/utility_bill/utility_bill_003.jpg",
+    "label": "utility_bill",
+    "split": "train"
+  },
+  {
+    "path": "blobs/utility_bill/utility_bill_004.jpg",
+    "label": "utility_bill",
+    "split": "train"
+  },
+  {
+    "path": "blobs/utility_bill/utility_bill_005.jpg",
+    "label": "utility_bill",
+    "split": "val"
+  },
+  {
+    "path": "blobs/utility_bill/utility_bill_006.jpg",
+    "label": "utility_bill",
+    "split": "train"
+  },
+  {
+    "path": "blobs/utility_bill/utility_bill_007.jpg",
+    "label": "utility_bill",
+    "split": "train"
+  },
+  {
+    "path": "blobs/utility_bill/utility_bill_008.jpg",
+    "label": "utility_bill",
+    "split": "train"
+  },
+  {
+    "path": "blobs/utility_bill/utility_bill_009.jpg",
+    "label": "utility_bill",
+    "split": "train"
+  },
+  {
+    "path": "blobs/utility_bill/utility_bill_010.jpg",
+    "label": "utility_bill",
+    "split": "val"
+  },
+  {
+    "path": "blobs/utility_bill/utility_bill_011.jpg",
+    "label": "utility_bill",
+    "split": "train"
+  },
+  {
+    "path": "blobs/utility_bill/utility_bill_012.jpg",
+    "label": "utility_bill",
+    "split": "train"
+  },
+  {
+    "path": "blobs/utility_bill/utility_bill_013.jpg",
+    "label": "utility_bill",
+    "split": "train"
+  },
+  {
+    "path": "blobs/utility_bill/utility_bill_014.jpg",
+    "label": "utility_bill",
+    "split": "train"
+  },
+  {
+    "path": "blobs/utility_bill/utility_bill_015.jpg",
+    "label": "utility_bill",
+    "split": "val"
+  },
+  {
+    "path": "blobs/utility_bill/utility_bill_016.jpg",
+    "label": "utility_bill",
+    "split": "train"
+  },
+  {
+    "path": "blobs/utility_bill/utility_bill_017.jpg",
+    "label": "utility_bill",
+    "split": "train"
+  },
+  {
+    "path": "blobs/utility_bill/utility_bill_018.jpg",
+    "label": "utility_bill",
+    "split": "train"
+  },
+  {
+    "path": "blobs/utility_bill/utility_bill_019.jpg",
+    "label": "utility_bill",
+    "split": "train"
+  },
+  {
+    "path": "blobs/utility_bill/utility_bill_020.jpg",
+    "label": "utility_bill",
+    "split": "val"
+  },
+  {
+    "path": "blobs/utility_bill/utility_bill_021.jpg",
+    "label": "utility_bill",
+    "split": "train"
+  },
+  {
+    "path": "blobs/utility_bill/utility_bill_022.jpg",
+    "label": "utility_bill",
+    "split": "train"
+  },
+  {
+    "path": "blobs/utility_bill/utility_bill_023.jpg",
+    "label": "utility_bill",
+    "split": "train"
+  },
+  {
+    "path": "blobs/utility_bill/utility_bill_024.jpg",
+    "label": "utility_bill",
+    "split": "train"
+  },
+  {
+    "path": "blobs/utility_bill/utility_bill_025.jpg",
+    "label": "utility_bill",
+    "split": "val"
+  },
+  {
+    "path": "blobs/utility_bill/utility_bill_026.jpg",
+    "label": "utility_bill",
+    "split": "train"
+  },
+  {
+    "path": "blobs/utility_bill/utility_bill_027.jpg",
+    "label": "utility_bill",
+    "split": "train"
+  },
+  {
+    "path": "blobs/utility_bill/utility_bill_028.jpg",
+    "label": "utility_bill",
+    "split": "train"
+  },
+  {
+    "path": "blobs/utility_bill/utility_bill_029.jpg",
+    "label": "utility_bill",
+    "split": "train"
+  },
+  {
+    "path": "blobs/utility_bill/utility_bill_030.jpg",
+    "label": "utility_bill",
+    "split": "val"
+  },
+  {
+    "path": "blobs/utility_bill/utility_bill_031.jpg",
+    "label": "utility_bill",
+    "split": "train"
+  },
+  {
+    "path": "blobs/utility_bill/utility_bill_032.jpg",
+    "label": "utility_bill",
+    "split": "train"
+  },
+  {
+    "path": "blobs/utility_bill/utility_bill_033.jpg",
+    "label": "utility_bill",
+    "split": "train"
+  },
+  {
+    "path": "blobs/utility_bill/utility_bill_034.jpg",
+    "label": "utility_bill",
+    "split": "train"
+  },
+  {
+    "path": "blobs/utility_bill/utility_bill_035.jpg",
+    "label": "utility_bill",
+    "split": "val"
+  },
+  {
+    "path": "blobs/utility_bill/utility_bill_036.jpg",
+    "label": "utility_bill",
+    "split": "train"
+  },
+  {
+    "path": "blobs/utility_bill/utility_bill_037.jpg",
+    "label": "utility_bill",
+    "split": "train"
+  },
+  {
+    "path": "blobs/utility_bill/utility_bill_038.jpg",
+    "label": "utility_bill",
+    "split": "train"
+  },
+  {
+    "path": "blobs/utility_bill/utility_bill_039.jpg",
+    "label": "utility_bill",
+    "split": "train"
+  },
+  {
+    "path": "blobs/utility_bill/utility_bill_040.jpg",
+    "label": "utility_bill",
+    "split": "val"
+  },
+  {
+    "path": "blobs/utility_bill/utility_bill_041.jpg",
+    "label": "utility_bill",
+    "split": "train"
+  },
+  {
+    "path": "blobs/utility_bill/utility_bill_042.jpg",
+    "label": "utility_bill",
+    "split": "train"
+  },
+  {
+    "path": "blobs/utility_bill/utility_bill_043.jpg",
+    "label": "utility_bill",
+    "split": "train"
+  },
+  {
+    "path": "blobs/utility_bill/utility_bill_044.jpg",
+    "label": "utility_bill",
+    "split": "train"
+  },
+  {
+    "path": "blobs/utility_bill/utility_bill_045.jpg",
+    "label": "utility_bill",
+    "split": "val"
+  },
+  {
+    "path": "blobs/utility_bill/utility_bill_046.jpg",
+    "label": "utility_bill",
+    "split": "train"
+  },
+  {
+    "path": "blobs/utility_bill/utility_bill_047.jpg",
+    "label": "utility_bill",
+    "split": "train"
+  },
+  {
+    "path": "blobs/utility_bill/utility_bill_048.jpg",
+    "label": "utility_bill",
+    "split": "train"
+  },
+  {
+    "path": "blobs/utility_bill/utility_bill_049.jpg",
+    "label": "utility_bill",
+    "split": "train"
+  },
+  {
+    "path": "blobs/utility_bill/utility_bill_050.jpg",
+    "label": "utility_bill",
+    "split": "val"
+  },
+  {
+    "path": "blobs/utility_bill/utility_bill_051.jpg",
+    "label": "utility_bill",
+    "split": "train"
+  },
+  {
+    "path": "blobs/utility_bill/utility_bill_052.jpg",
+    "label": "utility_bill",
+    "split": "train"
+  },
+  {
+    "path": "blobs/utility_bill/utility_bill_053.jpg",
+    "label": "utility_bill",
+    "split": "train"
+  },
+  {
+    "path": "blobs/utility_bill/utility_bill_054.jpg",
+    "label": "utility_bill",
+    "split": "train"
+  },
+  {
+    "path": "blobs/utility_bill/utility_bill_055.jpg",
+    "label": "utility_bill",
+    "split": "val"
+  },
+  {
+    "path": "blobs/utility_bill/utility_bill_056.jpg",
+    "label": "utility_bill",
+    "split": "train"
+  },
+  {
+    "path": "blobs/utility_bill/utility_bill_057.jpg",
+    "label": "utility_bill",
+    "split": "train"
+  },
+  {
+    "path": "blobs/utility_bill/utility_bill_058.jpg",
+    "label": "utility_bill",
+    "split": "train"
+  },
+  {
+    "path": "blobs/utility_bill/utility_bill_059.jpg",
+    "label": "utility_bill",
+    "split": "train"
+  },
+  {
+    "path": "blobs/utility_bill/utility_bill_060.jpg",
+    "label": "utility_bill",
+    "split": "val"
+  },
+  {
+    "path": "blobs/utility_bill/utility_bill_061.jpg",
+    "label": "utility_bill",
+    "split": "train"
+  },
+  {
+    "path": "blobs/utility_bill/utility_bill_062.jpg",
+    "label": "utility_bill",
+    "split": "train"
+  },
+  {
+    "path": "blobs/utility_bill/utility_bill_063.jpg",
+    "label": "utility_bill",
+    "split": "train"
+  },
+  {
+    "path": "blobs/utility_bill/utility_bill_064.jpg",
+    "label": "utility_bill",
+    "split": "train"
+  },
+  {
+    "path": "blobs/utility_bill/utility_bill_065.jpg",
+    "label": "utility_bill",
+    "split": "val"
+  },
+  {
+    "path": "blobs/utility_bill/utility_bill_066.jpg",
+    "label": "utility_bill",
+    "split": "train"
+  },
+  {
+    "path": "blobs/utility_bill/utility_bill_067.jpg",
+    "label": "utility_bill",
+    "split": "train"
+  },
+  {
+    "path": "blobs/utility_bill/utility_bill_068.jpg",
+    "label": "utility_bill",
+    "split": "train"
+  },
+  {
+    "path": "blobs/utility_bill/utility_bill_069.jpg",
+    "label": "utility_bill",
+    "split": "train"
+  },
+  {
+    "path": "blobs/utility_bill/utility_bill_070.jpg",
+    "label": "utility_bill",
+    "split": "val"
+  },
+  {
+    "path": "blobs/utility_bill/utility_bill_071.jpg",
+    "label": "utility_bill",
+    "split": "train"
+  },
+  {
+    "path": "blobs/utility_bill/utility_bill_072.jpg",
+    "label": "utility_bill",
+    "split": "train"
+  },
+  {
+    "path": "blobs/utility_bill/utility_bill_073.jpg",
+    "label": "utility_bill",
+    "split": "train"
+  },
+  {
+    "path": "blobs/utility_bill/utility_bill_074.jpg",
+    "label": "utility_bill",
+    "split": "train"
+  },
+  {
+    "path": "blobs/utility_bill/utility_bill_075.jpg",
+    "label": "utility_bill",
+    "split": "val"
+  },
+  {
+    "path": "blobs/utility_bill/utility_bill_076.jpg",
+    "label": "utility_bill",
+    "split": "train"
+  },
+  {
+    "path": "blobs/utility_bill/utility_bill_077.jpg",
+    "label": "utility_bill",
+    "split": "train"
+  },
+  {
+    "path": "blobs/utility_bill/utility_bill_078.jpg",
+    "label": "utility_bill",
+    "split": "train"
+  },
+  {
+    "path": "blobs/utility_bill/utility_bill_079.jpg",
+    "label": "utility_bill",
+    "split": "train"
+  },
+  {
+    "path": "blobs/form_16/form_16_000.jpg",
+    "label": "form_16",
+    "split": "val"
+  },
+  {
+    "path": "blobs/form_16/form_16_001.jpg",
+    "label": "form_16",
+    "split": "train"
+  },
+  {
+    "path": "blobs/form_16/form_16_002.jpg",
+    "label": "form_16",
+    "split": "train"
+  },
+  {
+    "path": "blobs/form_16/form_16_003.jpg",
+    "label": "form_16",
+    "split": "train"
+  },
+  {
+    "path": "blobs/form_16/form_16_004.jpg",
+    "label": "form_16",
+    "split": "train"
+  },
+  {
+    "path": "blobs/form_16/form_16_005.jpg",
+    "label": "form_16",
+    "split": "val"
+  },
+  {
+    "path": "blobs/form_16/form_16_006.jpg",
+    "label": "form_16",
+    "split": "train"
+  },
+  {
+    "path": "blobs/form_16/form_16_007.jpg",
+    "label": "form_16",
+    "split": "train"
+  },
+  {
+    "path": "blobs/form_16/form_16_008.jpg",
+    "label": "form_16",
+    "split": "train"
+  },
+  {
+    "path": "blobs/form_16/form_16_009.jpg",
+    "label": "form_16",
+    "split": "train"
+  },
+  {
+    "path": "blobs/form_16/form_16_010.jpg",
+    "label": "form_16",
+    "split": "val"
+  },
+  {
+    "path": "blobs/form_16/form_16_011.jpg",
+    "label": "form_16",
+    "split": "train"
+  },
+  {
+    "path": "blobs/form_16/form_16_012.jpg",
+    "label": "form_16",
+    "split": "train"
+  },
+  {
+    "path": "blobs/form_16/form_16_013.jpg",
+    "label": "form_16",
+    "split": "train"
+  },
+  {
+    "path": "blobs/form_16/form_16_014.jpg",
+    "label": "form_16",
+    "split": "train"
+  },
+  {
+    "path": "blobs/form_16/form_16_015.jpg",
+    "label": "form_16",
+    "split": "val"
+  },
+  {
+    "path": "blobs/form_16/form_16_016.jpg",
+    "label": "form_16",
+    "split": "train"
+  },
+  {
+    "path": "blobs/form_16/form_16_017.jpg",
+    "label": "form_16",
+    "split": "train"
+  },
+  {
+    "path": "blobs/form_16/form_16_018.jpg",
+    "label": "form_16",
+    "split": "train"
+  },
+  {
+    "path": "blobs/form_16/form_16_019.jpg",
+    "label": "form_16",
+    "split": "train"
+  },
+  {
+    "path": "blobs/form_16/form_16_020.jpg",
+    "label": "form_16",
+    "split": "val"
+  },
+  {
+    "path": "blobs/form_16/form_16_021.jpg",
+    "label": "form_16",
+    "split": "train"
+  },
+  {
+    "path": "blobs/form_16/form_16_022.jpg",
+    "label": "form_16",
+    "split": "train"
+  },
+  {
+    "path": "blobs/form_16/form_16_023.jpg",
+    "label": "form_16",
+    "split": "train"
+  },
+  {
+    "path": "blobs/form_16/form_16_024.jpg",
+    "label": "form_16",
+    "split": "train"
+  },
+  {
+    "path": "blobs/form_16/form_16_025.jpg",
+    "label": "form_16",
+    "split": "val"
+  },
+  {
+    "path": "blobs/form_16/form_16_026.jpg",
+    "label": "form_16",
+    "split": "train"
+  },
+  {
+    "path": "blobs/form_16/form_16_027.jpg",
+    "label": "form_16",
+    "split": "train"
+  },
+  {
+    "path": "blobs/form_16/form_16_028.jpg",
+    "label": "form_16",
+    "split": "train"
+  },
+  {
+    "path": "blobs/form_16/form_16_029.jpg",
+    "label": "form_16",
+    "split": "train"
+  },
+  {
+    "path": "blobs/form_16/form_16_030.jpg",
+    "label": "form_16",
+    "split": "val"
+  },
+  {
+    "path": "blobs/form_16/form_16_031.jpg",
+    "label": "form_16",
+    "split": "train"
+  },
+  {
+    "path": "blobs/form_16/form_16_032.jpg",
+    "label": "form_16",
+    "split": "train"
+  },
+  {
+    "path": "blobs/form_16/form_16_033.jpg",
+    "label": "form_16",
+    "split": "train"
+  },
+  {
+    "path": "blobs/form_16/form_16_034.jpg",
+    "label": "form_16",
+    "split": "train"
+  },
+  {
+    "path": "blobs/form_16/form_16_035.jpg",
+    "label": "form_16",
+    "split": "val"
+  },
+  {
+    "path": "blobs/form_16/form_16_036.jpg",
+    "label": "form_16",
+    "split": "train"
+  },
+  {
+    "path": "blobs/form_16/form_16_037.jpg",
+    "label": "form_16",
+    "split": "train"
+  },
+  {
+    "path": "blobs/form_16/form_16_038.jpg",
+    "label": "form_16",
+    "split": "train"
+  },
+  {
+    "path": "blobs/form_16/form_16_039.jpg",
+    "label": "form_16",
+    "split": "train"
+  },
+  {
+    "path": "blobs/form_16/form_16_040.jpg",
+    "label": "form_16",
+    "split": "val"
+  },
+  {
+    "path": "blobs/form_16/form_16_041.jpg",
+    "label": "form_16",
+    "split": "train"
+  },
+  {
+    "path": "blobs/form_16/form_16_042.jpg",
+    "label": "form_16",
+    "split": "train"
+  },
+  {
+    "path": "blobs/form_16/form_16_043.jpg",
+    "label": "form_16",
+    "split": "train"
+  },
+  {
+    "path": "blobs/form_16/form_16_044.jpg",
+    "label": "form_16",
+    "split": "train"
+  },
+  {
+    "path": "blobs/form_16/form_16_045.jpg",
+    "label": "form_16",
+    "split": "val"
+  },
+  {
+    "path": "blobs/form_16/form_16_046.jpg",
+    "label": "form_16",
+    "split": "train"
+  },
+  {
+    "path": "blobs/form_16/form_16_047.jpg",
+    "label": "form_16",
+    "split": "train"
+  },
+  {
+    "path": "blobs/form_16/form_16_048.jpg",
+    "label": "form_16",
+    "split": "train"
+  },
+  {
+    "path": "blobs/form_16/form_16_049.jpg",
+    "label": "form_16",
+    "split": "train"
+  },
+  {
+    "path": "blobs/form_16/form_16_050.jpg",
+    "label": "form_16",
+    "split": "val"
+  },
+  {
+    "path": "blobs/form_16/form_16_051.jpg",
+    "label": "form_16",
+    "split": "train"
+  },
+  {
+    "path": "blobs/form_16/form_16_052.jpg",
+    "label": "form_16",
+    "split": "train"
+  },
+  {
+    "path": "blobs/form_16/form_16_053.jpg",
+    "label": "form_16",
+    "split": "train"
+  },
+  {
+    "path": "blobs/form_16/form_16_054.jpg",
+    "label": "form_16",
+    "split": "train"
+  },
+  {
+    "path": "blobs/form_16/form_16_055.jpg",
+    "label": "form_16",
+    "split": "val"
+  },
+  {
+    "path": "blobs/form_16/form_16_056.jpg",
+    "label": "form_16",
+    "split": "train"
+  },
+  {
+    "path": "blobs/form_16/form_16_057.jpg",
+    "label": "form_16",
+    "split": "train"
+  },
+  {
+    "path": "blobs/form_16/form_16_058.jpg",
+    "label": "form_16",
+    "split": "train"
+  },
+  {
+    "path": "blobs/form_16/form_16_059.jpg",
+    "label": "form_16",
+    "split": "train"
+  },
+  {
+    "path": "blobs/form_16/form_16_060.jpg",
+    "label": "form_16",
+    "split": "val"
+  },
+  {
+    "path": "blobs/form_16/form_16_061.jpg",
+    "label": "form_16",
+    "split": "train"
+  },
+  {
+    "path": "blobs/form_16/form_16_062.jpg",
+    "label": "form_16",
+    "split": "train"
+  },
+  {
+    "path": "blobs/form_16/form_16_063.jpg",
+    "label": "form_16",
+    "split": "train"
+  },
+  {
+    "path": "blobs/form_16/form_16_064.jpg",
+    "label": "form_16",
+    "split": "train"
+  },
+  {
+    "path": "blobs/form_16/form_16_065.jpg",
+    "label": "form_16",
+    "split": "val"
+  },
+  {
+    "path": "blobs/form_16/form_16_066.jpg",
+    "label": "form_16",
+    "split": "train"
+  },
+  {
+    "path": "blobs/form_16/form_16_067.jpg",
+    "label": "form_16",
+    "split": "train"
+  },
+  {
+    "path": "blobs/form_16/form_16_068.jpg",
+    "label": "form_16",
+    "split": "train"
+  },
+  {
+    "path": "blobs/form_16/form_16_069.jpg",
+    "label": "form_16",
+    "split": "train"
+  },
+  {
+    "path": "blobs/form_16/form_16_070.jpg",
+    "label": "form_16",
+    "split": "val"
+  },
+  {
+    "path": "blobs/form_16/form_16_071.jpg",
+    "label": "form_16",
+    "split": "train"
+  },
+  {
+    "path": "blobs/form_16/form_16_072.jpg",
+    "label": "form_16",
+    "split": "train"
+  },
+  {
+    "path": "blobs/form_16/form_16_073.jpg",
+    "label": "form_16",
+    "split": "train"
+  },
+  {
+    "path": "blobs/form_16/form_16_074.jpg",
+    "label": "form_16",
+    "split": "train"
+  },
+  {
+    "path": "blobs/form_16/form_16_075.jpg",
+    "label": "form_16",
+    "split": "val"
+  },
+  {
+    "path": "blobs/form_16/form_16_076.jpg",
+    "label": "form_16",
+    "split": "train"
+  },
+  {
+    "path": "blobs/form_16/form_16_077.jpg",
+    "label": "form_16",
+    "split": "train"
+  },
+  {
+    "path": "blobs/form_16/form_16_078.jpg",
+    "label": "form_16",
+    "split": "train"
+  },
+  {
+    "path": "blobs/form_16/form_16_079.jpg",
+    "label": "form_16",
+    "split": "train"
+  },
+  {
+    "path": "blobs/gst_certificate/gst_certificate_000.jpg",
+    "label": "gst_certificate",
+    "split": "val"
+  },
+  {
+    "path": "blobs/gst_certificate/gst_certificate_001.jpg",
+    "label": "gst_certificate",
+    "split": "train"
+  },
+  {
+    "path": "blobs/gst_certificate/gst_certificate_002.jpg",
+    "label": "gst_certificate",
+    "split": "train"
+  },
+  {
+    "path": "blobs/gst_certificate/gst_certificate_003.jpg",
+    "label": "gst_certificate",
+    "split": "train"
+  },
+  {
+    "path": "blobs/gst_certificate/gst_certificate_004.jpg",
+    "label": "gst_certificate",
+    "split": "train"
+  },
+  {
+    "path": "blobs/gst_certificate/gst_certificate_005.jpg",
+    "label": "gst_certificate",
+    "split": "val"
+  },
+  {
+    "path": "blobs/gst_certificate/gst_certificate_006.jpg",
+    "label": "gst_certificate",
+    "split": "train"
+  },
+  {
+    "path": "blobs/gst_certificate/gst_certificate_007.jpg",
+    "label": "gst_certificate",
+    "split": "train"
+  },
+  {
+    "path": "blobs/gst_certificate/gst_certificate_008.jpg",
+    "label": "gst_certificate",
+    "split": "train"
+  },
+  {
+    "path": "blobs/gst_certificate/gst_certificate_009.jpg",
+    "label": "gst_certificate",
+    "split": "train"
+  },
+  {
+    "path": "blobs/gst_certificate/gst_certificate_010.jpg",
+    "label": "gst_certificate",
+    "split": "val"
+  },
+  {
+    "path": "blobs/gst_certificate/gst_certificate_011.jpg",
+    "label": "gst_certificate",
+    "split": "train"
+  },
+  {
+    "path": "blobs/gst_certificate/gst_certificate_012.jpg",
+    "label": "gst_certificate",
+    "split": "train"
+  },
+  {
+    "path": "blobs/gst_certificate/gst_certificate_013.jpg",
+    "label": "gst_certificate",
+    "split": "train"
+  },
+  {
+    "path": "blobs/gst_certificate/gst_certificate_014.jpg",
+    "label": "gst_certificate",
+    "split": "train"
+  },
+  {
+    "path": "blobs/gst_certificate/gst_certificate_015.jpg",
+    "label": "gst_certificate",
+    "split": "val"
+  },
+  {
+    "path": "blobs/gst_certificate/gst_certificate_016.jpg",
+    "label": "gst_certificate",
+    "split": "train"
+  },
+  {
+    "path": "blobs/gst_certificate/gst_certificate_017.jpg",
+    "label": "gst_certificate",
+    "split": "train"
+  },
+  {
+    "path": "blobs/gst_certificate/gst_certificate_018.jpg",
+    "label": "gst_certificate",
+    "split": "train"
+  },
+  {
+    "path": "blobs/gst_certificate/gst_certificate_019.jpg",
+    "label": "gst_certificate",
+    "split": "train"
+  },
+  {
+    "path": "blobs/gst_certificate/gst_certificate_020.jpg",
+    "label": "gst_certificate",
+    "split": "val"
+  },
+  {
+    "path": "blobs/gst_certificate/gst_certificate_021.jpg",
+    "label": "gst_certificate",
+    "split": "train"
+  },
+  {
+    "path": "blobs/gst_certificate/gst_certificate_022.jpg",
+    "label": "gst_certificate",
+    "split": "train"
+  },
+  {
+    "path": "blobs/gst_certificate/gst_certificate_023.jpg",
+    "label": "gst_certificate",
+    "split": "train"
+  },
+  {
+    "path": "blobs/gst_certificate/gst_certificate_024.jpg",
+    "label": "gst_certificate",
+    "split": "train"
+  },
+  {
+    "path": "blobs/gst_certificate/gst_certificate_025.jpg",
+    "label": "gst_certificate",
+    "split": "val"
+  },
+  {
+    "path": "blobs/gst_certificate/gst_certificate_026.jpg",
+    "label": "gst_certificate",
+    "split": "train"
+  },
+  {
+    "path": "blobs/gst_certificate/gst_certificate_027.jpg",
+    "label": "gst_certificate",
+    "split": "train"
+  },
+  {
+    "path": "blobs/gst_certificate/gst_certificate_028.jpg",
+    "label": "gst_certificate",
+    "split": "train"
+  },
+  {
+    "path": "blobs/gst_certificate/gst_certificate_029.jpg",
+    "label": "gst_certificate",
+    "split": "train"
+  },
+  {
+    "path": "blobs/gst_certificate/gst_certificate_030.jpg",
+    "label": "gst_certificate",
+    "split": "val"
+  },
+  {
+    "path": "blobs/gst_certificate/gst_certificate_031.jpg",
+    "label": "gst_certificate",
+    "split": "train"
+  },
+  {
+    "path": "blobs/gst_certificate/gst_certificate_032.jpg",
+    "label": "gst_certificate",
+    "split": "train"
+  },
+  {
+    "path": "blobs/gst_certificate/gst_certificate_033.jpg",
+    "label": "gst_certificate",
+    "split": "train"
+  },
+  {
+    "path": "blobs/gst_certificate/gst_certificate_034.jpg",
+    "label": "gst_certificate",
+    "split": "train"
+  },
+  {
+    "path": "blobs/gst_certificate/gst_certificate_035.jpg",
+    "label": "gst_certificate",
+    "split": "val"
+  },
+  {
+    "path": "blobs/gst_certificate/gst_certificate_036.jpg",
+    "label": "gst_certificate",
+    "split": "train"
+  },
+  {
+    "path": "blobs/gst_certificate/gst_certificate_037.jpg",
+    "label": "gst_certificate",
+    "split": "train"
+  },
+  {
+    "path": "blobs/gst_certificate/gst_certificate_038.jpg",
+    "label": "gst_certificate",
+    "split": "train"
+  },
+  {
+    "path": "blobs/gst_certificate/gst_certificate_039.jpg",
+    "label": "gst_certificate",
+    "split": "train"
+  },
+  {
+    "path": "blobs/gst_certificate/gst_certificate_040.jpg",
+    "label": "gst_certificate",
+    "split": "val"
+  },
+  {
+    "path": "blobs/gst_certificate/gst_certificate_041.jpg",
+    "label": "gst_certificate",
+    "split": "train"
+  },
+  {
+    "path": "blobs/gst_certificate/gst_certificate_042.jpg",
+    "label": "gst_certificate",
+    "split": "train"
+  },
+  {
+    "path": "blobs/gst_certificate/gst_certificate_043.jpg",
+    "label": "gst_certificate",
+    "split": "train"
+  },
+  {
+    "path": "blobs/gst_certificate/gst_certificate_044.jpg",
+    "label": "gst_certificate",
+    "split": "train"
+  },
+  {
+    "path": "blobs/gst_certificate/gst_certificate_045.jpg",
+    "label": "gst_certificate",
+    "split": "val"
+  },
+  {
+    "path": "blobs/gst_certificate/gst_certificate_046.jpg",
+    "label": "gst_certificate",
+    "split": "train"
+  },
+  {
+    "path": "blobs/gst_certificate/gst_certificate_047.jpg",
+    "label": "gst_certificate",
+    "split": "train"
+  },
+  {
+    "path": "blobs/gst_certificate/gst_certificate_048.jpg",
+    "label": "gst_certificate",
+    "split": "train"
+  },
+  {
+    "path": "blobs/gst_certificate/gst_certificate_049.jpg",
+    "label": "gst_certificate",
+    "split": "train"
+  },
+  {
+    "path": "blobs/gst_certificate/gst_certificate_050.jpg",
+    "label": "gst_certificate",
+    "split": "val"
+  },
+  {
+    "path": "blobs/gst_certificate/gst_certificate_051.jpg",
+    "label": "gst_certificate",
+    "split": "train"
+  },
+  {
+    "path": "blobs/gst_certificate/gst_certificate_052.jpg",
+    "label": "gst_certificate",
+    "split": "train"
+  },
+  {
+    "path": "blobs/gst_certificate/gst_certificate_053.jpg",
+    "label": "gst_certificate",
+    "split": "train"
+  },
+  {
+    "path": "blobs/gst_certificate/gst_certificate_054.jpg",
+    "label": "gst_certificate",
+    "split": "train"
+  },
+  {
+    "path": "blobs/gst_certificate/gst_certificate_055.jpg",
+    "label": "gst_certificate",
+    "split": "val"
+  },
+  {
+    "path": "blobs/gst_certificate/gst_certificate_056.jpg",
+    "label": "gst_certificate",
+    "split": "train"
+  },
+  {
+    "path": "blobs/gst_certificate/gst_certificate_057.jpg",
+    "label": "gst_certificate",
+    "split": "train"
+  },
+  {
+    "path": "blobs/gst_certificate/gst_certificate_058.jpg",
+    "label": "gst_certificate",
+    "split": "train"
+  },
+  {
+    "path": "blobs/gst_certificate/gst_certificate_059.jpg",
+    "label": "gst_certificate",
+    "split": "train"
+  },
+  {
+    "path": "blobs/gst_certificate/gst_certificate_060.jpg",
+    "label": "gst_certificate",
+    "split": "val"
+  },
+  {
+    "path": "blobs/gst_certificate/gst_certificate_061.jpg",
+    "label": "gst_certificate",
+    "split": "train"
+  },
+  {
+    "path": "blobs/gst_certificate/gst_certificate_062.jpg",
+    "label": "gst_certificate",
+    "split": "train"
+  },
+  {
+    "path": "blobs/gst_certificate/gst_certificate_063.jpg",
+    "label": "gst_certificate",
+    "split": "train"
+  },
+  {
+    "path": "blobs/gst_certificate/gst_certificate_064.jpg",
+    "label": "gst_certificate",
+    "split": "train"
+  },
+  {
+    "path": "blobs/gst_certificate/gst_certificate_065.jpg",
+    "label": "gst_certificate",
+    "split": "val"
+  },
+  {
+    "path": "blobs/gst_certificate/gst_certificate_066.jpg",
+    "label": "gst_certificate",
+    "split": "train"
+  },
+  {
+    "path": "blobs/gst_certificate/gst_certificate_067.jpg",
+    "label": "gst_certificate",
+    "split": "train"
+  },
+  {
+    "path": "blobs/gst_certificate/gst_certificate_068.jpg",
+    "label": "gst_certificate",
+    "split": "train"
+  },
+  {
+    "path": "blobs/gst_certificate/gst_certificate_069.jpg",
+    "label": "gst_certificate",
+    "split": "train"
+  },
+  {
+    "path": "blobs/gst_certificate/gst_certificate_070.jpg",
+    "label": "gst_certificate",
+    "split": "val"
+  },
+  {
+    "path": "blobs/gst_certificate/gst_certificate_071.jpg",
+    "label": "gst_certificate",
+    "split": "train"
+  },
+  {
+    "path": "blobs/gst_certificate/gst_certificate_072.jpg",
+    "label": "gst_certificate",
+    "split": "train"
+  },
+  {
+    "path": "blobs/gst_certificate/gst_certificate_073.jpg",
+    "label": "gst_certificate",
+    "split": "train"
+  },
+  {
+    "path": "blobs/gst_certificate/gst_certificate_074.jpg",
+    "label": "gst_certificate",
+    "split": "train"
+  },
+  {
+    "path": "blobs/gst_certificate/gst_certificate_075.jpg",
+    "label": "gst_certificate",
+    "split": "val"
+  },
+  {
+    "path": "blobs/gst_certificate/gst_certificate_076.jpg",
+    "label": "gst_certificate",
+    "split": "train"
+  },
+  {
+    "path": "blobs/gst_certificate/gst_certificate_077.jpg",
+    "label": "gst_certificate",
+    "split": "train"
+  },
+  {
+    "path": "blobs/gst_certificate/gst_certificate_078.jpg",
+    "label": "gst_certificate",
+    "split": "train"
+  },
+  {
+    "path": "blobs/gst_certificate/gst_certificate_079.jpg",
+    "label": "gst_certificate",
+    "split": "train"
+  },
+  {
+    "path": "blobs/other/other_000.jpg",
+    "label": "other",
+    "split": "val"
+  },
+  {
+    "path": "blobs/other/other_001.jpg",
+    "label": "other",
+    "split": "train"
+  },
+  {
+    "path": "blobs/other/other_002.jpg",
+    "label": "other",
+    "split": "train"
+  },
+  {
+    "path": "blobs/other/other_003.jpg",
+    "label": "other",
+    "split": "train"
+  },
+  {
+    "path": "blobs/other/other_004.jpg",
+    "label": "other",
+    "split": "train"
+  },
+  {
+    "path": "blobs/other/other_005.jpg",
+    "label": "other",
+    "split": "val"
+  },
+  {
+    "path": "blobs/other/other_006.jpg",
+    "label": "other",
+    "split": "train"
+  },
+  {
+    "path": "blobs/other/other_007.jpg",
+    "label": "other",
+    "split": "train"
+  },
+  {
+    "path": "blobs/other/other_008.jpg",
+    "label": "other",
+    "split": "train"
+  },
+  {
+    "path": "blobs/other/other_009.jpg",
+    "label": "other",
+    "split": "train"
+  },
+  {
+    "path": "blobs/other/other_010.jpg",
+    "label": "other",
+    "split": "val"
+  },
+  {
+    "path": "blobs/other/other_011.jpg",
+    "label": "other",
+    "split": "train"
+  },
+  {
+    "path": "blobs/other/other_012.jpg",
+    "label": "other",
+    "split": "train"
+  },
+  {
+    "path": "blobs/other/other_013.jpg",
+    "label": "other",
+    "split": "train"
+  },
+  {
+    "path": "blobs/other/other_014.jpg",
+    "label": "other",
+    "split": "train"
+  },
+  {
+    "path": "blobs/other/other_015.jpg",
+    "label": "other",
+    "split": "val"
+  },
+  {
+    "path": "blobs/other/other_016.jpg",
+    "label": "other",
+    "split": "train"
+  },
+  {
+    "path": "blobs/other/other_017.jpg",
+    "label": "other",
+    "split": "train"
+  },
+  {
+    "path": "blobs/other/other_018.jpg",
+    "label": "other",
+    "split": "train"
+  },
+  {
+    "path": "blobs/other/other_019.jpg",
+    "label": "other",
+    "split": "train"
+  },
+  {
+    "path": "blobs/other/other_020.jpg",
+    "label": "other",
+    "split": "val"
+  },
+  {
+    "path": "blobs/other/other_021.jpg",
+    "label": "other",
+    "split": "train"
+  },
+  {
+    "path": "blobs/other/other_022.jpg",
+    "label": "other",
+    "split": "train"
+  },
+  {
+    "path": "blobs/other/other_023.jpg",
+    "label": "other",
+    "split": "train"
+  },
+  {
+    "path": "blobs/other/other_024.jpg",
+    "label": "other",
+    "split": "train"
+  },
+  {
+    "path": "blobs/other/other_025.jpg",
+    "label": "other",
+    "split": "val"
+  },
+  {
+    "path": "blobs/other/other_026.jpg",
+    "label": "other",
+    "split": "train"
+  },
+  {
+    "path": "blobs/other/other_027.jpg",
+    "label": "other",
+    "split": "train"
+  },
+  {
+    "path": "blobs/other/other_028.jpg",
+    "label": "other",
+    "split": "train"
+  },
+  {
+    "path": "blobs/other/other_029.jpg",
+    "label": "other",
+    "split": "train"
+  },
+  {
+    "path": "blobs/other/other_030.jpg",
+    "label": "other",
+    "split": "val"
+  },
+  {
+    "path": "blobs/other/other_031.jpg",
+    "label": "other",
+    "split": "train"
+  },
+  {
+    "path": "blobs/other/other_032.jpg",
+    "label": "other",
+    "split": "train"
+  },
+  {
+    "path": "blobs/other/other_033.jpg",
+    "label": "other",
+    "split": "train"
+  },
+  {
+    "path": "blobs/other/other_034.jpg",
+    "label": "other",
+    "split": "train"
+  },
+  {
+    "path": "blobs/other/other_035.jpg",
+    "label": "other",
+    "split": "val"
+  },
+  {
+    "path": "blobs/other/other_036.jpg",
+    "label": "other",
+    "split": "train"
+  },
+  {
+    "path": "blobs/other/other_037.jpg",
+    "label": "other",
+    "split": "train"
+  },
+  {
+    "path": "blobs/other/other_038.jpg",
+    "label": "other",
+    "split": "train"
+  },
+  {
+    "path": "blobs/other/other_039.jpg",
+    "label": "other",
+    "split": "train"
+  },
+  {
+    "path": "blobs/other/other_040.jpg",
+    "label": "other",
+    "split": "val"
+  },
+  {
+    "path": "blobs/other/other_041.jpg",
+    "label": "other",
+    "split": "train"
+  },
+  {
+    "path": "blobs/other/other_042.jpg",
+    "label": "other",
+    "split": "train"
+  },
+  {
+    "path": "blobs/other/other_043.jpg",
+    "label": "other",
+    "split": "train"
+  },
+  {
+    "path": "blobs/other/other_044.jpg",
+    "label": "other",
+    "split": "train"
+  },
+  {
+    "path": "blobs/other/other_045.jpg",
+    "label": "other",
+    "split": "val"
+  },
+  {
+    "path": "blobs/other/other_046.jpg",
+    "label": "other",
+    "split": "train"
+  },
+  {
+    "path": "blobs/other/other_047.jpg",
+    "label": "other",
+    "split": "train"
+  },
+  {
+    "path": "blobs/other/other_048.jpg",
+    "label": "other",
+    "split": "train"
+  },
+  {
+    "path": "blobs/other/other_049.jpg",
+    "label": "other",
+    "split": "train"
+  },
+  {
+    "path": "blobs/other/other_050.jpg",
+    "label": "other",
+    "split": "val"
+  },
+  {
+    "path": "blobs/other/other_051.jpg",
+    "label": "other",
+    "split": "train"
+  },
+  {
+    "path": "blobs/other/other_052.jpg",
+    "label": "other",
+    "split": "train"
+  },
+  {
+    "path": "blobs/other/other_053.jpg",
+    "label": "other",
+    "split": "train"
+  },
+  {
+    "path": "blobs/other/other_054.jpg",
+    "label": "other",
+    "split": "train"
+  },
+  {
+    "path": "blobs/other/other_055.jpg",
+    "label": "other",
+    "split": "val"
+  },
+  {
+    "path": "blobs/other/other_056.jpg",
+    "label": "other",
+    "split": "train"
+  },
+  {
+    "path": "blobs/other/other_057.jpg",
+    "label": "other",
+    "split": "train"
+  },
+  {
+    "path": "blobs/other/other_058.jpg",
+    "label": "other",
+    "split": "train"
+  },
+  {
+    "path": "blobs/other/other_059.jpg",
+    "label": "other",
+    "split": "train"
+  },
+  {
+    "path": "blobs/other/other_060.jpg",
+    "label": "other",
+    "split": "val"
+  },
+  {
+    "path": "blobs/other/other_061.jpg",
+    "label": "other",
+    "split": "train"
+  },
+  {
+    "path": "blobs/other/other_062.jpg",
+    "label": "other",
+    "split": "train"
+  },
+  {
+    "path": "blobs/other/other_063.jpg",
+    "label": "other",
+    "split": "train"
+  },
+  {
+    "path": "blobs/other/other_064.jpg",
+    "label": "other",
+    "split": "train"
+  },
+  {
+    "path": "blobs/other/other_065.jpg",
+    "label": "other",
+    "split": "val"
+  },
+  {
+    "path": "blobs/other/other_066.jpg",
+    "label": "other",
+    "split": "train"
+  },
+  {
+    "path": "blobs/other/other_067.jpg",
+    "label": "other",
+    "split": "train"
+  },
+  {
+    "path": "blobs/other/other_068.jpg",
+    "label": "other",
+    "split": "train"
+  },
+  {
+    "path": "blobs/other/other_069.jpg",
+    "label": "other",
+    "split": "train"
+  },
+  {
+    "path": "blobs/other/other_070.jpg",
+    "label": "other",
+    "split": "val"
+  },
+  {
+    "path": "blobs/other/other_071.jpg",
+    "label": "other",
+    "split": "train"
+  },
+  {
+    "path": "blobs/other/other_072.jpg",
+    "label": "other",
+    "split": "train"
+  },
+  {
+    "path": "blobs/other/other_073.jpg",
+    "label": "other",
+    "split": "train"
+  },
+  {
+    "path": "blobs/other/other_074.jpg",
+    "label": "other",
+    "split": "train"
+  },
+  {
+    "path": "blobs/other/other_075.jpg",
+    "label": "other",
+    "split": "val"
+  },
+  {
+    "path": "blobs/other/other_076.jpg",
+    "label": "other",
+    "split": "train"
+  },
+  {
+    "path": "blobs/other/other_077.jpg",
+    "label": "other",
+    "split": "train"
+  },
+  {
+    "path": "blobs/other/other_078.jpg",
+    "label": "other",
+    "split": "train"
+  },
+  {
+    "path": "blobs/other/other_079.jpg",
+    "label": "other",
+    "split": "train"
+  }
+]

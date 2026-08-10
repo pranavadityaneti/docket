@@ -324,6 +324,6 @@ export class NudgeController {
   imports: [DocumentsModule],
   controllers: [NudgeController],
   providers: [NudgeService, EmailNudgeSender, WhatsappNudgeSender],
-  exports: [NudgeService],
+  exports: [NudgeService, EmailNudgeSender, WhatsappNudgeSender],
 })
 export class NudgesModule { }

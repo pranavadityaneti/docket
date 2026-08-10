@@ -312,7 +312,7 @@ export class WhatsappService {
     });
 
     // Post-commit: sort the arrival into a checklist slot. Fire-and-forget -
-    // Meta's 200 must never wait on a model call.
+    // Meta's 200 must never wait on classification.
     if (landedCaseId) {
       void this.classify.processCase(channel.tenantId, landedCaseId).catch(() => { });
     }

@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+*.pyc
+training/datasets/blobs/
+training/checkpoints/
+training/lightning_logs/
+*.ckpt
+Archive.zip
+.DS_Store

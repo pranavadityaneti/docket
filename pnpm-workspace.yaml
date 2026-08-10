@@ -17,7 +17,10 @@ packages:
 allowBuilds:
   "@nestjs/core": true
   "@swc/core": true
+  core-js: true
   esbuild: true
+  onnxruntime-node: true
+  protobufjs: true
   sharp: true
   unrs-resolver: true
 

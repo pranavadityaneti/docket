@@ -146,6 +146,20 @@ export function getCaseConversation(caseId: string): Promise<ApiConversationEntr
   return apiFetch<ApiConversationEntry[]>(`/cases/${encodeURIComponent(caseId)}/conversation`);
 }
 
+export function replyToConversation(
+  caseId: string,
+  body: string,
+  channel?: "email" | "whatsapp",
+): Promise<ApiConversationEntry> {
+  return apiFetch<ApiConversationEntry>(
+    `/cases/${encodeURIComponent(caseId)}/conversation/reply`,
+    {
+      method: "POST",
+      body: JSON.stringify(channel ? { body, channel } : { body }),
+    },
+  );
+}
+
 export function requestDocuments(caseId: string): Promise<NudgeResult> {
   return apiFetch<NudgeResult>(`/cases/${encodeURIComponent(caseId)}/nudge`, { method: "POST" });
 }

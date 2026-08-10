@@ -46,6 +46,10 @@ import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { CurrentUser, JwtAuthGuard, type AuthUser } from "../auth/auth";
 import { DbService } from "../db/db";
 import { NudgeService, NudgesModule } from "../nudges/nudges";
+import {
+  ConversationReplyService,
+  ReplyConversationDto,
+} from "./conversation-reply";
 
 /**
  * A case is one run of a workflow: a business-loan case, a college admission,
@@ -823,7 +827,10 @@ export class CasesService {
 @Controller("cases")
 @UseGuards(JwtAuthGuard)
 export class CasesController {
-  constructor(private readonly cases: CasesService) { }
+  constructor(
+    private readonly cases: CasesService,
+    private readonly replies: ConversationReplyService,
+  ) { }
 
   @Get()
   list(
@@ -898,6 +905,15 @@ export class CasesController {
     return this.cases.listConversation(u.tenantId, id);
   }
 
+  @Post(":id/conversation/reply")
+  reply(
+    @CurrentUser() u: AuthUser,
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body() body: ReplyConversationDto,
+  ) {
+    return this.replies.reply(u.tenantId, id, body);
+  }
+
   @Post(":id/comments")
   addComment(
     @CurrentUser() u: AuthUser,
@@ -911,7 +927,7 @@ export class CasesController {
 @Module({
   imports: [NudgesModule],
   controllers: [CasesController],
-  providers: [CasesService],
+  providers: [CasesService, ConversationReplyService],
   // Exported for the intake endpoint: a case born from the website must be
   // created by the SAME code path as one born in the dashboard - reference
   // retry, first stage, initial document request and all.

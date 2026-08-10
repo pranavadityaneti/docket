@@ -27,7 +27,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
 import { Skeleton } from "@/components/ui/skeleton";
-import { addCaseComment, confirmSuggestion, dismissSuggestion, getCase, getCaseConversation, getCaseEvents, getCaseMessages, getChecklist, pauseNudges, reclassifyDocument, removeDocument, requestDocuments, resumeNudges, reviewDocument, uploadDocument } from "@/features/case-detail/api";
+import { addCaseComment, confirmSuggestion, dismissSuggestion, getCase, getCaseConversation, getCaseEvents, getCaseMessages, getChecklist, pauseNudges, reclassifyDocument, removeDocument, replyToConversation, requestDocuments, resumeNudges, reviewDocument, uploadDocument } from "@/features/case-detail/api";
 import type { ApiCaseDetail, ApiCaseEvent, ApiCaseMessage, ApiChecklist, ApiChecklistItem, ApiConversationEntry, ApiDocument, NudgeResult } from "@/features/case-detail/api";
 import { AuthRequiredError } from "@/lib/http";
 import { listWorkflows } from "@/features/workflows/api";
@@ -363,6 +363,24 @@ function CaseDetailPageInner() {
     }
   }
 
+  async function handleConversationReply(
+    body: string,
+    channel: "email" | "whatsapp",
+  ) {
+    setActionError(null);
+    try {
+      await replyToConversation(caseId, body, channel);
+      await refresh();
+    } catch (e) {
+      if (e instanceof AuthRequiredError) return;
+      setActionError({
+        id: null,
+        message: e instanceof Error ? e.message : "Couldn't send the message.",
+      });
+      throw e;
+    }
+  }
+
   // Turn a NudgeResult into one plain-English line for the staff notice.
   function describeNudge(r: NudgeResult): string {
     if (r.sent.length === 0) {
@@ -587,6 +605,7 @@ function CaseDetailPageInner() {
           entries={conversation}
           subject={subject}
           onPreview={setPreviewing}
+          onReply={handleConversationReply}
         />
       ) : null}
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
 import type {
@@ -10,6 +11,9 @@ import { formatDateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import * as React from "react";
 import { CHANNEL_LABEL, MESSAGE_KIND_LABEL, type PreviewTarget } from "./meta";
+import { preferredReplyChannel } from "./preferred-reply-channel";
+
+export { preferredReplyChannel } from "./preferred-reply-channel";
 
 function attachmentIcon(mimeType: string | null, fileName: string): string {
   const mime = (mimeType ?? "").toLowerCase();
@@ -52,16 +56,118 @@ function AttachmentChip({
   );
 }
 
+function ReplyComposer({
+  preferredChannel,
+  onSend,
+}: {
+  preferredChannel: "email" | "whatsapp" | null;
+  onSend: (body: string, channel: "email" | "whatsapp") => Promise<void>;
+}) {
+  const [text, setText] = React.useState("");
+  const [busy, setBusy] = React.useState(false);
+  const [channel, setChannel] = React.useState<"email" | "whatsapp">(
+    preferredChannel ?? "email",
+  );
+
+  React.useEffect(() => {
+    if (preferredChannel) setChannel(preferredChannel);
+  }, [preferredChannel]);
+
+  async function submit() {
+    const body = text.trim();
+    if (!body || busy) return;
+    setBusy(true);
+    try {
+      await onSend(body, channel);
+      setText("");
+    } catch {
+      // Caller surfaces the error; keep the draft.
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="border-t bg-muted/20 p-3">
+      <div className="mb-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+        <span>Reply via</span>
+        <div
+          role="group"
+          aria-label="Reply channel"
+          className="inline-flex h-8 items-center rounded-[8px] border border-border/80 bg-background p-0.5"
+        >
+          {(["email", "whatsapp"] as const).map((id) => {
+            const active = channel === id;
+            return (
+              <button
+                key={id}
+                type="button"
+                aria-pressed={active}
+                onClick={() => setChannel(id)}
+                className={cn(
+                  "inline-flex h-7 items-center gap-1.5 rounded-[6px] px-2.5 text-xs font-medium transition-colors",
+                  active
+                    ? "bg-muted text-foreground"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                <Icon name={id === "whatsapp" ? "chat" : "mail"} size={14} />
+                {CHANNEL_LABEL[id]}
+              </button>
+            );
+          })}
+        </div>
+        {preferredChannel ? (
+          <span className="text-muted-foreground/80">
+            · same as last customer message ({CHANNEL_LABEL[preferredChannel]})
+          </span>
+        ) : (
+          <span className="text-muted-foreground/80">
+            · no customer message yet — pick a channel
+          </span>
+        )}
+      </div>
+      <div className="flex items-end gap-2">
+        <textarea
+          value={text}
+          onChange={(event) => setText(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" && !event.shiftKey) {
+              event.preventDefault();
+              void submit();
+            }
+          }}
+          rows={2}
+          placeholder={`Message via ${CHANNEL_LABEL[channel]}…`}
+          className="min-h-[2.75rem] w-full resize-y rounded-[8px] border border-border bg-background px-3 py-2 text-sm outline-none ring-offset-background placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring"
+          disabled={busy}
+        />
+        <Button
+          size="sm"
+          className="shrink-0"
+          disabled={busy || !text.trim()}
+          onClick={() => void submit()}
+        >
+          {busy ? "Sending…" : "Send"}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export function ConversationsTab({
   entries,
   subject,
   onPreview,
+  onReply,
 }: {
   entries: ApiConversationEntry[];
   subject: string;
   onPreview: (doc: PreviewTarget) => void;
+  onReply: (body: string, channel: "email" | "whatsapp") => Promise<void>;
 }) {
   const [channel, setChannel] = React.useState<"all" | "email" | "whatsapp">("all");
+  const preferredChannel = preferredReplyChannel(entries);
   const shown = entries.filter(
     (entry) => channel === "all" || entry.channel === channel,
   );
@@ -119,7 +225,7 @@ export function ConversationsTab({
           </p>
         </div>
       ) : (
-        <div className="flex flex-col gap-3 p-4">
+        <div className="flex max-h-[min(28rem,55vh)] flex-col gap-3 overflow-y-auto p-4">
           {shown.map((message) => {
             const attachments = message.attachments ?? [];
             return (
@@ -176,6 +282,8 @@ export function ConversationsTab({
           })}
         </div>
       )}
+
+      <ReplyComposer preferredChannel={preferredChannel} onSend={onReply} />
     </Card>
   );
 }

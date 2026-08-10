@@ -467,7 +467,7 @@ export const documents = pgTable(
      */
     sourceExternalId: text("source_external_id"),
 
-    /* ---- AI classification (see classify.ts) ---- */
+    /* ---- Document classification (see classify.ts) ---- */
     /**
      * The slot the classifier believes this document satisfies, when it was
      * NOT confident enough to file it there itself. A human confirms or

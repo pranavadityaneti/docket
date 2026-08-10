@@ -27,8 +27,11 @@ coverage
 .turbo
 .vercel
 
-# logs
-npm-debug.log*
-pnpm-debug.log*
-yarn-debug.log*
-yarn-error.log*
+# Transformer / Hugging Face caches (if any local ML tooling left behind)
+.cache
+
+# Classifier training venv / datasets (ONNX weights under apps/api/models are kept)
+services/classifier/.venv
+services/classifier/training/datasets/blobs
+services/classifier/training/checkpoints
+

@@ -48,6 +48,36 @@ export class EmailNudgeSender {
     }
     return { ok: true, subject };
   }
+
+  /**
+   * Free-form staff reply on the Conversations tab. Same From / Reply-To
+   * shape as the nudge so inbound replies still hit the tenant mailbox.
+   */
+  async sendText(opts: {
+    to: string;
+    replyTo: string;
+    fromName: string;
+    subject: string;
+    text: string;
+  }): Promise<SendOutcome & { subject: string }> {
+    const { to, replyTo, fromName, subject, text } = opts;
+    if (!this.resend || !env.resendFromEmail) {
+      return { ok: false, error: "Resend not configured", subject };
+    }
+    const { error } = await this.resend.emails.send({
+      from: `${fromName} <${env.resendFromEmail}>`,
+      to,
+      replyTo,
+      subject,
+      text,
+    });
+    if (error) {
+      const msg = error.message ?? String(error);
+      this.log.error(`Reply email to ${to} failed: ${msg}`);
+      return { ok: false, error: msg, subject };
+    }
+    return { ok: true, subject };
+  }
 }
 
 /** Decrypted WhatsApp credential (same shape the webhook stores). */
@@ -140,6 +170,74 @@ export class WhatsappNudgeSender {
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       this.log.error(`WhatsApp send failed: ${msg}`);
+      return { ok: false, error: msg };
+    }
+  }
+
+  /**
+   * Session (free-text) WhatsApp message. Requires an open customer-care
+   * window after the subject messaged in; Meta rejects outside that window.
+   */
+  async sendText(
+    channel: { config: Record<string, unknown> | null; secretCiphertext: string | null },
+    recipientPhone: string,
+    text: string,
+  ): Promise<SendOutcome & { externalId?: string }> {
+    const cfg = channel.config ?? {};
+    const phoneNumberId = typeof cfg.phoneNumberId === "string" ? cfg.phoneNumberId : null;
+    if (!phoneNumberId) {
+      return { ok: false, error: "WhatsApp channel missing phoneNumberId" };
+    }
+    if (!env.channelSecretKey || !channel.secretCiphertext) {
+      return { ok: false, error: "WhatsApp channel has no usable credential" };
+    }
+
+    let accessToken: string;
+    try {
+      const parsed = JSON.parse(openSecret(channel.secretCiphertext, env.channelSecretKey)) as
+        | Partial<WhatsappSecret>
+        | undefined;
+      if (!parsed?.accessToken) return { ok: false, error: "credential missing accessToken" };
+      accessToken = parsed.accessToken;
+    } catch {
+      return { ok: false, error: "credential could not be decrypted" };
+    }
+
+    const to = recipientPhone.replace(/\D/g, "");
+    if (!to) return { ok: false, error: "recipient has no usable phone number" };
+
+    try {
+      const res = await fetch(
+        `https://graph.facebook.com/${env.graphApiVersion}/${phoneNumberId}/messages`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            messaging_product: "whatsapp",
+            to,
+            type: "text",
+            text: { preview_url: false, body: text },
+          }),
+          signal: AbortSignal.timeout(15_000),
+        },
+      );
+      if (!res.ok) {
+        const detail = await res.text().catch(() => "");
+        const msg = `WhatsApp text send ${res.status}: ${detail.slice(0, 200)}`;
+        this.log.error(msg);
+        return { ok: false, error: msg };
+      }
+      const payload = (await res.json().catch(() => null)) as
+        | { messages?: { id?: string }[] }
+        | null;
+      const externalId = payload?.messages?.[0]?.id;
+      return { ok: true, externalId };
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      this.log.error(`WhatsApp text send failed: ${msg}`);
       return { ok: false, error: msg };
     }
   }

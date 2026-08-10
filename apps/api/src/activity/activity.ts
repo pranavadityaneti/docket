@@ -85,6 +85,7 @@ export class ActivityService {
           .select({
             caseId: conversationMessages.caseId,
             channel: conversationMessages.channel,
+            direction: conversationMessages.direction,
             body: conversationMessages.body,
             sentAt: conversationMessages.sentAt,
           })
@@ -144,7 +145,13 @@ export class ActivityService {
       };
 
       for (const m of inbound) {
-        consider(m.caseId, m.channel, "inbound", m.body || "(no text)", m.sentAt);
+        consider(
+          m.caseId,
+          m.channel,
+          m.direction,
+          m.body || "(no text)",
+          m.sentAt,
+        );
       }
       for (const m of outbound) {
         const label =

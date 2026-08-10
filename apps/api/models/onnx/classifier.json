@@ -1,0 +1,20 @@
+{
+  "classes": [
+    "pan_card",
+    "aadhaar_front",
+    "aadhaar_back",
+    "passport",
+    "photograph",
+    "bank_statement",
+    "rental_agreement",
+    "cancelled_cheque",
+    "salary_slip",
+    "utility_bill",
+    "form_16",
+    "gst_certificate",
+    "other"
+  ],
+  "img_size": 224,
+  "model_name": "efficientnet_b0",
+  "onnx": "classifier.onnx"
+}
