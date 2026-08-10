@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ListPager } from "@/components/shared/list-pager";
 import { ErrorBanner, NoticeBanner } from "@/components/shared/page-state";
 import { useAsyncResource } from "@/hooks/use-async-resource";
 import { AuthRequiredError } from "@/lib/http";
@@ -24,6 +25,8 @@ import * as React from "react";
  * with - nobody has ever asked, the subject is unreachable, reminders
  * are paused, or the automatic three are spent and a human must step in.
  * ------------------------------------------------------------------ */
+
+const PAGE_SIZE = 50;
 
 /** The one thing worth knowing about a row, in priority order. */
 function statusOf(f: ApiFollowUp): { label: string; tone: string; hint: string } {
@@ -70,18 +73,25 @@ function statusOf(f: ApiFollowUp): { label: string; tone: string; hint: string }
 }
 
 export default function FollowUpsPage() {
+  const [offset, setOffset] = React.useState(0);
   const [notice, setNotice] = React.useState<string | null>(null);
   const [busyId, setBusyId] = React.useState<string | null>(null);
   const [actionError, setActionError] = React.useState<string | null>(null);
+  const loader = React.useCallback(
+    () => listFollowUps({ limit: PAGE_SIZE, offset }),
+    [offset],
+  );
   const {
-    data: rows,
+    data: page,
     error,
     loading,
     refreshing,
     reload,
-  } = useAsyncResource(listFollowUps, [], {
+  } = useAsyncResource(loader, [offset], {
     fallbackError: "Couldn't load follow-ups.",
   });
+  const rows = page?.items ?? null;
+  const total = page?.total ?? 0;
 
   /** Send a request now, from here, without opening the case. */
   async function askNow(f: ApiFollowUp) {
@@ -135,7 +145,7 @@ export default function FollowUpsPage() {
             Reminders send themselves every 3 days, up to 3 times, and stop when a case is
             complete.{" "}
             {neverAsked > 0
-              ? `${neverAsked} ${neverAsked === 1 ? "case has" : "cases have"} never been asked at all.`
+              ? `${neverAsked} on this page ${neverAsked === 1 ? "has" : "have"} never been asked at all.`
               : "This list is what the scheduler cannot finish on its own."}
           </span>
         </div>
@@ -147,7 +157,7 @@ export default function FollowUpsPage() {
             <Skeleton key={i} className="h-20 w-full" />
           ))}
         </div>
-      ) : rows && rows.length === 0 ? (
+      ) : rows && total === 0 ? (
         <Card className="flex flex-col items-center gap-2 border-dashed py-16 text-center">
           <Icon name="check_circle" size={22} className="text-success" />
           <div className="text-sm font-medium">Nothing outstanding</div>
@@ -195,10 +205,6 @@ export default function FollowUpsPage() {
                   <Badge variant="outline" className={`${s.tone} whitespace-nowrap font-normal`}>
                     {s.label}
                   </Badge>
-                  {/* Chasing from the triage screen, because making someone
-                      open the case to press one button is the friction this
-                      list exists to remove. Unreachable subjects get no
-                      button - it would only ever fail. */}
                   <Button
                     size="sm"
                     variant="outline"
@@ -213,6 +219,13 @@ export default function FollowUpsPage() {
               </div>
             );
           })}
+          <ListPager
+            total={total}
+            limit={PAGE_SIZE}
+            offset={offset}
+            onPage={setOffset}
+            noun="follow-ups"
+          />
         </Card>
       )}
     </div>

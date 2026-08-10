@@ -11,7 +11,12 @@ import * as React from "react";
 export function ErrorBanner({ children }: { children: React.ReactNode }) {
   if (!children) return null;
   return (
-    <div className={`${DANGER_BANNER} px-3 py-2 text-sm`}>{children}</div>
+    <div
+      className={`${DANGER_BANNER} flex items-start gap-2 rounded-[8px] px-3 py-2.5 text-sm`}
+    >
+      <Icon name="error" size={16} className="mt-0.5 shrink-0 text-danger" />
+      <div className="min-w-0 flex-1 leading-snug">{children}</div>
+    </div>
   );
 }
 
@@ -23,7 +28,7 @@ export function NoticeBanner({ children }: { children: React.ReactNode }) {
   );
 }
 
-/** Centred empty / error card with optional retry. */
+/** Centred empty card with optional action. */
 export function EmptyState({
   icon = "inbox",
   title,
@@ -36,12 +41,14 @@ export function EmptyState({
   action?: React.ReactNode;
 }) {
   return (
-    <Card className="flex flex-col items-center gap-3 border-0 py-16 text-center">
-      <Icon name={icon} size={26} className="text-muted-foreground" />
-      <div>
-        <div className="font-medium">{title}</div>
+    <Card className="flex flex-col items-center gap-3 rounded-[12px] border-dashed px-6 py-10 text-center">
+      <div className="flex size-10 items-center justify-center rounded-full bg-muted text-muted-foreground">
+        <Icon name={icon} size={18} />
+      </div>
+      <div className="space-y-1">
+        <div className="text-base font-semibold tracking-tight">{title}</div>
         {description ? (
-          <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">{description}</p>
+          <p className="mx-auto max-w-md text-sm text-muted-foreground">{description}</p>
         ) : null}
       </div>
       {action}
@@ -49,28 +56,42 @@ export function EmptyState({
   );
 }
 
+/** Full-page / list load failure — soft danger wash, tight stack, clear hierarchy. */
 export function LoadErrorState({
   title = "Couldn't load",
   error,
+  hint,
   onRetry,
 }: {
   title?: string;
   error: string | null;
+  hint?: React.ReactNode;
   onRetry?: () => void;
 }) {
   return (
-    <EmptyState
-      icon="error"
-      title={title}
-      description={error}
-      action={
-        onRetry ? (
-          <Button onClick={onRetry} className="gap-1.5">
-            <Icon name="refresh" size={16} /> Try again
-          </Button>
-        ) : null
-      }
-    />
+    <Card className="flex flex-col items-center gap-4 rounded-[12px] border-danger-border/70 bg-danger-muted/35 px-6 py-10 text-center">
+      <div className="flex size-10 items-center justify-center rounded-full bg-danger-muted text-danger">
+        <Icon name="error" size={18} />
+      </div>
+      <div className="space-y-1.5">
+        <div className="text-base font-semibold tracking-tight">{title}</div>
+        {error ? (
+          <p className="mx-auto max-w-lg text-sm leading-snug text-muted-foreground break-words">
+            {error}
+          </p>
+        ) : null}
+        {hint ? (
+          <p className="mx-auto max-w-lg text-xs leading-relaxed text-muted-foreground/75">
+            {hint}
+          </p>
+        ) : null}
+      </div>
+      {onRetry ? (
+        <Button variant="outline" size="sm" onClick={onRetry} className="gap-1.5">
+          <Icon name="refresh" size={16} /> Retry
+        </Button>
+      ) : null}
+    </Card>
   );
 }
 

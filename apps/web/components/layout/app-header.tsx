@@ -75,12 +75,12 @@ export function AppHeader() {
 
   const refreshBell = React.useCallback(async () => {
     try {
-      const [count, rows] = await Promise.all([
+      const [count, page] = await Promise.all([
         unreadNotificationCount(),
-        listNotifications(),
+        listNotifications({ limit: 6 }),
       ]);
       setUnread(count.count);
-      setPreview(rows.slice(0, 6));
+      setPreview(page.items);
     } catch {
       // Badge is best-effort - don't block the header.
     }

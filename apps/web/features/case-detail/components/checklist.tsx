@@ -3,9 +3,9 @@
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import type { ApiCaseEvent, ApiChecklistItem, ApiDocument } from "@/features/case-detail/api";
-import { formatDate, formatFileSize } from "@/lib/format";
+import { formatDateTime, formatFileSize } from "@/lib/format";
 import * as React from "react";
-import { CHANNEL_LABEL, type ActionError, type PreviewTarget } from "./meta";
+import { type ActionError, type PreviewTarget } from "./meta";
 import { NoteComposer, NoteList } from "./notes";
 import { StatusBadge } from "./status-badge";
 
@@ -38,34 +38,22 @@ export function DocumentRow({
   busy: boolean;
 }) {
   const size = formatFileSize(doc.sizeBytes);
-  const channel = doc.sourceChannel
-    ? (CHANNEL_LABEL[doc.sourceChannel] ?? doc.sourceChannel)
-    : null;
+  const when = doc.receivedAt ? formatDateTime(doc.receivedAt) : "";
+  const meta = [size, when].filter(Boolean).join(" · ");
   return (
-    <div className="flex flex-col gap-2 rounded-[12px] border bg-background px-3 py-2 sm:flex-row sm:flex-wrap sm:items-center">
+    <div className="flex flex-col gap-2 rounded-[12px] border bg-background px-3 py-2 sm:flex-row sm:items-center">
       <div className="flex min-w-0 flex-1 items-start gap-2">
         <Icon name="description" size={16} className="mt-0.5 shrink-0 text-muted-foreground" />
         <div className="min-w-0 flex-1">
           <div className="truncate text-sm">{doc.fileName}</div>
-          <div className="text-xs text-muted-foreground">
-            {[channel, size, formatDate(doc.receivedAt, "")].filter(Boolean).join(" · ")}
-            {!doc.uploaded ? (
-              <span className="ml-1 text-warning">· upload incomplete</span>
-            ) : null}
-            {doc.autoFiled ? (
-              <span className="ml-1 text-info">
-                · filed by AI
-                {doc.classifiedType ? ` as ${doc.classifiedType}` : ""}
-              </span>
-            ) : null}
-          </div>
+          {meta ? <div className="text-xs text-muted-foreground">{meta}</div> : null}
           {doc.status === "rejected" && doc.rejectionReason ? (
             <div className="mt-1 text-xs text-danger">Rejected: {doc.rejectionReason}</div>
           ) : null}
         </div>
-        <StatusBadge status={doc.status} landed={doc.uploaded} />
       </div>
-      <div className="flex flex-wrap gap-1 sm:justify-end">
+      <div className="flex shrink-0 flex-wrap items-center gap-1 sm:justify-end">
+        <StatusBadge status={doc.status} landed={doc.uploaded} />
         {doc.uploaded ? (
           <Button
             size="sm"

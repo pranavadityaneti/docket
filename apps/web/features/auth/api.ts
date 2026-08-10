@@ -4,6 +4,7 @@ import {
   publicPost,
   writeProfile,
   clearSession,
+  getStoredProfile,
   type LoginProfile,
 } from "@/lib/http";
 
@@ -83,6 +84,38 @@ export async function fetchMe(): Promise<LoginProfile> {
 
 export function listMembers(): Promise<ApiMember[]> {
   return apiFetch<ApiMember[]>("/auth/members");
+}
+
+/** Owner/admin can rename the workspace; agents and reviewers are read-only. */
+export function canEditWorkspace(role: string | null | undefined): boolean {
+  return role === "owner" || role === "admin";
+}
+
+export type WorkspaceTenant = { id: string; name: string; slug: string };
+
+/** Fired after workspace/profile cache changes so chrome (sidebar) can refresh. */
+export const PROFILE_UPDATED_EVENT = "docket:profile-updated";
+
+function emitProfileUpdated(): void {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event(PROFILE_UPDATED_EVENT));
+  }
+}
+
+/** PATCH /auth/workspace - rename this tenant (owner/admin only). */
+export async function updateWorkspace(input: {
+  name: string;
+}): Promise<WorkspaceTenant> {
+  const tenant = await apiFetch<WorkspaceTenant>("/auth/workspace", {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
+  const profile = getStoredProfile();
+  if (profile) {
+    writeProfile({ ...profile, tenant: { ...profile.tenant, ...tenant } });
+    emitProfileUpdated();
+  }
+  return tenant;
 }
 
 export async function requestPasswordReset(email: string): Promise<void> {

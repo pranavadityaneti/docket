@@ -237,7 +237,7 @@ export default function HomePage() {
         </Link>
       ) : null}
 
-      <Card className="animate-fade-up-delay-2 gap-0 overflow-hidden rounded-[12px] border-0 py-0">
+      <Card className="animate-fade-up-delay-2 gap-0 overflow-hidden border-0 py-0">
         <CardHeader className="px-4 py-4">
           <CardTitle className="text-base font-semibold">Needs you now</CardTitle>
           <CardDescription>

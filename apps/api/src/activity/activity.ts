@@ -8,9 +8,10 @@ import {
   workflowStages,
   workflows,
 } from "@docket/db";
-import { Controller, Get, Injectable, Module, UseGuards } from "@nestjs/common";
+import { Controller, Get, Injectable, Module, Query, UseGuards } from "@nestjs/common";
 import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { CurrentUser, JwtAuthGuard, type AuthUser } from "../auth/auth";
+import { paginateArray, parsePageQuery, type PageOpts } from "../common/pagination";
 import { DbService } from "../db/db";
 import { requirementApplies, rollUpStatus } from "../documents/documents";
 
@@ -78,7 +79,7 @@ export class ActivityService {
    * newest of each is taken and the later one wins. Merging at read time keeps
    * a single source for each and lets them never drift.
    */
-  conversations(tenantId: string) {
+  conversations(tenantId: string, opts: PageOpts = {}) {
     return this.db.withTenant(tenantId, async (tx) => {
       const [inbound, outbound, caseRows] = await Promise.all([
         tx
@@ -159,7 +160,10 @@ export class ActivityService {
         consider(m.caseId, m.channel, "outbound", label, m.sentAt);
       }
 
-      return [...byCase.values()].sort((a, b) => b.at.getTime() - a.at.getTime());
+      return paginateArray(
+        [...byCase.values()].sort((a, b) => b.at.getTime() - a.at.getTime()),
+        opts,
+      );
     });
   }
 
@@ -169,7 +173,7 @@ export class ActivityService {
    * Deliberately includes cases nothing has been sent for yet: "never asked"
    * is the most actionable row on the screen, and the one most easily lost.
    */
-  followUps(tenantId: string): Promise<FollowUpRow[]> {
+  followUps(tenantId: string, opts: PageOpts = {}) {
     return this.db.withTenant(tenantId, async (tx) => {
       const [caseRows, reqRows, docRows, msgRows] = await Promise.all([
         tx
@@ -255,12 +259,13 @@ export class ActivityService {
 
       // Never-asked first (nulls), then longest-waiting. That is the order a
       // person would work the list in.
-      return out.sort((a, b) => {
+      const sorted = out.sort((a, b) => {
         if (a.lastRequestAt === null && b.lastRequestAt !== null) return -1;
         if (b.lastRequestAt === null && a.lastRequestAt !== null) return 1;
         if (a.lastRequestAt === null && b.lastRequestAt === null) return 0;
         return a.lastRequestAt!.getTime() - b.lastRequestAt!.getTime();
       });
+      return paginateArray(sorted, opts);
     });
   }
 }
@@ -271,13 +276,21 @@ export class ActivityController {
   constructor(private readonly activity: ActivityService) { }
 
   @Get("conversations")
-  conversations(@CurrentUser() u: AuthUser) {
-    return this.activity.conversations(u.tenantId);
+  conversations(
+    @CurrentUser() u: AuthUser,
+    @Query("limit") limitRaw?: string,
+    @Query("offset") offsetRaw?: string,
+  ) {
+    return this.activity.conversations(u.tenantId, parsePageQuery(limitRaw, offsetRaw));
   }
 
   @Get("follow-ups")
-  followUps(@CurrentUser() u: AuthUser) {
-    return this.activity.followUps(u.tenantId);
+  followUps(
+    @CurrentUser() u: AuthUser,
+    @Query("limit") limitRaw?: string,
+    @Query("offset") offsetRaw?: string,
+  ) {
+    return this.activity.followUps(u.tenantId, parsePageQuery(limitRaw, offsetRaw));
   }
 }
 

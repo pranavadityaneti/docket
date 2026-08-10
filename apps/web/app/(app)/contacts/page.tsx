@@ -6,9 +6,10 @@ import {
   useSelection,
   type CsvColumn,
 } from "@/components/shared/bulk-select";
-import { ExportDownloadMenu } from "@/components/shared/export-download-menu";
 import { DeleteDialog, type DeleteLine } from "@/components/shared/delete-dialog";
+import { ExportDownloadMenu } from "@/components/shared/export-download-menu";
 import { ListPager } from "@/components/shared/list-pager";
+import { ErrorBanner } from "@/components/shared/page-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -23,12 +24,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { AuthRequiredError } from "@/lib/http";
-import { deleteContacts, listContacts, previewDeleteContacts } from "@/features/contacts/api";
 import type { ApiContact } from "@/features/contacts/api";
-import { formatDate, initials } from "@/lib/format";
+import { deleteContacts, listContacts, previewDeleteContacts } from "@/features/contacts/api";
 import { useAsyncResource } from "@/hooks/use-async-resource";
-import { ErrorBanner } from "@/components/shared/page-state";
+import { formatDate, initials } from "@/lib/format";
+import { AuthRequiredError } from "@/lib/http";
 import * as React from "react";
 
 const PAGE_SIZE = 50;
@@ -42,7 +42,7 @@ export default function ContactsPage() {
     () => listContacts({ limit: PAGE_SIZE, offset }),
     [offset],
   );
-  const { data: page, error, loading, refreshing, reload } = useAsyncResource(
+  const { data: page, error, loading, reload } = useAsyncResource(
     loader,
     [offset],
     { fallbackError: "Couldn't load contacts." },
@@ -149,11 +149,11 @@ export default function ContactsPage() {
       ) : null}
 
       <Card className="gap-0 overflow-hidden py-0">
-        <div className="flex flex-col gap-3 border-b px-4 py-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-2 border-b p-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
           <div className="relative min-w-0 flex-1">
             <Icon
               name="search"
-              size={16}
+              size={18}
               className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground"
             />
             <Input
@@ -164,12 +164,6 @@ export default function ContactsPage() {
             />
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            {rows ? (
-              <span className="text-sm tabular-nums text-muted-foreground">
-                {filtered.length} on page
-                {refreshing ? " · refreshing…" : ""}
-              </span>
-            ) : null}
             <ExportDownloadMenu
               rows={filtered}
               columns={csvColumns}
@@ -223,7 +217,7 @@ export default function ContactsPage() {
           <>
             <ul className="divide-y md:hidden">
               {filtered.map((c) => (
-                <li key={c.id} className="flex gap-3 px-4 py-3">
+                <li key={c.id} className="flex gap-3 px-3 py-3">
                   <div className="pt-1">
                     <SelectCheckbox
                       checked={sel.isSelected(c.id)}
@@ -263,7 +257,7 @@ export default function ContactsPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-10">
+                    <TableHead className="w-10 pl-4">
                       <SelectCheckbox
                         checked={sel.allSelected}
                         indeterminate={sel.someSelected}
@@ -275,13 +269,13 @@ export default function ContactsPage() {
                     <TableHead>Email</TableHead>
                     <TableHead>Phone</TableHead>
                     <TableHead className="text-right">Cases</TableHead>
-                    <TableHead>Most recent</TableHead>
+                    <TableHead className="pr-4">Most recent</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filtered.map((c) => (
                     <TableRow key={c.id} className="h-[58px] [&_td]:py-0">
-                      <TableCell className="w-10">
+                      <TableCell className="w-10 pl-4">
                         <SelectCheckbox
                           checked={sel.isSelected(c.id)}
                           onChange={() => sel.toggle(c.id)}
@@ -299,11 +293,7 @@ export default function ContactsPage() {
                               <div className="truncate text-xs leading-4 text-muted-foreground">
                                 {c.organisation}
                               </div>
-                            ) : (
-                              <div className="truncate text-xs leading-4 text-transparent">
-                                &nbsp;
-                              </div>
-                            )}
+                            ) : null}
                           </div>
                         </div>
                       </TableCell>
@@ -318,7 +308,7 @@ export default function ContactsPage() {
                           {c.caseCount}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
+                      <TableCell className="pr-4 text-sm text-muted-foreground">
                         {formatDate(c.lastCaseAt)}
                       </TableCell>
                     </TableRow>

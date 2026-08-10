@@ -1,4 +1,7 @@
 import { apiFetch } from "@/lib/http";
+import type { PageResult } from "@/features/shared/types";
+
+export type { PageResult } from "@/features/shared/types";
 
 export type ApiUnmatchedDocument = {
   id: string;
@@ -11,8 +14,25 @@ export type ApiUnmatchedDocument = {
   receivedAt: string;
 };
 
-export function listUnmatched(): Promise<ApiUnmatchedDocument[]> {
-  return apiFetch<ApiUnmatchedDocument[]>("/unmatched");
+export type ListUnmatchedOpts = {
+  limit?: number;
+  offset?: number;
+};
+
+function unmatchedQuery(opts: ListUnmatchedOpts = {}): string {
+  const params = new URLSearchParams();
+  if (opts.limit !== undefined) params.set("limit", String(opts.limit));
+  if (opts.offset !== undefined) params.set("offset", String(opts.offset));
+  const qs = params.toString();
+  return qs ? `?${qs}` : "";
+}
+
+export function listUnmatched(
+  opts: ListUnmatchedOpts = {},
+): Promise<PageResult<ApiUnmatchedDocument>> {
+  return apiFetch<PageResult<ApiUnmatchedDocument>>(
+    `/unmatched${unmatchedQuery(opts)}`,
+  );
 }
 
 export function assignUnmatched(

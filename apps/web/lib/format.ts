@@ -61,15 +61,17 @@ export function formatFileSize(bytes: number | null): string | null {
 /** Compact en-IN date and time, or empty string if invalid. */
 export function formatDateTime(iso: string): string {
   const d = new Date(iso);
-  return Number.isNaN(d.getTime())
-    ? ""
-    : d.toLocaleString("en-IN", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-        hour: "numeric",
-        minute: "2-digit",
-      });
+  if (Number.isNaN(d.getTime())) return "";
+  return d
+    .toLocaleString("en-IN", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    })
+    .replace(/\b(am|pm)\b/gi, (match) => match.toUpperCase());
 }
 
 /**

@@ -241,7 +241,7 @@ export function AllCasesView({
   }
 
   return (
-    <Card className="gap-0 overflow-hidden rounded-[12px] py-0">
+    <Card className="gap-0 overflow-hidden py-0">
       <NoticeBanner>{notice}</NoticeBanner>
       <div className="flex flex-col gap-2 border-b p-3 sm:flex-row sm:flex-wrap sm:items-center">
         <div className="relative min-w-0 flex-1">

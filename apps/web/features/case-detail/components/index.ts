@@ -22,6 +22,6 @@ export {
 export { NoteComposer, NoteLine, NoteList } from "./notes";
 export { OverviewTab } from "./overview-tab";
 export { ProgressCard } from "./progress-card";
-export { RefreshControl } from "./refresh-control";
+export { RefreshControl, UpdatedAgo } from "./refresh-control";
 export { StatusBadge } from "./status-badge";
 export { TabBar } from "./tab-bar";

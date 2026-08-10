@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
 import { ListPager } from "@/components/shared/list-pager";
+import { LoadErrorState } from "@/components/shared/page-state";
 import { AuthRequiredError } from "@/lib/http";
 import { createCase, listAllCases, listCases, updateCaseStage } from "@/features/cases/api";
 import { listStages, listWorkflows } from "@/features/workflows/api";
@@ -249,26 +250,23 @@ function CasesPage() {
       ) : null}
 
       {error ? (
-        <Card className="flex flex-col items-center gap-3 border-danger-border py-16 text-center">
-          <div className="flex size-11 items-center justify-center rounded-full bg-danger-muted text-danger">
-            <Icon name="error" size={22} />
-          </div>
-          <div>
-            <div className="font-medium">
-              Couldn&rsquo;t load {plural(caseLabel).toLowerCase()}
-            </div>
-            <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">{error}</p>
-            <p className="mx-auto mt-1 max-w-md text-xs text-muted-foreground">
-              Make sure the API is running (<code>pnpm --filter @docket/api dev</code>).
-            </p>
-          </div>
-          <Button variant="outline" onClick={refresh} className="gap-1.5">
-            <Icon name="refresh" size={16} /> Retry
-          </Button>
-        </Card>
+        <LoadErrorState
+          title={`Couldn't load ${plural(caseLabel).toLowerCase()}`}
+          error={error}
+          hint={
+            <>
+              Make sure the API is running (
+              <code className="rounded bg-background/60 px-1 py-0.5 text-[11px]">
+                pnpm --filter @docket/api dev
+              </code>
+              ).
+            </>
+          }
+          onRetry={refresh}
+        />
       ) : loading ? (
-        <Card className="flex flex-col items-center gap-3 py-16 text-center text-muted-foreground">
-          <Icon name="progress_activity" size={22} className="animate-spin" />
+        <Card className="flex flex-col items-center gap-3 rounded-[12px] px-6 py-10 text-center text-muted-foreground">
+          <Icon name="progress_activity" size={20} className="animate-spin" />
           <span className="text-sm">Loading {plural(caseLabel).toLowerCase()}…</span>
         </Card>
       ) : (

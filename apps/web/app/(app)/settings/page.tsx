@@ -3,11 +3,27 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Icon } from "@/components/ui/icon";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AuthRequiredError, getStoredProfile } from "@/lib/http";
 import type { LoginProfile } from "@/lib/http";
-import { fetchMe, getWorkspacePrefs, logout, setWorkspacePrefs } from "@/features/auth/api";
+import {
+  canEditWorkspace,
+  fetchMe,
+  getWorkspacePrefs,
+  logout,
+  setWorkspacePrefs,
+  updateWorkspace,
+} from "@/features/auth/api";
 import type { WorkspacePrefs } from "@/features/auth/api";
 import { initials } from "@/lib/format";
 import Link from "next/link";
@@ -53,6 +69,10 @@ export default function SettingsPage() {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [prefs, setPrefs] = React.useState<WorkspacePrefs>(getWorkspacePrefs);
+  const [editOpen, setEditOpen] = React.useState(false);
+  const [editName, setEditName] = React.useState("");
+  const [saving, setSaving] = React.useState(false);
+  const [editError, setEditError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     // Cache read on mount - localStorage unavailable during SSR.
@@ -92,6 +112,35 @@ export default function SettingsPage() {
     setPrefs(next);
     setWorkspacePrefs(next);
   }
+
+  function openEdit() {
+    if (!profile) return;
+    setEditName(profile.tenant.name);
+    setEditError(null);
+    setEditOpen(true);
+  }
+
+  async function saveWorkspace() {
+    const name = editName.trim();
+    if (!name) {
+      setEditError("Workspace name is required.");
+      return;
+    }
+    setSaving(true);
+    setEditError(null);
+    try {
+      const tenant = await updateWorkspace({ name });
+      setProfile((prev) => (prev ? { ...prev, tenant: { ...prev.tenant, ...tenant } } : prev));
+      setEditOpen(false);
+    } catch (e) {
+      if (e instanceof AuthRequiredError) return;
+      setEditError(e instanceof Error ? e.message : "Couldn't update the workspace.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const canEdit = canEditWorkspace(profile?.role);
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-5">
@@ -160,6 +209,11 @@ export default function SettingsPage() {
               <div className="truncate text-sm font-medium">{profile.tenant.name}</div>
               <div className="truncate text-xs text-muted-foreground">/{profile.tenant.slug}</div>
             </div>
+            {canEdit ? (
+              <Button variant="outline" size="sm" className="gap-1.5" onClick={openEdit}>
+                <Icon name="edit" size={14} /> Edit
+              </Button>
+            ) : null}
           </div>
         ) : null}
         <SettingsLinkRow
@@ -236,6 +290,55 @@ export default function SettingsPage() {
           </Button>
         </div>
       </Card>
+
+      <Dialog
+        open={editOpen}
+        onOpenChange={(open) => {
+          if (saving) return;
+          setEditOpen(open);
+        }}
+      >
+        <DialogContent className="gap-0 p-0">
+          <DialogHeader className="border-b">
+            <DialogTitle>Edit workspace</DialogTitle>
+            <DialogDescription>
+              Company name shows in the sidebar for everyone in this workspace. The slug stays
+              fixed.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-3 px-5 py-4">
+            <label className="space-y-1.5">
+              <span className="text-xs font-medium text-muted-foreground">Company name</span>
+              <Input
+                value={editName}
+                maxLength={80}
+                autoFocus
+                disabled={saving}
+                onChange={(e) => setEditName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") void saveWorkspace();
+                }}
+              />
+            </label>
+            {profile ? (
+              <p className="text-xs text-muted-foreground">Slug: /{profile.tenant.slug}</p>
+            ) : null}
+            {editError ? (
+              <div className="border border-danger-border bg-danger-muted px-2.5 py-1.5 text-xs text-danger-muted-foreground">
+                {editError}
+              </div>
+            ) : null}
+          </div>
+          <DialogFooter className="border-t">
+            <Button variant="outline" disabled={saving} onClick={() => setEditOpen(false)}>
+              Cancel
+            </Button>
+            <Button disabled={saving || !editName.trim()} onClick={() => void saveWorkspace()}>
+              {saving ? "Saving…" : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

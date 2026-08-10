@@ -12,9 +12,10 @@ import {
   UseGuards,
 } from "@nestjs/common";
 import { and, count, desc, eq, isNull, or } from "drizzle-orm";
-import { IsBoolean, IsIn, IsOptional } from "class-validator";
-import { Transform } from "class-transformer";
+import { IsBoolean, IsIn, IsOptional, IsInt, Max, Min } from "class-validator";
+import { Transform, Type } from "class-transformer";
 import { AuthModule, CurrentUser, JwtAuthGuard, type AuthUser } from "../auth/auth";
+import { clampPage, type PageOpts } from "../common/pagination";
 import { DbService } from "../db/db";
 
 export class ListNotificationsQuery {
@@ -26,6 +27,19 @@ export class ListNotificationsQuery {
   @IsOptional()
   @IsIn([...NOTIFICATION_KINDS])
   kind?: (typeof NOTIFICATION_KINDS)[number];
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(200)
+  limit?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  offset?: number;
 }
 
 @Injectable()
@@ -38,6 +52,7 @@ export class NotificationsService {
    * on case_id - the href may 404, which is honest.
    */
   list(tenantId: string, userId: string, opts: ListNotificationsQuery = {}) {
+    const { limit, offset } = clampPage(opts as PageOpts);
     return this.db.withTenant(tenantId, async (tx) => {
       const audience = or(
         isNull(notifications.userId),
@@ -46,8 +61,14 @@ export class NotificationsService {
       const filters = [audience];
       if (opts.unreadOnly) filters.push(isNull(notifications.readAt));
       if (opts.kind) filters.push(eq(notifications.kind, opts.kind));
+      const where = and(...filters);
 
-      return tx
+      const [countRow] = await tx
+        .select({ total: count() })
+        .from(notifications)
+        .where(where);
+
+      const items = await tx
         .select({
           id: notifications.id,
           kind: notifications.kind,
@@ -59,9 +80,17 @@ export class NotificationsService {
           createdAt: notifications.createdAt,
         })
         .from(notifications)
-        .where(and(...filters))
+        .where(where)
         .orderBy(desc(notifications.createdAt))
-        .limit(100);
+        .limit(limit)
+        .offset(offset);
+
+      return {
+        items,
+        total: Number(countRow?.total ?? 0),
+        limit,
+        offset,
+      };
     });
   }
 

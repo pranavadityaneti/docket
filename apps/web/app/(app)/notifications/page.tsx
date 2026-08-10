@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ListPager } from "@/components/shared/list-pager";
 import { ErrorBanner, NoticeBanner } from "@/components/shared/page-state";
 import { useAsyncResource } from "@/hooks/use-async-resource";
 import { AuthRequiredError } from "@/lib/http";
@@ -22,6 +23,8 @@ import { useRouter } from "next/navigation";
 import * as React from "react";
 
 type Filter = "all" | "unread";
+
+const PAGE_SIZE = 50;
 
 function NotificationRow({
   n,
@@ -95,22 +98,30 @@ function NotificationRow({
 export default function NotificationsPage() {
   const router = useRouter();
   const [filter, setFilter] = React.useState<Filter>("all");
+  const [offset, setOffset] = React.useState(0);
   const [notice, setNotice] = React.useState<string | null>(null);
   const [actionError, setActionError] = React.useState<string | null>(null);
   const [busyId, setBusyId] = React.useState<string | null>(null);
 
   const loader = React.useCallback(
-    () => listNotifications({ unreadOnly: filter === "unread" }),
-    [filter],
+    () =>
+      listNotifications({
+        unreadOnly: filter === "unread",
+        limit: PAGE_SIZE,
+        offset,
+      }),
+    [filter, offset],
   );
   const {
-    data: rows,
+    data: page,
     error,
     loading,
     reload,
-  } = useAsyncResource(loader, [filter], {
+  } = useAsyncResource(loader, [filter, offset], {
     fallbackError: "Couldn't load notifications.",
   });
+  const rows = page?.items ?? null;
+  const total = page?.total ?? 0;
 
   async function handleOpen(n: ApiNotification) {
     setActionError(null);
@@ -163,7 +174,7 @@ export default function NotificationsPage() {
     }
   }
 
-  const unreadCount = (rows ?? []).filter((n) => !n.readAt).length;
+  const unreadOnPage = (rows ?? []).filter((n) => !n.readAt).length;
 
   return (
     <div className="flex w-full flex-col gap-5">
@@ -196,7 +207,10 @@ export default function NotificationsPage() {
                 key={opt.id}
                 type="button"
                 aria-pressed={filter === opt.id}
-                onClick={() => setFilter(opt.id)}
+                onClick={() => {
+                  setFilter(opt.id);
+                  setOffset(0);
+                }}
                 className={cn(
                   "inline-flex h-8 items-center rounded-[6px] px-2.5 text-xs font-medium transition-colors",
                   filter === opt.id
@@ -211,7 +225,7 @@ export default function NotificationsPage() {
           <Button
             size="sm"
             variant="outline"
-            disabled={busyId === "all" || unreadCount === 0}
+            disabled={busyId === "all" || unreadOnPage === 0}
             onClick={() => void handleMarkAll()}
           >
             Mark all read
@@ -224,7 +238,7 @@ export default function NotificationsPage() {
 
       {loading && rows === null && !error ? (
         <Skeleton className="h-48 w-full" />
-      ) : rows && rows.length === 0 ? (
+      ) : rows && total === 0 ? (
         <Card className="flex flex-col items-center gap-2 border-dashed py-16 text-center">
           <Icon name="notifications" size={22} className="text-muted-foreground" />
           <div className="text-sm font-medium">
@@ -249,6 +263,13 @@ export default function NotificationsPage() {
               onMarkRead={(item) => void handleMarkRead(item)}
             />
           ))}
+          <ListPager
+            total={total}
+            limit={PAGE_SIZE}
+            offset={offset}
+            onPage={setOffset}
+            noun="notifications"
+          />
         </Card>
       )}
     </div>

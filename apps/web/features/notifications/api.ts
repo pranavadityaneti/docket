@@ -1,4 +1,7 @@
 import { apiFetch } from "@/lib/http";
+import type { PageResult } from "@/features/shared/types";
+
+export type { PageResult } from "@/features/shared/types";
 
 export type NotificationKind =
   | "document_received"
@@ -20,13 +23,21 @@ export type ApiNotification = {
   createdAt: string;
 };
 
-export function listNotifications(opts?: {
+export type ListNotificationsOpts = {
   unreadOnly?: boolean;
   kind?: NotificationKind;
-}): Promise<ApiNotification[]> {
+  limit?: number;
+  offset?: number;
+};
+
+export function listNotifications(
+  opts: ListNotificationsOpts = {},
+): Promise<PageResult<ApiNotification>> {
   const params = new URLSearchParams();
-  if (opts?.unreadOnly) params.set("unreadOnly", "true");
-  if (opts?.kind) params.set("kind", opts.kind);
+  if (opts.unreadOnly) params.set("unreadOnly", "true");
+  if (opts.kind) params.set("kind", opts.kind);
+  if (opts.limit !== undefined) params.set("limit", String(opts.limit));
+  if (opts.offset !== undefined) params.set("offset", String(opts.offset));
   const qs = params.toString();
   return apiFetch(`/notifications${qs ? `?${qs}` : ""}`);
 }

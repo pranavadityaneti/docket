@@ -15,6 +15,7 @@ import { Icon } from "@/components/ui/icon";
 import { FIELD_CLASS } from "@/components/shared/case-fields";
 import { SelectMenu } from "@/components/shared/select-menu";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ListPager } from "@/components/shared/list-pager";
 import { assignUnmatched, discardUnmatched, listUnmatched } from "@/features/unmatched/api";
 import type { ApiUnmatchedDocument } from "@/features/unmatched/api";
 import { AuthRequiredError } from "@/lib/http";
@@ -26,6 +27,8 @@ import { listWorkflows } from "@/features/workflows/api";
 import type { ApiWorkflow } from "@/features/workflows/api";
 import Link from "next/link";
 import * as React from "react";
+
+const PAGE_SIZE = 50;
 
 /* ------------------------------------------------------------------ *
  * Needs attention - inbound documents that matched no case.
@@ -273,6 +276,8 @@ function DiscardDialog({
 
 export default function UnmatchedPage() {
   const [rows, setRows] = React.useState<ApiUnmatchedDocument[]>([]);
+  const [total, setTotal] = React.useState(0);
+  const [offset, setOffset] = React.useState(0);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [actionError, setActionError] = React.useState<string | null>(null);
@@ -287,9 +292,10 @@ export default function UnmatchedPage() {
   const refresh = React.useCallback(async () => {
     const gen = ++refreshGenRef.current;
     try {
-      const list = await listUnmatched();
+      const page = await listUnmatched({ limit: PAGE_SIZE, offset });
       if (gen !== refreshGenRef.current) return;
-      setRows(list);
+      setRows(page.items);
+      setTotal(page.total);
       setError(null);
       setActionError(null);
       hasDataRef.current = true;
@@ -303,7 +309,7 @@ export default function UnmatchedPage() {
     } finally {
       if (gen === refreshGenRef.current) setLoading(false);
     }
-  }, []);
+  }, [offset]);
 
   React.useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -312,6 +318,12 @@ export default function UnmatchedPage() {
       refreshGenRef.current += 1;
     };
   }, [refresh]);
+
+  React.useEffect(() => {
+    if (offset > 0 && offset >= total) {
+      setOffset(Math.max(0, Math.floor(Math.max(total - 1, 0) / PAGE_SIZE) * PAGE_SIZE));
+    }
+  }, [total, offset]);
 
   // Cases for the assign dialog span every workflow - fetched once, on the
   // first assign click, not on page load (the queue is often empty).
@@ -415,7 +427,7 @@ export default function UnmatchedPage() {
         </div>
       ) : null}
 
-      {rows.length === 0 ? (
+      {total === 0 ? (
         <Card className="flex flex-col items-center gap-3 border-dashed py-16 text-center">
           <div className="flex size-11 items-center justify-center rounded-full bg-muted text-muted-foreground">
             <Icon name="mark_email_read" size={22} />
@@ -428,7 +440,7 @@ export default function UnmatchedPage() {
           </div>
         </Card>
       ) : (
-        <Card className="gap-0 overflow-hidden rounded-[12px] py-0">
+        <Card className="gap-0 overflow-hidden py-0">
           <div className="flex items-center justify-between border-b p-4">
             <div>
               <div className="font-medium">Unrouted documents</div>
@@ -437,7 +449,7 @@ export default function UnmatchedPage() {
               </p>
             </div>
             <span className="text-sm tabular-nums text-muted-foreground">
-              {rows.length} file{rows.length === 1 ? "" : "s"}
+              {total} file{total === 1 ? "" : "s"}
             </span>
           </div>
           <div className="flex flex-col gap-2 p-4">
@@ -482,6 +494,13 @@ export default function UnmatchedPage() {
               </div>
             ))}
           </div>
+          <ListPager
+            total={total}
+            limit={PAGE_SIZE}
+            offset={offset}
+            onPage={setOffset}
+            noun="files"
+          />
         </Card>
       )}
 

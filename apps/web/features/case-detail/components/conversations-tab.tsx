@@ -94,7 +94,7 @@ function ReplyComposer({
         <div
           role="group"
           aria-label="Reply channel"
-          className="inline-flex h-8 items-center rounded-[8px] border border-border/80 bg-background p-0.5"
+          className="inline-flex w-fit items-center gap-1 rounded-[12px] bg-muted p-1"
         >
           {(["email", "whatsapp"] as const).map((id) => {
             const active = channel === id;
@@ -105,13 +105,13 @@ function ReplyComposer({
                 aria-pressed={active}
                 onClick={() => setChannel(id)}
                 className={cn(
-                  "inline-flex h-7 items-center gap-1.5 rounded-[6px] px-2.5 text-xs font-medium transition-colors",
+                  "flex h-[34px] items-center gap-1.5 rounded-[8px] px-3.5 text-sm transition-colors",
                   active
-                    ? "bg-muted text-foreground"
+                    ? "bg-card font-semibold text-foreground"
                     : "text-muted-foreground hover:text-foreground",
                 )}
               >
-                <Icon name={id === "whatsapp" ? "chat" : "mail"} size={14} />
+                <Icon name={id === "whatsapp" ? "chat" : "mail"} size={16} />
                 {CHANNEL_LABEL[id]}
               </button>
             );

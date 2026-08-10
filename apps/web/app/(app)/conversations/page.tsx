@@ -1,14 +1,15 @@
 "use client";
 
+import { ListPager } from "@/components/shared/list-pager";
+import { ErrorBanner } from "@/components/shared/page-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ErrorBanner } from "@/components/shared/page-state";
-import { useAsyncResource } from "@/hooks/use-async-resource";
 import { listConversations } from "@/features/conversations/api";
+import { useAsyncResource } from "@/hooks/use-async-resource";
 import { relativeTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
@@ -22,6 +23,8 @@ import * as React from "react";
  * thread itself lives on the case, where it belongs beside that case's
  * documents; this screen is for choosing which one to open.
  * ------------------------------------------------------------------ */
+
+const PAGE_SIZE = 50;
 
 const CHANNEL_META: Record<string, { label: string; icon: string }> = {
   email: { label: "Email", icon: "mail" },
@@ -74,18 +77,25 @@ function ChannelSegment({
 }
 
 export default function ConversationsPage() {
+  const [offset, setOffset] = React.useState(0);
   const [query, setQuery] = React.useState("");
   const [channel, setChannel] = React.useState<"all" | "email" | "whatsapp">("all");
+  const loader = React.useCallback(
+    () => listConversations({ limit: PAGE_SIZE, offset }),
+    [offset],
+  );
   const {
-    data: rows,
+    data: page,
     error,
     loading,
     refreshing,
     reload,
-  } = useAsyncResource(listConversations, [], {
+  } = useAsyncResource(loader, [offset], {
     fallbackError: "Couldn't load conversations.",
   });
   const busy = loading || refreshing;
+  const rows = page?.items ?? null;
+  const total = page?.total ?? 0;
 
   const filtered = React.useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -119,11 +129,11 @@ export default function ConversationsPage() {
       <ErrorBanner>{error}</ErrorBanner>
 
       <Card className="gap-0 overflow-hidden py-0">
-        <div className="flex flex-col gap-2 border-b p-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-2 border-b p-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
           <div className="relative min-w-0 flex-1 sm:max-w-sm">
             <Icon
               name="search"
-              size={16}
+              size={18}
               className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground"
             />
             <Input
@@ -133,7 +143,13 @@ export default function ConversationsPage() {
               className="pl-8"
             />
           </div>
-          <ChannelSegment value={channel} onChange={setChannel} />
+          <ChannelSegment
+            value={channel}
+            onChange={(next) => {
+              setChannel(next);
+              setOffset(0);
+            }}
+          />
         </div>
 
         {loading && rows === null && !error ? (
@@ -163,7 +179,7 @@ export default function ConversationsPage() {
                   href={`/cases/${t.caseId}?tab=conversations`}
                   className="flex items-start gap-3 border-b p-4 last:border-b-0 hover:bg-muted/40"
                 >
-                  <div className="flex w-9 shrink-0 items-center justify-center rounded-full bg-muted">
+                  <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted">
                     <Icon name={meta.icon} size={17} className="text-muted-foreground" />
                   </div>
                   <div className="min-w-0 flex-1">
@@ -178,8 +194,6 @@ export default function ConversationsPage() {
                         {t.reference}
                       </code>
                     </div>
-                    {/* Whose turn it is, at a glance: their words read plainly,
-                        ours are prefixed so the two never look alike. */}
                     <div className="mt-0.5 truncate text-sm text-muted-foreground">
                       {t.direction === "outbound" ? (
                         <span className="text-muted-foreground/80">You: </span>
@@ -205,6 +219,17 @@ export default function ConversationsPage() {
             })}
           </div>
         )}
+
+        <ListPager
+          total={total}
+          limit={PAGE_SIZE}
+          offset={offset}
+          onPage={(next) => {
+            setQuery("");
+            setOffset(next);
+          }}
+          noun="conversations"
+        />
       </Card>
     </div>
   );

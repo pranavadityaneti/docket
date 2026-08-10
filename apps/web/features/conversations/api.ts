@@ -1,4 +1,7 @@
 import { apiFetch } from "@/lib/http";
+import type { PageResult } from "@/features/shared/types";
+
+export type { PageResult } from "@/features/shared/types";
 
 export type ApiConversationThread = {
   caseId: string;
@@ -12,6 +15,23 @@ export type ApiConversationThread = {
   inboundCount: number;
 };
 
-export function listConversations(): Promise<ApiConversationThread[]> {
-  return apiFetch<ApiConversationThread[]>("/conversations");
+export type ListConversationsOpts = {
+  limit?: number;
+  offset?: number;
+};
+
+function conversationsQuery(opts: ListConversationsOpts = {}): string {
+  const params = new URLSearchParams();
+  if (opts.limit !== undefined) params.set("limit", String(opts.limit));
+  if (opts.offset !== undefined) params.set("offset", String(opts.offset));
+  const qs = params.toString();
+  return qs ? `?${qs}` : "";
+}
+
+export function listConversations(
+  opts: ListConversationsOpts = {},
+): Promise<PageResult<ApiConversationThread>> {
+  return apiFetch<PageResult<ApiConversationThread>>(
+    `/conversations${conversationsQuery(opts)}`,
+  );
 }

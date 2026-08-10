@@ -19,6 +19,8 @@ import {
   Get,
   Injectable,
   Module,
+  NotFoundException,
+  Patch,
   Post,
   Res,
   SetMetadata,
@@ -94,6 +96,13 @@ export class ResetPasswordDto {
   @MinLength(12)
   @MaxLength(200)
   password!: string;
+}
+
+export class UpdateWorkspaceDto {
+  @IsString()
+  @MinLength(1)
+  @MaxLength(80)
+  name!: string;
 }
 
 const DUMMY_HASH =
@@ -211,6 +220,25 @@ export class AuthService {
       .orderBy(asc(users.name));
   }
 
+  /**
+   * Rename the workspace for every member. Slug stays fixed - it is the
+   * stable workspace key, not display chrome.
+   */
+  async updateWorkspace(tenantId: string, name: string) {
+    const clean = name.trim();
+    if (!clean) throw new BadRequestException("Workspace name is required");
+    if (clean.length > 80) {
+      throw new BadRequestException("Workspace name must be 80 characters or fewer");
+    }
+    const [row] = await this.db.admin
+      .update(tenants)
+      .set({ name: clean })
+      .where(eq(tenants.id, tenantId))
+      .returning({ id: tenants.id, name: tenants.name, slug: tenants.slug });
+    if (!row) throw new NotFoundException("Workspace not found");
+    return row;
+  }
+
   async forgotPassword(email: string): Promise<{ ok: true }> {
     const clean = email.trim().toLowerCase();
     const [user] = await this.db.admin.select().from(users).where(eq(users.email, clean)).limit(1);
@@ -276,6 +304,13 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   members(@CurrentUser() u: AuthUser) {
     return this.auth.listMembers(u.tenantId);
+  }
+
+  @Patch("workspace")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles("owner", "admin")
+  updateWorkspace(@CurrentUser() u: AuthUser, @Body() body: UpdateWorkspaceDto) {
+    return this.auth.updateWorkspace(u.tenantId, body.name);
   }
 
   @Post("login")

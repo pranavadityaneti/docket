@@ -14,6 +14,7 @@ import {
   parseCaseTab,
   ProgressCard,
   RefreshControl,
+  UpdatedAgo,
   RejectDialog,
   RemoveDialog,
   StatusBadge,
@@ -27,6 +28,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
 import { Skeleton } from "@/components/ui/skeleton";
+import { toneClass } from "@/lib/tones";
 import { addCaseComment, confirmSuggestion, dismissSuggestion, getCase, getCaseConversation, getCaseEvents, getCaseMessages, getChecklist, pauseNudges, reclassifyDocument, removeDocument, replyToConversation, requestDocuments, resumeNudges, reviewDocument, uploadDocument } from "@/features/case-detail/api";
 import type { ApiCaseDetail, ApiCaseEvent, ApiCaseMessage, ApiChecklist, ApiChecklistItem, ApiConversationEntry, ApiDocument, NudgeResult } from "@/features/case-detail/api";
 import { AuthRequiredError } from "@/lib/http";
@@ -480,7 +482,7 @@ function CaseDetailPageInner() {
           <Icon name="arrow_back" size={16} /> All cases
         </Link>
 
-        <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
+        <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
           {/* flex-1 is load-bearing, not decoration: `truncate` needs a
               constrained width, and min-w-0 alone leaves this box sized to its
               content - so a long subject or organisation name pushed straight
@@ -490,12 +492,23 @@ function CaseDetailPageInner() {
             <p className="text-[11px] font-medium uppercase tracking-[0.1em] text-muted-foreground">
               {detail.caseLabel}
             </p>
-            <h1
-              className="truncate text-xl font-semibold tracking-tight text-balance sm:text-2xl"
-              title={detail.subjectName ?? undefined}
-            >
-              {detail.subjectName ?? "Unnamed"}
-            </h1>
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+              <h1
+                className="min-w-0 truncate text-xl font-semibold tracking-tight text-balance sm:text-2xl"
+                title={detail.subjectName ?? undefined}
+              >
+                {detail.subjectName ?? "Unnamed"}
+              </h1>
+              {detail.stageName ? (
+                <Badge
+                  variant="outline"
+                  className={`${toneClass(detail.stageTone)} h-6 shrink-0 rounded-full px-2.5 font-medium`}
+                >
+                  {detail.stageName}
+                </Badge>
+              ) : null}
+              <UpdatedAgo loadedAt={loadedAt} refreshing={refreshing} />
+            </div>
             {(() => {
               const subtitle = [
                 detail.subjectOrganisation,
@@ -512,11 +525,6 @@ function CaseDetailPageInner() {
             })()}
           </div>
           <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
-            {detail.stageName ? (
-              <Badge variant="outline" className="whitespace-nowrap">
-                {detail.stageName}
-              </Badge>
-            ) : null}
             <Button
               size="sm"
               className="min-w-0 flex-1 gap-1.5 sm:flex-none"
@@ -541,11 +549,7 @@ function CaseDetailPageInner() {
                 <span className="hidden sm:inline"> reminders</span>
               </span>
             </Button>
-            <RefreshControl
-              loadedAt={loadedAt}
-              refreshing={refreshing}
-              onRefresh={manualRefresh}
-            />
+            <RefreshControl refreshing={refreshing} onRefresh={manualRefresh} />
           </div>
         </div>
 
@@ -627,13 +631,6 @@ function CaseDetailPageInner() {
                 <span className="text-sm tabular-nums text-muted-foreground">
                   {checklist.items.length} item{checklist.items.length === 1 ? "" : "s"}
                 </span>
-                {/* Right where documents appear, because this is the screen people
-                sit on while waiting for a borrower's email to land. */}
-                <RefreshControl
-                  loadedAt={loadedAt}
-                  refreshing={refreshing}
-                  onRefresh={manualRefresh}
-                />
               </div>
             </div>
 

@@ -39,6 +39,12 @@ describe("dates and sizes", () => {
   it("formatDateTime returns empty for garbage", () => {
     expect(formatDateTime("nope")).toBe("");
   });
+
+  it("formatDateTime uppercases AM/PM", () => {
+    const label = formatDateTime("2026-08-06T02:02:00.000Z");
+    expect(label).toMatch(/\b(AM|PM)\b/);
+    expect(label).not.toMatch(/\b(am|pm)\b/);
+  });
 });
 
 describe("relativeTime", () => {

@@ -11,11 +11,13 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  Query,
   UseGuards,
 } from "@nestjs/common";
 import { IsOptional, IsString, IsUUID, MaxLength } from "class-validator";
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { CurrentUser, JwtAuthGuard, type AuthUser } from "../auth/auth";
+import { clampPage, parsePageQuery, type PageOpts } from "../common/pagination";
 import { ClassifyApplier, ClassifyModule } from "../classify/classify";
 import { DbService } from "../db/db";
 import { DocumentsModule, DocumentsService } from "../documents/documents";
@@ -58,9 +60,18 @@ export class UnmatchedService {
   ) { }
 
   /** The tenant's pending arrivals, newest first. */
-  list(tenantId: string) {
-    return this.db.withTenant(tenantId, (tx) =>
-      tx
+  list(tenantId: string, opts: PageOpts = {}) {
+    const { limit, offset } = clampPage(opts);
+    return this.db.withTenant(tenantId, async (tx) => {
+      const where = and(
+        eq(unmatchedDocuments.tenantId, tenantId),
+        eq(unmatchedDocuments.status, "pending"),
+      );
+      const [countRow] = await tx
+        .select({ total: sql<number>`count(*)::int` })
+        .from(unmatchedDocuments)
+        .where(where);
+      const items = await tx
         .select({
           id: unmatchedDocuments.id,
           channel: unmatchedDocuments.channel,
@@ -72,14 +83,17 @@ export class UnmatchedService {
           receivedAt: unmatchedDocuments.receivedAt,
         })
         .from(unmatchedDocuments)
-        .where(
-          and(
-            eq(unmatchedDocuments.tenantId, tenantId),
-            eq(unmatchedDocuments.status, "pending"),
-          ),
-        )
-        .orderBy(desc(unmatchedDocuments.receivedAt)),
-    );
+        .where(where)
+        .orderBy(desc(unmatchedDocuments.receivedAt))
+        .limit(limit)
+        .offset(offset);
+      return {
+        items,
+        total: countRow?.total ?? 0,
+        limit,
+        offset,
+      };
+    });
   }
 
   /**
@@ -203,8 +217,12 @@ export class UnmatchedController {
   constructor(private readonly unmatched: UnmatchedService) { }
 
   @Get()
-  list(@CurrentUser() u: AuthUser) {
-    return this.unmatched.list(u.tenantId);
+  list(
+    @CurrentUser() u: AuthUser,
+    @Query("limit") limitRaw?: string,
+    @Query("offset") offsetRaw?: string,
+  ) {
+    return this.unmatched.list(u.tenantId, parsePageQuery(limitRaw, offsetRaw));
   }
 
   @Post(":id/assign")
