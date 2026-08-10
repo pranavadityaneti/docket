@@ -43,7 +43,7 @@ const ALLOWED = new Set([
  * Strip terminal artefacts from a secret value.
  *
  * A key pasted into a shell prompt can arrive wrapped in bracketed-paste
- * markers (ESC[200~ … ESC[201~). ESC is not whitespace, so .trim() leaves it,
+ * markers (ESC[200~ ... ESC[201~). ESC is not whitespace, so .trim() leaves it,
  * the value still *looks* right in a console, and everything downstream that
  * merely reads it works - until it is used as an HTTP header, where undici
  * refuses it with "invalid authorization header" and the SDK reports the

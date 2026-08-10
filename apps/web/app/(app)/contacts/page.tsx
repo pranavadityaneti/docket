@@ -159,7 +159,7 @@ export default function ContactsPage() {
             <Input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search by name, org, email or phone…"
+              placeholder="Search by name, org, email or phone..."
               className="pl-8"
             />
           </div>

@@ -1,5 +1,6 @@
 "use client";
 
+import { ErrorBanner, NoticeBanner } from "@/components/shared/page-state";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
@@ -13,11 +14,6 @@ import {
 import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ErrorBanner, NoticeBanner } from "@/components/shared/page-state";
-import { useAsyncResource } from "@/hooks/use-async-resource";
-import { AuthRequiredError, getStoredProfile } from "@/lib/http";
-import { cn } from "@/lib/utils";
-import { TONE_CLASS } from "@/lib/tones";
 import {
   canEditWorkflows,
   createWorkflow,
@@ -28,9 +24,13 @@ import {
   type ApiStage,
   type ApiWorkflow,
 } from "@/features/workflows/api";
+import { useAsyncResource } from "@/hooks/use-async-resource";
+import { AuthRequiredError, getStoredProfile } from "@/lib/http";
+import { TONE_CLASS } from "@/lib/tones";
+import { cn } from "@/lib/utils";
 import Link from "next/link";
-import * as React from "react";
 import { useRouter } from "next/navigation";
+import * as React from "react";
 
 function slugPreview(name: string): string {
   return name
@@ -216,7 +216,7 @@ function WorkflowCard({
             run a <strong>{workflow.caseLabel}</strong>.
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
-            {workflow.stageCount ?? stages?.length ?? "…"} stages · {fields.length}{" "}
+            {workflow.stageCount ?? stages?.length ?? "..."} stages · {fields.length}{" "}
             fields · {workflow.requirementCount ?? 0} checklist items
           </p>
         </div>
@@ -288,7 +288,7 @@ function WorkflowCard({
               Cancel
             </Button>
             <Button variant="destructive" onClick={() => void confirmDelete()} disabled={deleting}>
-              {deleting ? "Deleting…" : "Delete"}
+              {deleting ? "Deleting..." : "Delete"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -395,7 +395,7 @@ function NewWorkflowDialog({
                   onChange={(e) => setSubjectLabel(e.target.value)}
                   required
                   maxLength={64}
-                  placeholder="Contact, Borrower, Student…"
+                  placeholder="Contact, Borrower, Student..."
                 />
               </label>
               <label className="flex flex-col gap-1.5 text-sm">
@@ -416,7 +416,7 @@ function NewWorkflowDialog({
               Cancel
             </Button>
             <Button type="submit" disabled={busy || !name.trim()}>
-              {busy ? "Creating…" : "Create"}
+              {busy ? "Creating..." : "Create"}
             </Button>
           </DialogFooter>
         </form>

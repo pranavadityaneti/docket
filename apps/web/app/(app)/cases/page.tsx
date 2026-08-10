@@ -1,29 +1,29 @@
 "use client";
 
+import { ListPager } from "@/components/shared/list-pager";
+import { LoadErrorState } from "@/components/shared/page-state";
+import { SegmentedControl } from "@/components/shared/segmented-control";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Icon } from "@/components/ui/icon";
+import { createCase, listAllCases, listCases, updateCaseStage } from "@/features/cases/api";
 import {
   AllCasesView,
   BoardView,
   CreateLeadDialog,
   tableFields,
   toLead,
-  type Lead,
-  type Stage,
-  type View,
   VIEWS,
   WORKFLOW_STORAGE_KEY,
   WorkflowSelect,
+  type Lead,
+  type Stage,
+  type View,
 } from "@/features/cases/components";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Icon } from "@/components/ui/icon";
-import { ListPager } from "@/components/shared/list-pager";
-import { LoadErrorState } from "@/components/shared/page-state";
-import { SegmentedControl } from "@/components/shared/segmented-control";
-import { AuthRequiredError } from "@/lib/http";
-import { createCase, listAllCases, listCases, updateCaseStage } from "@/features/cases/api";
-import { listStages, listWorkflows } from "@/features/workflows/api";
 import type { ApiStage, ApiWorkflow } from "@/features/workflows/api";
+import { listStages, listWorkflows } from "@/features/workflows/api";
 import { plural } from "@/lib/format";
+import { AuthRequiredError } from "@/lib/http";
 import { useRouter, useSearchParams } from "next/navigation";
 import * as React from "react";
 
@@ -100,16 +100,16 @@ function CasesPage() {
       const casesPromise =
         view === "Board"
           ? listAllCases(slug ?? undefined).then((items) => ({
-              items,
-              total: items.length,
-              limit: items.length,
-              offset: 0,
-            }))
+            items,
+            total: items.length,
+            limit: items.length,
+            offset: 0,
+          }))
           : listCases({
-              workflow: slug ?? undefined,
-              limit: TABLE_PAGE_SIZE,
-              offset,
-            });
+            workflow: slug ?? undefined,
+            limit: TABLE_PAGE_SIZE,
+            offset,
+          });
       const [page, stageRows] = await Promise.all([
         casesPromise,
         wf ? listStages(wf.slug) : Promise.resolve([]),
@@ -258,7 +258,7 @@ function CasesPage() {
       ) : loading ? (
         <Card className="flex flex-col items-center gap-3 rounded-[12px] px-6 py-10 text-center text-muted-foreground">
           <Icon name="progress_activity" size={20} className="animate-spin" />
-          <span className="text-sm">Loading {plural(caseLabel).toLowerCase()}…</span>
+          <span className="text-sm">Loading {plural(caseLabel).toLowerCase()}...</span>
         </Card>
       ) : (
         <>

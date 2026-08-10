@@ -18,8 +18,8 @@ import {
 } from "@/components/ui/dialog";
 import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
-import type { ApiWorkflow } from "@/features/workflows/api";
 import type { CreateCaseInput } from "@/features/cases/api";
+import type { ApiWorkflow } from "@/features/workflows/api";
 import * as React from "react";
 
 export function CreateLeadDialog({
@@ -147,7 +147,7 @@ export function CreateLeadDialog({
                     value: item.slug,
                     label: item.name,
                   }))}
-                  placeholder="Choose a workflow…"
+                  placeholder="Choose a workflow..."
                 />
               </Field>
             </FormSection>
@@ -261,7 +261,7 @@ export function CreateLeadDialog({
                   size={16}
                   className="animate-spin"
                 />{" "}
-                Creating…
+                Creating...
               </>
             ) : (
               <>

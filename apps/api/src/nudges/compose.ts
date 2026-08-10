@@ -95,7 +95,7 @@ const WA_ITEMS_MAX = 600;
 /**
  * The four body variables for the `document_request` template, in order:
  *   {{1}} contact name · {{2}} tenant name · {{3}} case reference · {{4}} items.
- * The item list is comma-joined and truncated with an "…and N more" tail so a
+ * The item list is comma-joined and truncated with an "...and N more" tail so a
  * long checklist can never exceed WhatsApp's per-variable limit.
  */
 export function composeWhatsappParams(items: NudgeSnapshotItem[], ctx: ComposeContext): string[] {
@@ -107,7 +107,7 @@ export function composeWhatsappParams(items: NudgeSnapshotItem[], ctx: ComposeCo
     for (let i = 0; i < labels.length; i++) {
       const add = (kept.length ? 2 : 0) + labels[i].length;
       if (len + add > WA_ITEMS_MAX - 20) {
-        kept.push(`…and ${labels.length - i} more`);
+        kept.push(`...and ${labels.length - i} more`);
         break;
       }
       kept.push(labels[i]);

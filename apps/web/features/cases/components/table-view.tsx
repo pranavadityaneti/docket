@@ -6,8 +6,8 @@ import {
   useSelection,
   type CsvColumn,
 } from "@/components/shared/bulk-select";
-import { ExportDownloadMenu } from "@/components/shared/export-download-menu";
 import { DeleteDialog, type DeleteLine } from "@/components/shared/delete-dialog";
+import { ExportDownloadMenu } from "@/components/shared/export-download-menu";
 import { NoticeBanner } from "@/components/shared/page-state";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -34,10 +34,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { AuthRequiredError } from "@/lib/http";
 import { deleteCases, previewDeleteCases } from "@/features/cases/api";
 import type { ApiFieldDef, ApiStage } from "@/features/workflows/api";
 import { initials, plural } from "@/lib/format";
+import { AuthRequiredError } from "@/lib/http";
 import { toneClass } from "@/lib/tones";
 import { useRouter, useSearchParams } from "next/navigation";
 import * as React from "react";
@@ -216,9 +216,8 @@ export function AllCasesView({
           detail:
             caseItem.documentCount === 0
               ? "no documents"
-              : `${caseItem.documentCount} document${
-                  caseItem.documentCount === 1 ? "" : "s"
-                }`,
+              : `${caseItem.documentCount} document${caseItem.documentCount === 1 ? "" : "s"
+              }`,
         })),
       );
     } catch (error) {
@@ -253,7 +252,7 @@ export function AllCasesView({
           <Input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder={`Search ${plural(caseLabel).toLowerCase()}…`}
+            placeholder={`Search ${plural(caseLabel).toLowerCase()}...`}
             className="pl-8"
           />
         </div>
@@ -507,11 +506,10 @@ export function AllCasesView({
       <DeleteDialog
         open={deleteOpen}
         onOpenChange={setDeleteOpen}
-        title={`Delete ${
-          deleteLines.length === 1
+        title={`Delete ${deleteLines.length === 1
             ? caseLabel.toLowerCase()
             : plural(caseLabel).toLowerCase()
-        }?`}
+          }?`}
         loading={previewing}
         lines={deleteLines}
         consequences={

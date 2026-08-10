@@ -79,7 +79,7 @@ export function DynamicField({
           value={value}
           onChange={onChange}
           options={dropdownOptions}
-          placeholder="Choose…"
+          placeholder="Choose..."
         />
       ) : field.input_type === "textarea" ? (
         <textarea

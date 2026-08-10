@@ -10,7 +10,7 @@ export function UpdatedAgo({
   refreshing: boolean;
 }) {
   const label = refreshing
-    ? "Checking…"
+    ? "Checking..."
     : loadedAt
       ? `Updated ${agoFromMs(loadedAt)}`
       : null;

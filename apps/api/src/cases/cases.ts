@@ -120,7 +120,7 @@ export class CreateCaseDto {
   @MaxLength(100)
   workflow?: string;
 
-  /** Domain fields, per the workflow's field config (loan_amount, course, claim_no…). */
+  /** Domain fields, per the workflow's field config (loan_amount, course, claim_no...). */
   @IsOptional()
   @IsObject()
   data?: Record<string, unknown>;

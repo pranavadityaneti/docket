@@ -12,12 +12,12 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
-import { AuthRequiredError } from "@/lib/http";
 import { listMembers, type ApiMember } from "@/features/auth/api";
-import { updateCase } from "@/features/cases/api";
 import type { ApiCaseDetail } from "@/features/case-detail/api";
+import { updateCase } from "@/features/cases/api";
 import type { ApiFieldDef } from "@/features/workflows/api";
 import { formatDate } from "@/lib/format";
+import { AuthRequiredError } from "@/lib/http";
 import * as React from "react";
 
 function humanise(key: string): string {
@@ -325,7 +325,7 @@ export function OverviewTab({
         <Button onClick={() => void save()} disabled={saving} className="gap-1.5">
           {saving ? (
             <>
-              <Icon name="progress_activity" size={16} className="animate-spin" /> Saving…
+              <Icon name="progress_activity" size={16} className="animate-spin" /> Saving...
             </>
           ) : (
             <>

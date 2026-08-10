@@ -1,9 +1,9 @@
 "use client";
 
+import { SegmentedControl } from "@/components/shared/segmented-control";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
-import { SegmentedControl } from "@/components/shared/segmented-control";
 import type {
   ApiConversationAttachment,
   ApiConversationEntry,
@@ -121,7 +121,7 @@ function ReplyComposer({
             }
           }}
           rows={2}
-          placeholder={`Message via ${CHANNEL_LABEL[channel]}…`}
+          placeholder={`Message via ${CHANNEL_LABEL[channel]}...`}
           className="min-h-[2.75rem] w-full resize-y rounded-[8px] border border-border bg-background px-3 py-2 text-sm outline-none ring-offset-background placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring"
           disabled={busy}
         />
@@ -131,7 +131,7 @@ function ReplyComposer({
           disabled={busy || !text.trim()}
           onClick={() => void submit()}
         >
-          {busy ? "Sending…" : "Send"}
+          {busy ? "Sending..." : "Send"}
         </Button>
       </div>
     </div>
@@ -196,11 +196,10 @@ export function ConversationsTab({
                 className={`flex w-full ${message.direction === "outbound" ? "justify-end" : "justify-start"}`}
               >
                 <div
-                  className={`max-w-[75%] rounded-lg border px-3 py-2 ${
-                    message.direction === "outbound"
+                  className={`max-w-[75%] rounded-lg border px-3 py-2 ${message.direction === "outbound"
                       ? "rounded-br-sm bg-primary/10 dark:bg-primary/20"
                       : "rounded-bl-sm bg-muted/60"
-                  }`}
+                    }`}
                 >
                   <div className="mb-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
                     <Icon

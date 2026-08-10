@@ -202,7 +202,7 @@ export function ChecklistRow({
             onClick={() => inputRef.current?.click()}
           >
             <Icon name={isUploading ? "progress_activity" : "upload"} size={15} />
-            {isUploading ? "Uploading…" : "Upload"}
+            {isUploading ? "Uploading..." : "Upload"}
           </Button>
         </div>
       </div>
@@ -214,7 +214,7 @@ export function ChecklistRow({
           <NoteList notes={notes} />
           {composerOpen ? (
             <NoteComposer
-              placeholder={`Add a note about ${item.label}…`}
+              placeholder={`Add a note about ${item.label}...`}
               onSubmit={(body) => onAddNote(item.requirementId, body)}
             />
           ) : null}

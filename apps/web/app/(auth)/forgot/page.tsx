@@ -1,10 +1,10 @@
 "use client";
 
-import { AuthCardHeader, AuthShell } from "@/features/auth/components/auth-shell";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
 import { requestPasswordReset } from "@/features/auth/api";
+import { AuthCardHeader, AuthShell } from "@/features/auth/components/auth-shell";
 import Link from "next/link";
 import * as React from "react";
 
@@ -88,7 +88,7 @@ export default function ForgotPasswordPage() {
           <Button type="submit" disabled={submitting} className="mt-1 gap-1.5">
             {submitting ? (
               <>
-                <Icon name="progress_activity" size={16} className="animate-spin" /> Sending…
+                <Icon name="progress_activity" size={16} className="animate-spin" /> Sending...
               </>
             ) : (
               "Send reset link"

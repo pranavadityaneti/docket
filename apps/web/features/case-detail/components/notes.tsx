@@ -46,7 +46,7 @@ export function NoteComposer({
         disabled={busy || !text.trim()}
         onClick={() => void submit()}
       >
-        {busy ? "Posting…" : "Add note"}
+        {busy ? "Posting..." : "Add note"}
       </Button>
     </div>
   );

@@ -1,14 +1,11 @@
 "use client";
 
+import { FIELD_CLASS } from "@/components/shared/case-fields";
+import { ErrorBanner, NoticeBanner } from "@/components/shared/page-state";
+import { SelectMenu } from "@/components/shared/select-menu";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Icon } from "@/components/ui/icon";
-import { Input } from "@/components/ui/input";
-import { Skeleton } from "@/components/ui/skeleton";
-import { FIELD_CLASS } from "@/components/shared/case-fields";
-import { SelectMenu } from "@/components/shared/select-menu";
-import { ErrorBanner, NoticeBanner } from "@/components/shared/page-state";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,6 +13,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Icon } from "@/components/ui/icon";
+import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   canEditWorkflows,
   getWorkflow,
@@ -502,7 +502,7 @@ export default function WorkflowEditorPage() {
                 disabled={busy === "identity" || !identityDirty}
                 onClick={() => void saveIdentity()}
               >
-                {busy === "identity" ? "Saving…" : "Save"}
+                {busy === "identity" ? "Saving..." : "Save"}
               </Button>
             ) : null
           }
@@ -579,7 +579,7 @@ export default function WorkflowEditorPage() {
                   disabled={busy === "stages" || !stagesDirty}
                   onClick={() => void saveStages()}
                 >
-                  {busy === "stages" ? "Saving…" : "Save"}
+                  {busy === "stages" ? "Saving..." : "Save"}
                 </Button>
               </div>
             ) : null
@@ -700,7 +700,7 @@ export default function WorkflowEditorPage() {
                   disabled={busy === "fields" || !fieldsDirty}
                   onClick={() => void saveFields()}
                 >
-                  {busy === "fields" ? "Saving…" : "Save"}
+                  {busy === "fields" ? "Saving..." : "Save"}
                 </Button>
               </div>
             ) : null
@@ -750,11 +750,11 @@ export default function WorkflowEditorPage() {
                           prev.map((x, idx) =>
                             idx === i
                               ? {
-                                  ...x,
-                                  field_key: e.target.value
-                                    .toLowerCase()
-                                    .replace(/[^a-z0-9_]/g, ""),
-                                }
+                                ...x,
+                                field_key: e.target.value
+                                  .toLowerCase()
+                                  .replace(/[^a-z0-9_]/g, ""),
+                              }
                               : x,
                           ),
                         )
@@ -871,12 +871,12 @@ export default function WorkflowEditorPage() {
                             prev.map((x, idx) =>
                               idx === i
                                 ? {
-                                    ...x,
-                                    options: e.target.value
-                                      .split(",")
-                                      .map((o) => o.trim())
-                                      .filter(Boolean),
-                                  }
+                                  ...x,
+                                  options: e.target.value
+                                    .split(",")
+                                    .map((o) => o.trim())
+                                    .filter(Boolean),
+                                }
                                 : x,
                             ),
                           )
@@ -934,7 +934,7 @@ export default function WorkflowEditorPage() {
                   disabled={busy === "requirements" || !reqsDirty}
                   onClick={() => void saveRequirements()}
                 >
-                  {busy === "requirements" ? "Saving…" : "Save"}
+                  {busy === "requirements" ? "Saving..." : "Save"}
                 </Button>
               </div>
             ) : null
@@ -984,11 +984,11 @@ export default function WorkflowEditorPage() {
                           prev.map((x, idx) =>
                             idx === i
                               ? {
-                                  ...x,
-                                  key: e.target.value
-                                    .toLowerCase()
-                                    .replace(/[^a-z0-9_]/g, ""),
-                                }
+                                ...x,
+                                key: e.target.value
+                                  .toLowerCase()
+                                  .replace(/[^a-z0-9_]/g, ""),
+                              }
                               : x,
                           ),
                         )
@@ -1010,12 +1010,12 @@ export default function WorkflowEditorPage() {
                           prev.map((x, idx) =>
                             idx === i
                               ? {
-                                  ...x,
-                                  maxFiles: Math.max(
-                                    1,
-                                    Number(e.target.value) || 1,
-                                  ),
-                                }
+                                ...x,
+                                maxFiles: Math.max(
+                                  1,
+                                  Number(e.target.value) || 1,
+                                ),
+                              }
                               : x,
                           ),
                         )
@@ -1120,12 +1120,12 @@ export default function WorkflowEditorPage() {
                           prev.map((x, idx) =>
                             idx === i
                               ? {
-                                  ...x,
-                                  validityDays: e.target.value.replace(
-                                    /[^0-9]/g,
-                                    "",
-                                  ),
-                                }
+                                ...x,
+                                validityDays: e.target.value.replace(
+                                  /[^0-9]/g,
+                                  "",
+                                ),
+                              }
                               : x,
                           ),
                         )

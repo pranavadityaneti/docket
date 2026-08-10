@@ -425,8 +425,8 @@ export class WhatsappService {
     }
 
     // 2. the sender's phone -> their most recent case. Matched on the last 10
-    // digits so a leading country code (Meta sends "9198…", a contact may be
-    // stored "+91 98…" or "098…") does not cause a miss. Done in SQL to stay
+    // digits so a leading country code (Meta sends "9198...", a contact may be
+    // stored "+91 98..." or "098...") does not cause a miss. Done in SQL to stay
     // correct as the tenant's case count grows rather than scanning in memory.
     const last10 = from.replace(/\D/g, "").slice(-10);
     if (last10.length >= 7) {

@@ -1,8 +1,8 @@
 import assert from "node:assert";
 import {
-  collectNudgeItems,
-  composeEmail,
-  composeWhatsappParams,
+    collectNudgeItems,
+    composeEmail,
+    composeWhatsappParams,
 } from "../src/nudges/compose.ts";
 
 let pass = 0;
@@ -214,7 +214,7 @@ ok("whatsapp item list truncates with an overflow tail under the cap", () => {
   }));
   const p = composeWhatsappParams(many, ctx);
   assert.ok(p[3].length <= 600, `length was ${p[3].length}`);
-  assert.ok(/…and \d+ more/.test(p[3]));
+  assert.ok(/...and \d+ more/.test(p[3]));
 });
 
 console.log(`\n${pass} passed`);

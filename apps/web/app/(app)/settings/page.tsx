@@ -14,8 +14,7 @@ import {
 import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AuthRequiredError, getStoredProfile } from "@/lib/http";
-import type { LoginProfile } from "@/lib/http";
+import type { WorkspacePrefs } from "@/features/auth/api";
 import {
   canEditWorkspace,
   fetchMe,
@@ -24,8 +23,9 @@ import {
   setWorkspacePrefs,
   updateWorkspace,
 } from "@/features/auth/api";
-import type { WorkspacePrefs } from "@/features/auth/api";
 import { initials } from "@/lib/format";
+import type { LoginProfile } from "@/lib/http";
+import { AuthRequiredError, getStoredProfile } from "@/lib/http";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import * as React from "react";
@@ -334,7 +334,7 @@ export default function SettingsPage() {
               Cancel
             </Button>
             <Button disabled={saving || !editName.trim()} onClick={() => void saveWorkspace()}>
-              {saving ? "Saving…" : "Save"}
+              {saving ? "Saving..." : "Save"}
             </Button>
           </DialogFooter>
         </DialogContent>

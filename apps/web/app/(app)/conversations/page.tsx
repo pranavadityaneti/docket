@@ -96,7 +96,7 @@ export default function ConversationsPage() {
             <Input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search by name, reference or message…"
+              placeholder="Search by name, reference or message..."
               className="pl-8"
             />
           </div>

@@ -1,12 +1,12 @@
 "use client";
 
-import { AuthCardHeader, AuthShell } from "@/features/auth/components/auth-shell";
 import { BuildMarker } from "@/components/layout/build-marker";
 import { PasswordInput } from "@/components/shared/password-input";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
 import { login } from "@/features/auth/api";
+import { AuthCardHeader, AuthShell } from "@/features/auth/components/auth-shell";
 import { safeNext } from "@/features/auth/safe-next";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -89,7 +89,7 @@ function LoginForm() {
       <Button type="submit" disabled={submitting} className="mt-1 gap-1.5">
         {submitting ? (
           <>
-            <Icon name="progress_activity" size={16} className="animate-spin" /> Signing in…
+            <Icon name="progress_activity" size={16} className="animate-spin" /> Signing in...
           </>
         ) : (
           "Sign in"

@@ -1,16 +1,16 @@
 "use client";
 
+import { ErrorBanner, NoticeBanner } from "@/components/shared/page-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ErrorBanner, NoticeBanner } from "@/components/shared/page-state";
-import { useAsyncResource } from "@/hooks/use-async-resource";
-import { AuthRequiredError } from "@/lib/http";
-import { listChannels, pollChannel } from "@/features/channels/api";
 import type { ApiChannel } from "@/features/channels/api";
+import { listChannels, pollChannel } from "@/features/channels/api";
+import { useAsyncResource } from "@/hooks/use-async-resource";
 import { relativeTimeOrNever } from "@/lib/format";
+import { AuthRequiredError } from "@/lib/http";
 import * as React from "react";
 
 /* ------------------------------------------------------------------ *
@@ -124,7 +124,7 @@ export default function ChannelsPage() {
                         size={15}
                         className={busyId === c.id ? "animate-spin" : undefined}
                       />
-                      {busyId === c.id ? "Checking…" : "Check now"}
+                      {busyId === c.id ? "Checking..." : "Check now"}
                     </Button>
                   ) : null}
                 </div>

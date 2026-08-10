@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
 import { API_URL } from "@/lib/http";
+import { useCallback, useMemo, useState } from "react";
 
 type ScoreRow = { id: string; title: string; score: number };
 
@@ -214,7 +214,7 @@ export function ModelTestClient() {
                 cursor: !file || busy ? "not-allowed" : "pointer",
               }}
             >
-              {busy ? "Classifying…" : "Identify document"}
+              {busy ? "Classifying..." : "Identify document"}
             </button>
           </div>
 

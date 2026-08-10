@@ -1,5 +1,12 @@
 "use client";
 
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Icon } from "@/components/ui/icon";
+import { Skeleton } from "@/components/ui/skeleton";
+import type { ApiCaseDetail, ApiCaseEvent, ApiCaseMessage, ApiChecklist, ApiChecklistItem, ApiConversationEntry, ApiDocument, NudgeResult } from "@/features/case-detail/api";
+import { addCaseComment, confirmSuggestion, dismissSuggestion, getCase, getCaseConversation, getCaseEvents, getCaseMessages, getChecklist, pauseNudges, reclassifyDocument, removeDocument, replyToConversation, requestDocuments, resumeNudges, reviewDocument, uploadDocument } from "@/features/case-detail/api";
 import {
   ActivityTab,
   buildActivity,
@@ -14,27 +21,20 @@ import {
   parseCaseTab,
   ProgressCard,
   RefreshControl,
-  UpdatedAgo,
   RejectDialog,
   RemoveDialog,
   StatusBadge,
   TabBar,
+  UpdatedAgo,
   type ActionError,
   type CaseTab,
   type PreviewTarget,
 } from "@/features/case-detail/components";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Icon } from "@/components/ui/icon";
-import { Skeleton } from "@/components/ui/skeleton";
-import { toneClass } from "@/lib/tones";
-import { addCaseComment, confirmSuggestion, dismissSuggestion, getCase, getCaseConversation, getCaseEvents, getCaseMessages, getChecklist, pauseNudges, reclassifyDocument, removeDocument, replyToConversation, requestDocuments, resumeNudges, reviewDocument, uploadDocument } from "@/features/case-detail/api";
-import type { ApiCaseDetail, ApiCaseEvent, ApiCaseMessage, ApiChecklist, ApiChecklistItem, ApiConversationEntry, ApiDocument, NudgeResult } from "@/features/case-detail/api";
-import { AuthRequiredError } from "@/lib/http";
-import { listWorkflows } from "@/features/workflows/api";
 import type { ApiFieldDef } from "@/features/workflows/api";
+import { listWorkflows } from "@/features/workflows/api";
 import { formatDate } from "@/lib/format";
+import { AuthRequiredError } from "@/lib/http";
+import { toneClass } from "@/lib/tones";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import * as React from "react";
@@ -333,7 +333,7 @@ function CaseDetailPageInner() {
   }
 
   // The await spans the model call itself (typically 5–15s) - the button
-  // shows "Looking…" for the duration and the refresh lands the verdict.
+  // shows "Looking..." for the duration and the refresh lands the verdict.
   async function handleReclassify(documentId: string) {
     setActionError(null);
     setBusyId(documentId);
@@ -533,7 +533,7 @@ function CaseDetailPageInner() {
             >
               <Icon name="send" size={16} />
               <span className="truncate">
-                {nudging ? "Sending…" : "Request documents"}
+                {nudging ? "Sending..." : "Request documents"}
               </span>
             </Button>
             <Button
@@ -596,7 +596,7 @@ function CaseDetailPageInner() {
         <>
           <Card className="p-3">
             <NoteComposer
-              placeholder="Add a note to this case…"
+              placeholder="Add a note to this case..."
               onSubmit={(body) => handleAddNote(body)}
             />
           </Card>
@@ -780,7 +780,7 @@ function CaseDetailPageInner() {
                               onClick={() => handleReclassify(d.id)}
                             >
                               <Icon name="auto_awesome" size={14} />
-                              {busyId === d.id ? "Looking…" : "Reclassify"}
+                              {busyId === d.id ? "Looking..." : "Reclassify"}
                             </Button>
                           </>
                         ) : null}

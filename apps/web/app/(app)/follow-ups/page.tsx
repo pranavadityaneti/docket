@@ -1,18 +1,18 @@
 "use client";
 
+import { ListPager } from "@/components/shared/list-pager";
+import { ErrorBanner, NoticeBanner } from "@/components/shared/page-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ListPager } from "@/components/shared/list-pager";
-import { ErrorBanner, NoticeBanner } from "@/components/shared/page-state";
-import { useAsyncResource } from "@/hooks/use-async-resource";
-import { AuthRequiredError } from "@/lib/http";
-import { listFollowUps } from "@/features/follow-ups/api";
-import type { ApiFollowUp } from "@/features/follow-ups/api";
 import { requestDocuments } from "@/features/case-detail/api";
+import type { ApiFollowUp } from "@/features/follow-ups/api";
+import { listFollowUps } from "@/features/follow-ups/api";
+import { useAsyncResource } from "@/hooks/use-async-resource";
 import { formatDate } from "@/lib/format";
+import { AuthRequiredError } from "@/lib/http";
 import Link from "next/link";
 import * as React from "react";
 
@@ -213,7 +213,7 @@ export default function FollowUpsPage() {
                     onClick={() => void askNow(f)}
                   >
                     <Icon name="send" size={14} />
-                    {busyId === f.caseId ? "Sending…" : "Ask now"}
+                    {busyId === f.caseId ? "Sending..." : "Ask now"}
                   </Button>
                 </div>
               </div>

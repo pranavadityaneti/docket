@@ -10,7 +10,6 @@ import {
 import { Icon } from "@/components/ui/icon";
 import { fieldControlClassName } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import * as React from "react";
 
 export type SelectOption = {
   value: string;
@@ -40,7 +39,7 @@ export function SelectMenu({
   options,
   onChange,
   disabled,
-  placeholder = "Choose…",
+  placeholder = "Choose...",
   className,
   size = "default",
   id,
@@ -64,7 +63,7 @@ export function SelectMenu({
               fieldControlClassName,
               "flex cursor-pointer items-center gap-2 text-left",
               size === "sm" &&
-                "h-8 rounded-[8px] px-1.5 text-[11px] focus-visible:ring-2",
+              "h-8 rounded-[8px] px-1.5 text-[11px] focus-visible:ring-2",
               isEmpty && "text-muted-foreground",
               className,
             )}

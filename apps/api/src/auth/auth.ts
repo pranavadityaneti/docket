@@ -51,7 +51,7 @@ export const Roles = (...roles: string[]) => SetMetadata(ROLES_KEY, roles);
  */
 @Injectable()
 export class RolesGuard implements CanActivate {
-  constructor(private readonly reflector: Reflector) {}
+  constructor(private readonly reflector: Reflector) { }
 
   canActivate(ctx: ExecutionContext): boolean {
     const roles = this.reflector.getAllAndOverride<string[]>(ROLES_KEY, [
@@ -119,11 +119,11 @@ export class LoginThrottlerGuard extends ThrottlerGuard {
 
 /**
  * Attaches req.user from a validated JWT.
- * Accepts Authorization: Bearer … OR the httpOnly docket_token cookie.
+ * Accepts Authorization: Bearer ... OR the httpOnly docket_token cookie.
  */
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
-  constructor(private readonly jwt: JwtService) {}
+  constructor(private readonly jwt: JwtService) { }
 
   async canActivate(ctx: ExecutionContext): Promise<boolean> {
     const req = ctx.switchToHttp().getRequest();
@@ -151,7 +151,7 @@ export class AuthService {
     private readonly db: DbService,
     private readonly jwt: JwtService,
     private readonly email: EmailService,
-  ) {}
+  ) { }
 
   async login(email: string, password: string) {
     const clean = email.trim().toLowerCase();
@@ -265,7 +265,7 @@ export class AuthService {
           user.email,
           `${env.appOrigin}/reset?token=${encodeURIComponent(raw)}`,
         )
-        .catch(() => {});
+        .catch(() => { });
     }
     return { ok: true };
   }
@@ -292,7 +292,7 @@ export class AuthService {
 
 @Controller("auth")
 export class AuthController {
-  constructor(private readonly auth: AuthService) {}
+  constructor(private readonly auth: AuthService) { }
 
   @Get("me")
   @UseGuards(JwtAuthGuard)
@@ -350,4 +350,4 @@ export class AuthController {
   providers: [AuthService, JwtAuthGuard, RolesGuard],
   exports: [JwtAuthGuard, RolesGuard],
 })
-export class AuthModule {}
+export class AuthModule { }
