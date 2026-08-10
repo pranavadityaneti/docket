@@ -7,6 +7,7 @@ import { Icon } from "@/components/ui/icon";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ListPager } from "@/components/shared/list-pager";
 import { ErrorBanner, NoticeBanner } from "@/components/shared/page-state";
+import { SegmentedControl } from "@/components/shared/segmented-control";
 import { useAsyncResource } from "@/hooks/use-async-resource";
 import { AuthRequiredError } from "@/lib/http";
 import { formatDateTime, relativeTimeOrNever } from "@/lib/format";
@@ -192,36 +193,18 @@ export default function NotificationsPage() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <div
-            role="group"
+          <SegmentedControl
             aria-label="Filter"
-            className="inline-flex h-9 items-center rounded-[8px] border border-border/80 bg-muted/60 p-0.5"
-          >
-            {(
-              [
-                { id: "all" as const, label: "All" },
-                { id: "unread" as const, label: "Unread" },
-              ] as const
-            ).map((opt) => (
-              <button
-                key={opt.id}
-                type="button"
-                aria-pressed={filter === opt.id}
-                onClick={() => {
-                  setFilter(opt.id);
-                  setOffset(0);
-                }}
-                className={cn(
-                  "inline-flex h-8 items-center rounded-[6px] px-2.5 text-xs font-medium transition-colors",
-                  filter === opt.id
-                    ? "bg-background text-foreground"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
+            value={filter}
+            onChange={(next) => {
+              setFilter(next);
+              setOffset(0);
+            }}
+            options={[
+              { value: "all", label: "All" },
+              { value: "unread", label: "Unread" },
+            ]}
+          />
           <Button
             size="sm"
             variant="outline"

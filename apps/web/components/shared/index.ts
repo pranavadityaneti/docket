@@ -27,6 +27,10 @@ export { ExportDownloadMenu } from "./export-download-menu";
 export { SelectMenu, type SelectOption } from "./select-menu";
 export { DeleteDialog, type DeleteLine } from "./delete-dialog";
 export {
+  SegmentedControl,
+  type SegmentOption,
+} from "./segmented-control";
+export {
   DynamicField,
   Field,
   FormSection,

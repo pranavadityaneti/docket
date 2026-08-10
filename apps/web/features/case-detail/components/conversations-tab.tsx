@@ -3,12 +3,12 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
+import { SegmentedControl } from "@/components/shared/segmented-control";
 import type {
   ApiConversationAttachment,
   ApiConversationEntry,
 } from "@/features/case-detail/api";
 import { formatDateTime } from "@/lib/format";
-import { cn } from "@/lib/utils";
 import * as React from "react";
 import { CHANNEL_LABEL, MESSAGE_KIND_LABEL, type PreviewTarget } from "./meta";
 import { preferredReplyChannel } from "./preferred-reply-channel";
@@ -91,32 +91,15 @@ function ReplyComposer({
     <div className="border-t bg-muted/20 p-3">
       <div className="mb-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
         <span>Reply via</span>
-        <div
-          role="group"
+        <SegmentedControl
           aria-label="Reply channel"
-          className="inline-flex w-fit items-center gap-1 rounded-[12px] bg-muted p-1"
-        >
-          {(["email", "whatsapp"] as const).map((id) => {
-            const active = channel === id;
-            return (
-              <button
-                key={id}
-                type="button"
-                aria-pressed={active}
-                onClick={() => setChannel(id)}
-                className={cn(
-                  "flex h-[34px] items-center gap-1.5 rounded-[8px] px-3.5 text-sm transition-colors",
-                  active
-                    ? "bg-card font-semibold text-foreground"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
-              >
-                <Icon name={id === "whatsapp" ? "chat" : "mail"} size={16} />
-                {CHANNEL_LABEL[id]}
-              </button>
-            );
-          })}
-        </div>
+          value={channel}
+          onChange={setChannel}
+          options={[
+            { value: "email", label: CHANNEL_LABEL.email, icon: "mail" },
+            { value: "whatsapp", label: CHANNEL_LABEL.whatsapp, icon: "chat" },
+          ]}
+        />
         {preferredChannel ? (
           <span className="text-muted-foreground/80">
             · same as last customer message ({CHANNEL_LABEL[preferredChannel]})
@@ -171,11 +154,6 @@ export function ConversationsTab({
   const shown = entries.filter(
     (entry) => channel === "all" || entry.channel === channel,
   );
-  const options = [
-    { id: "all" as const, label: "All" },
-    { id: "email" as const, label: CHANNEL_LABEL.email, icon: "mail" },
-    { id: "whatsapp" as const, label: CHANNEL_LABEL.whatsapp, icon: "chat" },
-  ] as const;
 
   return (
     <Card className="gap-0 overflow-hidden py-0">
@@ -186,33 +164,17 @@ export function ConversationsTab({
             Every message exchanged with this {subject.toLowerCase()}.
           </p>
         </div>
-        <div
+        <SegmentedControl
           role="tablist"
           aria-label="Filter by channel"
-          className="inline-flex h-9 items-center rounded-[8px] border border-border/80 bg-muted/60 p-0.5"
-        >
-          {options.map((option) => {
-            const active = channel === option.id;
-            return (
-              <button
-                key={option.id}
-                type="button"
-                role="tab"
-                aria-selected={active}
-                onClick={() => setChannel(option.id)}
-                className={cn(
-                  "inline-flex h-8 items-center gap-1.5 rounded-[6px] px-2.5 text-xs font-medium transition-colors",
-                  active
-                    ? "bg-background text-foreground"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
-              >
-                {"icon" in option ? <Icon name={option.icon} size={14} /> : null}
-                {option.label}
-              </button>
-            );
-          })}
-        </div>
+          value={channel}
+          onChange={setChannel}
+          options={[
+            { value: "all", label: "All" },
+            { value: "email", label: CHANNEL_LABEL.email, icon: "mail" },
+            { value: "whatsapp", label: CHANNEL_LABEL.whatsapp, icon: "chat" },
+          ]}
+        />
       </div>
 
       {shown.length === 0 ? (

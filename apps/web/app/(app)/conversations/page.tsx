@@ -2,6 +2,7 @@
 
 import { ListPager } from "@/components/shared/list-pager";
 import { ErrorBanner } from "@/components/shared/page-state";
+import { SegmentedControl } from "@/components/shared/segmented-control";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -11,7 +12,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { listConversations } from "@/features/conversations/api";
 import { useAsyncResource } from "@/hooks/use-async-resource";
 import { relativeTime } from "@/lib/format";
-import { cn } from "@/lib/utils";
 import Link from "next/link";
 import * as React from "react";
 
@@ -32,49 +32,6 @@ const CHANNEL_META: Record<string, { label: string; icon: string }> = {
 };
 
 type ChannelFilter = "all" | "email" | "whatsapp";
-
-function ChannelSegment({
-  value,
-  onChange,
-}: {
-  value: ChannelFilter;
-  onChange: (v: ChannelFilter) => void;
-}) {
-  const options: { id: ChannelFilter; label: string; icon?: string }[] = [
-    { id: "all", label: "All" },
-    { id: "email", label: "Email", icon: "mail" },
-    { id: "whatsapp", label: "WhatsApp", icon: "chat" },
-  ];
-  return (
-    <div
-      role="tablist"
-      aria-label="Filter by channel"
-      className="inline-flex h-9 items-center rounded-[8px] border border-border/80 bg-muted/60 p-0.5"
-    >
-      {options.map((opt) => {
-        const active = value === opt.id;
-        return (
-          <button
-            key={opt.id}
-            type="button"
-            role="tab"
-            aria-selected={active}
-            onClick={() => onChange(opt.id)}
-            className={cn(
-              "inline-flex h-8 items-center gap-1.5 rounded-[6px] px-2.5 text-xs font-medium transition-colors",
-              active
-                ? "bg-background text-foreground"
-                : "text-muted-foreground hover:text-foreground",
-            )}
-          >
-            {opt.icon ? <Icon name={opt.icon} size={14} /> : null}
-            {opt.label}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
 
 export default function ConversationsPage() {
   const [offset, setOffset] = React.useState(0);
@@ -143,12 +100,19 @@ export default function ConversationsPage() {
               className="pl-8"
             />
           </div>
-          <ChannelSegment
+          <SegmentedControl
+            role="tablist"
+            aria-label="Filter by channel"
             value={channel}
             onChange={(next) => {
               setChannel(next);
               setOffset(0);
             }}
+            options={[
+              { value: "all", label: "All" },
+              { value: "email", label: "Email", icon: "mail" },
+              { value: "whatsapp", label: "WhatsApp", icon: "chat" },
+            ] satisfies { value: ChannelFilter; label: string; icon?: string }[]}
           />
         </div>
 

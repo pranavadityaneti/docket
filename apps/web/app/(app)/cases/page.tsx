@@ -18,6 +18,7 @@ import { Card } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
 import { ListPager } from "@/components/shared/list-pager";
 import { LoadErrorState } from "@/components/shared/page-state";
+import { SegmentedControl } from "@/components/shared/segmented-control";
 import { AuthRequiredError } from "@/lib/http";
 import { createCase, listAllCases, listCases, updateCaseStage } from "@/features/cases/api";
 import { listStages, listWorkflows } from "@/features/workflows/api";
@@ -210,29 +211,19 @@ function CasesPage() {
 
       {/* Display toggle. role=group with aria-pressed, not a tablist: these
           buttons swap how one set of cases is drawn, they do not switch panels. */}
-      <div
-        role="group"
+      <SegmentedControl
         aria-label="Case display"
-        className="inline-flex w-fit items-center gap-1 rounded-[12px] bg-muted p-1"
-      >
-        {VIEWS.map((v) => (
-          <button
-            key={v}
-            onClick={() => {
-              setOffset(0);
-              setView(v);
-            }}
-            aria-pressed={view === v}
-            className={`flex h-[34px] items-center gap-1.5 rounded-[8px] px-3.5 text-sm transition-colors ${view === v
-                ? "bg-card font-semibold text-foreground"
-                : "text-muted-foreground hover:text-foreground"
-              }`}
-          >
-            <Icon name={v === "Table" ? "table_rows" : "view_kanban"} size={16} />
-            {v}
-          </button>
-        ))}
-      </div>
+        value={view}
+        onChange={(v) => {
+          setOffset(0);
+          setView(v);
+        }}
+        options={VIEWS.map((v) => ({
+          value: v,
+          label: v,
+          icon: v === "Table" ? "table_rows" : "view_kanban",
+        }))}
+      />
 
       {moveError ? (
         <div className="flex items-center justify-between gap-2 border border-danger-border bg-danger-muted px-3 py-2 text-sm text-danger-muted-foreground">
