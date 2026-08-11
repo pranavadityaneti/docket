@@ -3,7 +3,8 @@
  * messages, events, conversations, and unmatched docs. Idempotent - re-run
  * skips anything keyed by example.com emails / demo addresses.
  *
- * Usage: DATABASE_URL=... pnpm --filter @docket/db seed:dummy
+ * Usage: pnpm --filter @docket/db seed:dummy
+ * (loads repo-root `.env` for DATABASE_URL / STORAGE_LOCAL_ROOT when unset)
  */
 import { and, eq, isNull, like, or } from "drizzle-orm";
 import { createHash, randomUUID } from "node:crypto";
@@ -16,6 +17,7 @@ import {
   WORKFLOW as LOAN_WF,
 } from "./business-loan-config";
 import { createDb } from "./client";
+import { loadRootEnv } from "./load-env";
 import {
   ADMISSION_FIELDS,
   DOCUMENT_REQUIREMENTS as ADMISSION_REQS,
@@ -31,6 +33,8 @@ import {
 import { hashPassword } from "./password";
 import { generateCaseReference } from "./reference";
 import * as schema from "./schema";
+
+loadRootEnv();
 
 type Db = ReturnType<typeof createDb>;
 
@@ -978,7 +982,11 @@ async function seedUnmatched(db: Db, tenantId: string) {
 
 async function main() {
   const url = process.env.DATABASE_URL;
-  if (!url) throw new Error("DATABASE_URL is not set");
+  if (!url) {
+    throw new Error(
+      "DATABASE_URL is not set — add it to the repo-root .env (see .env.example)",
+    );
+  }
   const db = createDb(url);
 
   const tenants = await db

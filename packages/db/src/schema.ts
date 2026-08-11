@@ -738,6 +738,7 @@ export const NOTIFICATION_KINDS = [
   "follow_up_due",
   "comment",
   "stage_changed",
+  "message",
   "generic",
 ] as const;
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
