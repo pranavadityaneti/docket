@@ -92,7 +92,7 @@ export function DeleteDialog({
           </div>
 
           {loading ? (
-            <p className="text-sm text-muted-foreground">Checking what this affects…</p>
+            <p className="text-sm text-muted-foreground">Checking what this affects...</p>
           ) : (
             <>
               {deletable.length > 0 ? (
@@ -173,7 +173,7 @@ export function DeleteDialog({
           >
             {working ? (
               <>
-                <Icon name="progress_activity" size={16} className="animate-spin" /> Deleting…
+                <Icon name="progress_activity" size={16} className="animate-spin" /> Deleting...
               </>
             ) : (
               <>

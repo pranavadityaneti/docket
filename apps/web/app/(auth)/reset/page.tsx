@@ -1,10 +1,10 @@
 "use client";
 
-import { AuthCardHeader, AuthShell } from "@/features/auth/components/auth-shell";
 import { PasswordInput } from "@/components/shared/password-input";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { resetPassword } from "@/features/auth/api";
+import { AuthCardHeader, AuthShell } from "@/features/auth/components/auth-shell";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import * as React from "react";
@@ -108,7 +108,7 @@ function ResetForm() {
         <Button type="submit" disabled={submitting} className="mt-1 gap-1.5">
           {submitting ? (
             <>
-              <Icon name="progress_activity" size={16} className="animate-spin" /> Updating…
+              <Icon name="progress_activity" size={16} className="animate-spin" /> Updating...
             </>
           ) : (
             "Update password"

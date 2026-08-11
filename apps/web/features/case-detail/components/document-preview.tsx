@@ -11,8 +11,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Icon } from "@/components/ui/icon";
-import { AuthRequiredError } from "@/lib/http";
 import { fetchDocumentContent } from "@/features/case-detail/api";
+import { AuthRequiredError } from "@/lib/http";
 import * as React from "react";
 import { previewKind, type PreviewTarget } from "./meta";
 
@@ -73,7 +73,7 @@ export function DocumentPreviewDialog({
           </DialogDescription>
         </DialogHeader>
         <div className="flex min-h-[280px] max-h-[70vh] flex-col items-center justify-center bg-muted/30 px-5 py-4">
-          {loading ? <div className="flex items-center gap-2 text-sm text-muted-foreground"><Icon name="progress_activity" size={18} className="animate-spin" />Loading preview…</div> : null}
+          {loading ? <div className="flex items-center gap-2 text-sm text-muted-foreground"><Icon name="progress_activity" size={18} className="animate-spin" />Loading preview...</div> : null}
           {error ? <p className="text-sm text-danger">{error}</p> : null}
           {!loading && !error && url && kind === "image" ? (
             // eslint-disable-next-line @next/next/no-img-element -- blob: URL from authenticated fetch
