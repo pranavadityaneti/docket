@@ -28,7 +28,7 @@ async function main() {
   // the application is a hole with a schedule.
   const sql = postgres(url, { max: 1, onnotice: () => { }, ssl: sslFor(url) });
   try {
-    console.log(`Applying migrations from ${migrationsFolder} …`);
+    console.log(`Applying migrations from ${migrationsFolder} ...`);
     await migrate(drizzle(sql), { migrationsFolder });
     console.log("Migrations up to date.");
   } finally {

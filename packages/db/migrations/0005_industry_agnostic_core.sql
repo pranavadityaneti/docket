@@ -43,7 +43,7 @@ ALTER TABLE "field_configs" RENAME CONSTRAINT "lead_configs_workflow_id_workflow
 -- Carry the VALUES across before dropping the columns. The keys match the
 -- field config (business-loan-config.ts), so an existing row keeps rendering
 -- exactly as it did. jsonb_strip_nulls keeps the bag clean where a column was
--- null, and `data || …` leaves any keys already there untouched.
+-- null, and `data || ...` leaves any keys already there untouched.
 UPDATE "cases" SET "data" = "data" || jsonb_strip_nulls(jsonb_build_object(
   'loan_amount',      "amount",
   'loan_type',        "loan_type",
