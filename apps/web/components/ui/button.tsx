@@ -47,12 +47,21 @@ function Button({
   className,
   variant = "default",
   size = "default",
+  nativeButton,
+  render,
   ...props
 }: ButtonPrimitive.Props & VariantProps<typeof buttonVariants>) {
+  // Base UI defaults nativeButton=true (expects a real <button>). When we
+  // polymorph via `render` (Next <Link>, etc.) that would warn and strip
+  // button semantics - flip the default so Link-as-button works cleanly.
+  const resolvedNativeButton = nativeButton ?? render === undefined;
+
   return (
     <ButtonPrimitive
       data-slot="button"
       className={cn(buttonVariants({ variant, size }), className)}
+      nativeButton={resolvedNativeButton}
+      render={render}
       {...props}
     />
   )

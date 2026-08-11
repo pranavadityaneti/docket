@@ -67,7 +67,7 @@ export {
   type ApiFieldDef,
   type ApiRequirement,
   type ApiStage,
-  type ApiWorkflow,
+  type ApiWorkflow
 } from "@/features/workflows/api";
 
 export {

@@ -11,12 +11,26 @@ import {
   Query,
   UseGuards,
 } from "@nestjs/common";
-import { and, count, desc, eq, isNull, or } from "drizzle-orm";
-import { IsBoolean, IsIn, IsOptional, IsInt, Max, Min } from "class-validator";
+import { and, count, desc, eq, isNull, or, sql } from "drizzle-orm";
+import {
+  IsBoolean,
+  IsIn,
+  IsInt,
+  IsOptional,
+  IsString,
+  Max,
+  MaxLength,
+  Min,
+} from "class-validator";
 import { Transform, Type } from "class-transformer";
 import { AuthModule, CurrentUser, JwtAuthGuard, type AuthUser } from "../auth/auth";
 import { clampPage, type PageOpts } from "../common/pagination";
 import { DbService } from "../db/db";
+
+/** Escape \, %, _ so user search terms stay literal in ILIKE patterns. */
+function likeContains(raw: string): string {
+  return `%${raw.replace(/[\\%_]/g, (ch) => `\\${ch}`)}%`;
+}
 
 export class ListNotificationsQuery {
   @IsOptional()
@@ -27,6 +41,15 @@ export class ListNotificationsQuery {
   @IsOptional()
   @IsIn([...NOTIFICATION_KINDS])
   kind?: (typeof NOTIFICATION_KINDS)[number];
+
+  /** Case-insensitive match on title, body, or kind. */
+  @IsOptional()
+  @Transform(({ value }) =>
+    typeof value === "string" ? value.trim() || undefined : value,
+  )
+  @IsString()
+  @MaxLength(100)
+  q?: string;
 
   @IsOptional()
   @Type(() => Number)
@@ -47,6 +70,38 @@ export class NotificationsService {
   constructor(private readonly db: DbService) {}
 
   /**
+   * Best-effort write used by intake paths. Never throws to the caller — a
+   * failed bell entry must never cost a landed message or document.
+   */
+  async notify(
+    tenantId: string,
+    input: {
+      kind: (typeof NOTIFICATION_KINDS)[number];
+      title: string;
+      body?: string | null;
+      href?: string | null;
+      caseId?: string | null;
+      userId?: string | null;
+    },
+  ): Promise<void> {
+    try {
+      await this.db.withTenant(tenantId, async (tx) => {
+        await tx.insert(notifications).values({
+          tenantId,
+          kind: input.kind,
+          title: input.title,
+          body: input.body ?? null,
+          href: input.href ?? null,
+          caseId: input.caseId ?? null,
+          userId: input.userId ?? null,
+        });
+      });
+    } catch {
+      // Swallow: intake callers fire-and-forget.
+    }
+  }
+
+  /**
    * Newest first. Workspace-wide rows (user_id null) plus this user's own.
    * Soft-deleted cases still keep their notification via ON DELETE SET NULL
    * on case_id - the href may 404, which is honest.
@@ -61,6 +116,17 @@ export class NotificationsService {
       const filters = [audience];
       if (opts.unreadOnly) filters.push(isNull(notifications.readAt));
       if (opts.kind) filters.push(eq(notifications.kind, opts.kind));
+      if (opts.q) {
+        const pattern = likeContains(opts.q);
+        // ESCAPE '\' so escaped \%, _, \ from likeContains stay literal.
+        filters.push(
+          or(
+            sql`${notifications.title} ilike ${pattern} escape '\\'`,
+            sql`coalesce(${notifications.body}, '') ilike ${pattern} escape '\\'`,
+            sql`${notifications.kind} ilike ${pattern} escape '\\'`,
+          )!,
+        );
+      }
       const where = and(...filters);
 
       const [countRow] = await tx
@@ -153,6 +219,24 @@ export class NotificationsService {
       return { updated: updated.length };
     });
   }
+
+  /** Clear unread bell items for one case (e.g. staff opened its Conversations tab). */
+  markCaseRead(tenantId: string, userId: string, caseId: string) {
+    return this.db.withTenant(tenantId, async (tx) => {
+      const updated = await tx
+        .update(notifications)
+        .set({ readAt: new Date() })
+        .where(
+          and(
+            eq(notifications.caseId, caseId),
+            isNull(notifications.readAt),
+            or(isNull(notifications.userId), eq(notifications.userId, userId)),
+          ),
+        )
+        .returning({ id: notifications.id });
+      return { updated: updated.length };
+    });
+  }
 }
 
 @Controller("notifications")
@@ -173,6 +257,14 @@ export class NotificationsController {
   @Post("read-all")
   markAllRead(@CurrentUser() u: AuthUser) {
     return this.notifications.markAllRead(u.tenantId, u.userId);
+  }
+
+  @Post("case/:caseId/read")
+  markCaseRead(
+    @CurrentUser() u: AuthUser,
+    @Param("caseId", ParseUUIDPipe) caseId: string,
+  ) {
+    return this.notifications.markCaseRead(u.tenantId, u.userId, caseId);
   }
 
   @Post(":id/read")

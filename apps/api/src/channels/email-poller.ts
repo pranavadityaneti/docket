@@ -16,6 +16,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { ClassifyApplier } from "../classify/classify";
 import { env } from "../config/env";
 import { DbService } from "../db/db";
+import { NotificationsService } from "../notifications/notifications";
 import { documentKey, STORAGE, unmatchedKey, type StorageDriver } from "../storage/storage";
 
 export type PollResult = {
@@ -52,6 +53,7 @@ export class EmailPollerService {
     private readonly db: DbService,
     @Inject(STORAGE) private readonly storage: StorageDriver,
     private readonly classify: ClassifyApplier,
+    private readonly notifications: NotificationsService,
   ) { }
 
   /**
@@ -223,7 +225,7 @@ export class EmailPollerService {
       // replayed delivery into one row.
       if (caseId) {
         try {
-          await tx
+          const inserted = await tx
             .insert(conversationMessages)
             .values({
               tenantId: channel.tenantId,
@@ -236,7 +238,18 @@ export class EmailPollerService {
               externalId: parsed.messageId ?? null,
               sentAt: parsed.date ?? new Date(),
             })
-            .onConflictDoNothing();
+            .onConflictDoNothing()
+            .returning({ id: conversationMessages.id });
+          if (inserted.length > 0) {
+            const preview = (bodyText || subject || "New email").slice(0, 140);
+            void this.notifications.notify(channel.tenantId, {
+              kind: "message",
+              title: "New email message",
+              body: preview,
+              href: `/cases/${caseId}?tab=conversations`,
+              caseId,
+            });
+          }
         } catch (e) {
           this.log.warn(
             `Channel ${channel.id}: could not record message text for case ${caseId}: ${e instanceof Error ? e.message : e}`,

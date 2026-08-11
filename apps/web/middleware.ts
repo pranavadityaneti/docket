@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-const SESSION_COOKIE = "docket_session";
 const AUTH_COOKIE = "docket_token";
 
 const PUBLIC_PREFIXES = ["/login", "/forgot", "/reset"];
@@ -11,11 +10,11 @@ function isPublic(pathname: string) {
 }
 
 function hasSession(req: NextRequest) {
-  // Prefer the readable marker; fall back to the httpOnly JWT (middleware can
-  // see it even when page JS cannot).
-  return (
-    req.cookies.get(SESSION_COOKIE)?.value === "1" || Boolean(req.cookies.get(AUTH_COOKIE)?.value)
-  );
+  // Gate on the httpOnly JWT only. The readable docket_session marker is for
+  // client JS (isLoggedIn) - if we treated the marker alone as authed, a
+  // missing/expired JWT would 401 forever while middleware bounced /login
+  // back into the app ("I'm still where I am").
+  return Boolean(req.cookies.get(AUTH_COOKIE)?.value);
 }
 
 /**

@@ -612,22 +612,37 @@ export class CasesService {
             mimeType: documents.mimeType,
             sourceExternalId: documents.sourceExternalId,
             storageKey: documents.storageKey,
+            deletedAt: documents.deletedAt,
+            deletionReason: documents.deletionReason,
           })
           .from(documents)
-          .where(and(eq(documents.caseId, caseId), isNull(documents.deletedAt))),
+          // Include soft-deleted rows that still belong to a conversation
+          // message (source_external_id). Checklist hides them; the thread
+          // keeps a placeholder so staff can see a file was removed and why.
+          .where(eq(documents.caseId, caseId)),
       ]);
 
       const attachmentsByExternal = new Map<
         string,
-        { id: string; fileName: string; mimeType: string | null }[]
+        {
+          id: string;
+          fileName: string;
+          mimeType: string | null;
+          deleted: boolean;
+          deletionReason: string | null;
+        }[]
       >();
       for (const d of docs) {
-        if (!d.sourceExternalId || !d.storageKey) continue;
+        if (!d.sourceExternalId) continue;
+        // Live files need bytes; deleted ones keep the row for the placeholder.
+        if (!d.deletedAt && !d.storageKey) continue;
         const list = attachmentsByExternal.get(d.sourceExternalId) ?? [];
         list.push({
           id: d.id,
           fileName: d.fileName,
           mimeType: d.mimeType,
+          deleted: d.deletedAt !== null,
+          deletionReason: d.deletionReason,
         });
         attachmentsByExternal.set(d.sourceExternalId, list);
       }
@@ -662,6 +677,8 @@ export class CasesService {
             id: string;
             fileName: string;
             mimeType: string | null;
+            deleted: boolean;
+            deletionReason: string | null;
           }[],
         })),
       ].sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime());

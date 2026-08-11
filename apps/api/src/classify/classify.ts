@@ -1,3 +1,4 @@
+import { cases, documentRequirements, documents } from "@docket/db";
 import {
   Controller,
   Inject,
@@ -8,17 +9,19 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  ServiceUnavailableException,
+  UnprocessableEntityException,
   UseGuards,
 } from "@nestjs/common";
-import OpenAI from "openai";
 import { Throttle, ThrottlerGuard } from "@nestjs/throttler";
 import { and, asc, eq, isNotNull, isNull, ne } from "drizzle-orm";
-import { cases, documentRequirements, documents } from "@docket/db";
-import { DbService } from "../db/db";
+import OpenAI from "openai";
 import { CurrentUser, JwtAuthGuard, type AuthUser } from "../auth/auth";
-import { DocumentsModule, DocumentsService, requirementApplies } from "../documents/documents";
-import { STORAGE, StorageModule, type StorageDriver } from "../storage/storage";
 import { env } from "../config/env";
+import { DbService } from "../db/db";
+import { DocumentsModule, DocumentsService, requirementApplies } from "../documents/documents";
+import { ClassificationProgress } from "../documents/classification-progress";
+import { STORAGE, StorageModule, type StorageDriver } from "../storage/storage";
 
 /**
  * AI document classification — "which checklist item is this file?"
@@ -491,18 +494,28 @@ export class ClassifyApplier {
     private readonly db: DbService,
     private readonly classifier: ClassifyService,
     private readonly documents: DocumentsService,
+    private readonly progress: ClassificationProgress,
   ) {}
 
   async process(tenantId: string, documentId: string): Promise<void> {
     if (!this.classifier.enabled()) return;
+    this.progress.mark(documentId);
     try {
       await this.run(tenantId, documentId);
     } catch (e) {
       this.log.error(`Classification of ${documentId} failed: ${msg(e)}`);
+    } finally {
+      this.progress.clear(documentId);
     }
   }
 
-  private async run(tenantId: string, documentId: string): Promise<void> {
+  /**
+   * Claim + classify one document. Returns null when the claim lost (already
+   * classified / filed / deleted / no bytes). Otherwise returns the model
+   * outcome — including skip/error — so an explicit "reclassify" can tell the
+   * human what happened instead of pretending success.
+   */
+  private async run(tenantId: string, documentId: string): Promise<ClassifyOutcome | null> {
     const ctx = await this.db.withTenant(tenantId, async (tx) => {
       /*
        * CLAIM the document before anything else — a single atomic UPDATE that
@@ -565,7 +578,7 @@ export class ClassifyApplier {
         .map((r) => ({ key: r.key, label: r.label, description: r.description, id: r.id }));
       return { doc, caseId: c.id, options };
     });
-    if (!ctx) return;
+    if (!ctx) return null;
 
     const result = await this.classifier.classify({
       storageKey: ctx.doc.storageKey!,
@@ -575,7 +588,7 @@ export class ClassifyApplier {
     });
     if (result.outcome !== "classified") {
       if (result.outcome === "error") this.log.warn(`${ctx.doc.fileName}: ${result.reason}`);
-      return;
+      return result;
     }
 
     const matched = result.requirementKey
@@ -642,6 +655,7 @@ export class ClassifyApplier {
         `${ctx.doc.fileName}: ${matched ? `suggested "${matched.key}"` : "no match"} [${result.confidence}]`,
       );
     });
+    return result;
   }
 
   /**
@@ -702,6 +716,15 @@ export class ClassifyApplier {
    * model call in a seconds-wide window reachable only by a deliberate click.
    */
   async reclassify(tenantId: string, documentId: string): Promise<{ id: string }> {
+    // Staff clicked "look again" — that is a paid, intentional call. Refusing
+    // up front (before wiping the previous reading) beats a silent success
+    // that cleared the stamp and never spoke to the model.
+    if (!this.classifier.enabled()) {
+      throw new ServiceUnavailableException(
+        "AI classification is not configured. Set OPENAI_API_KEY and restart the API.",
+      );
+    }
+
     const [doc] = await this.db.withTenant(tenantId, (tx) =>
       tx
         .update(documents)
@@ -710,6 +733,7 @@ export class ClassifyApplier {
           suggestedRequirementId: null,
           classifiedType: null,
           classificationConfidence: null,
+          autoFiled: false,
         })
         .where(
           and(
@@ -731,10 +755,26 @@ export class ClassifyApplier {
         "Document not found, already filed against a checklist item, rejected, or has no stored file",
       );
     }
-    // process() never throws — an OpenAI failure leaves the document exactly
-    // where a failed first look leaves it: unfiled, visible, reclassifiable.
-    await this.process(tenantId, documentId);
-    return { id: doc.id };
+
+    // Call run() directly — not process() — so skip/error is not swallowed.
+    // Arrival-driven process() stays fail-soft; this button is the opposite.
+    this.progress.mark(documentId);
+    try {
+      const outcome = await this.run(tenantId, documentId);
+      if (!outcome) {
+        throw new NotFoundException(
+          "Document not found, already filed against a checklist item, rejected, or has no stored file",
+        );
+      }
+      if (outcome.outcome === "skipped" || outcome.outcome === "error") {
+        throw new UnprocessableEntityException(
+          outcome.reason || "AI could not classify this document",
+        );
+      }
+      return { id: doc.id };
+    } finally {
+      this.progress.clear(documentId);
+    }
   }
 }
 

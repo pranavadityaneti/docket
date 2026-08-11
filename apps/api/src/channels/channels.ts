@@ -19,6 +19,7 @@ import { CurrentUser, JwtAuthGuard, type AuthUser } from "../auth/auth";
 import { ClassifyModule } from "../classify/classify";
 import { env } from "../config/env";
 import { DbService } from "../db/db";
+import { NotificationsModule } from "../notifications/notifications";
 import { StorageModule } from "../storage/storage";
 import { EmailPollerService, type PollResult } from "./email-poller";
 import { WhatsappService, WhatsappWebhookController } from "./whatsapp-webhook";
@@ -224,7 +225,7 @@ export class ChannelsController {
 }
 
 @Module({
-  imports: [ScheduleModule.forRoot(), StorageModule, ClassifyModule],
+  imports: [ScheduleModule.forRoot(), StorageModule, ClassifyModule, NotificationsModule],
   controllers: [ChannelsController, WhatsappWebhookController],
   providers: [ChannelsService, EmailPollerService, WhatsappService],
   exports: [ChannelsService],

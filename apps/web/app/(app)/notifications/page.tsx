@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ListPager } from "@/components/shared/list-pager";
 import { ErrorBanner, NoticeBanner } from "@/components/shared/page-state";
@@ -25,7 +26,8 @@ import * as React from "react";
 
 type Filter = "all" | "unread";
 
-const PAGE_SIZE = 50;
+const PAGE_SIZE = 25;
+const SEARCH_DEBOUNCE_MS = 250;
 
 function NotificationRow({
   n,
@@ -99,30 +101,42 @@ function NotificationRow({
 export default function NotificationsPage() {
   const router = useRouter();
   const [filter, setFilter] = React.useState<Filter>("all");
+  const [query, setQuery] = React.useState("");
+  const [debouncedQuery, setDebouncedQuery] = React.useState("");
   const [offset, setOffset] = React.useState(0);
   const [notice, setNotice] = React.useState<string | null>(null);
   const [actionError, setActionError] = React.useState<string | null>(null);
   const [busyId, setBusyId] = React.useState<string | null>(null);
 
+  React.useEffect(() => {
+    const handle = window.setTimeout(() => {
+      setDebouncedQuery(query.trim());
+      setOffset(0);
+    }, SEARCH_DEBOUNCE_MS);
+    return () => window.clearTimeout(handle);
+  }, [query]);
+
   const loader = React.useCallback(
     () =>
       listNotifications({
         unreadOnly: filter === "unread",
+        q: debouncedQuery || undefined,
         limit: PAGE_SIZE,
         offset,
       }),
-    [filter, offset],
+    [filter, debouncedQuery, offset],
   );
   const {
     data: page,
     error,
     loading,
     reload,
-  } = useAsyncResource(loader, [filter, offset], {
+  } = useAsyncResource(loader, [filter, debouncedQuery, offset], {
     fallbackError: "Couldn't load notifications.",
   });
   const rows = page?.items ?? null;
   const total = page?.total ?? 0;
+  const searching = debouncedQuery.length > 0;
 
   async function handleOpen(n: ApiNotification) {
     setActionError(null);
@@ -219,42 +233,87 @@ export default function NotificationsPage() {
       <ErrorBanner>{actionError ?? error}</ErrorBanner>
       <NoticeBanner>{notice}</NoticeBanner>
 
-      {loading && rows === null && !error ? (
-        <Skeleton className="h-48 w-full" />
-      ) : rows && total === 0 ? (
-        <Card className="flex flex-col items-center gap-2 border-dashed py-16 text-center">
-          <Icon name="notifications" size={22} className="text-muted-foreground" />
-          <div className="text-sm font-medium">
-            {filter === "unread" ? "No unread notifications" : "No notifications yet"}
-          </div>
-          <p className="max-w-md px-4 text-sm text-muted-foreground">
-            When documents arrive, need review, or a follow-up is due, they show
-            up here.
-          </p>
-          <Button size="sm" variant="outline" className="mt-2" render={<Link href="/" />}>
-            Back to overview
-          </Button>
-        </Card>
-      ) : (
-        <Card className="gap-0 overflow-hidden py-0">
-          {(rows ?? []).map((n) => (
-            <NotificationRow
-              key={n.id}
-              n={n}
-              busy={busyId === n.id}
-              onOpen={(item) => void handleOpen(item)}
-              onMarkRead={(item) => void handleMarkRead(item)}
+      <Card className="gap-0 overflow-hidden py-0">
+        <div className="border-b p-3">
+          <div className="relative min-w-0 sm:max-w-sm">
+            <Icon
+              name="search"
+              size={18}
+              className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground"
             />
-          ))}
-          <ListPager
-            total={total}
-            limit={PAGE_SIZE}
-            offset={offset}
-            onPage={setOffset}
-            noun="notifications"
-          />
-        </Card>
-      )}
+            <Input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search by title, message or kind..."
+              className="pl-8"
+              aria-label="Search notifications"
+            />
+          </div>
+        </div>
+
+        {loading && rows === null && !error ? (
+          <div className="flex flex-col gap-2 p-4">
+            {[0, 1, 2].map((i) => (
+              <Skeleton key={i} className="h-14 w-full" />
+            ))}
+          </div>
+        ) : rows && total === 0 ? (
+          <div className="flex flex-col items-center gap-2 py-16 text-center">
+            <Icon name="notifications" size={22} className="text-muted-foreground" />
+            <div className="text-sm font-medium">
+              {searching
+                ? "Nothing matches that search"
+                : filter === "unread"
+                  ? "No unread notifications"
+                  : "No notifications yet"}
+            </div>
+            <p className="max-w-md px-4 text-sm text-muted-foreground">
+              {searching
+                ? "Try a different phrase, or clear the search."
+                : "When documents arrive, need review, or a follow-up is due, they show up here."}
+            </p>
+            {!searching ? (
+              <Button
+                size="sm"
+                variant="outline"
+                className="mt-2"
+                nativeButton={false}
+                render={<Link href="/" />}
+              >
+                Back to overview
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                variant="outline"
+                className="mt-2"
+                onClick={() => setQuery("")}
+              >
+                Clear search
+              </Button>
+            )}
+          </div>
+        ) : (
+          <>
+            {(rows ?? []).map((n) => (
+              <NotificationRow
+                key={n.id}
+                n={n}
+                busy={busyId === n.id}
+                onOpen={(item) => void handleOpen(item)}
+                onMarkRead={(item) => void handleMarkRead(item)}
+              />
+            ))}
+            <ListPager
+              total={total}
+              limit={PAGE_SIZE}
+              offset={offset}
+              onPage={setOffset}
+              noun="notifications"
+            />
+          </>
+        )}
+      </Card>
     </div>
   );
 }

@@ -90,6 +90,26 @@ export function AppHeader() {
     void refreshBell();
   }, [pathname, refreshBell]);
 
+  // Silent poll so the bell updates when inbound chat / other alerts land
+  // without a full navigation. Same cadence as case-detail auto-refresh.
+  React.useEffect(() => {
+    const tick = () => {
+      if (typeof document !== "undefined" && document.visibilityState !== "visible") {
+        return;
+      }
+      void refreshBell();
+    };
+    const id = window.setInterval(tick, 15_000);
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") void refreshBell();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [refreshBell]);
+
   React.useEffect(() => {
     if (menuOpen) void refreshBell();
   }, [menuOpen, refreshBell]);

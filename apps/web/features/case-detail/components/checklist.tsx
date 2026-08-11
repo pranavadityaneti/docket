@@ -40,20 +40,38 @@ export function DocumentRow({
   const size = formatFileSize(doc.sizeBytes);
   const when = doc.receivedAt ? formatDateTime(doc.receivedAt) : "";
   const meta = [size, when].filter(Boolean).join(" · ");
+  const analyzing = Boolean(doc.analyzing);
   return (
     <div className="flex flex-col gap-2 rounded-[12px] border bg-background px-3 py-2 sm:flex-row sm:items-center">
       <div className="flex min-w-0 flex-1 items-start gap-2">
-        <Icon name="description" size={16} className="mt-0.5 shrink-0 text-muted-foreground" />
+        <Icon
+          name={analyzing ? "progress_activity" : "description"}
+          size={16}
+          className={`mt-0.5 shrink-0 ${analyzing ? "animate-spin text-sky-600" : "text-muted-foreground"}`}
+        />
         <div className="min-w-0 flex-1">
           <div className="truncate text-sm">{doc.fileName}</div>
           {meta ? <div className="text-xs text-muted-foreground">{meta}</div> : null}
+          {analyzing ? (
+            <div className="mt-1.5 space-y-1">
+              <div className="text-xs text-sky-700 dark:text-sky-300">
+                AI is reading this file to match a checklist item…
+              </div>
+              <div
+                className="h-1 overflow-hidden rounded-full bg-sky-100 dark:bg-sky-950"
+                aria-hidden
+              >
+                <div className="h-full w-1/2 animate-pulse rounded-full bg-sky-500/80" />
+              </div>
+            </div>
+          ) : null}
           {doc.status === "rejected" && doc.rejectionReason ? (
             <div className="mt-1 text-xs text-danger">Rejected: {doc.rejectionReason}</div>
           ) : null}
         </div>
       </div>
       <div className="flex shrink-0 flex-wrap items-center gap-1 sm:justify-end">
-        <StatusBadge status={doc.status} landed={doc.uploaded} />
+        <StatusBadge status={doc.status} landed={doc.uploaded} analyzing={analyzing} />
         {doc.uploaded ? (
           <Button
             size="sm"
@@ -71,7 +89,7 @@ export function DocumentRow({
             <Icon name="visibility" size={14} /> Preview
           </Button>
         ) : null}
-        {doc.uploaded && (doc.status === "received" || doc.status === "needs_review") ? (
+        {doc.uploaded && !analyzing && (doc.status === "received" || doc.status === "needs_review") ? (
           <>
             <Button
               size="sm"

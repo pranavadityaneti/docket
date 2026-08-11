@@ -40,6 +40,7 @@ import {
   documentKey,
   type StorageDriver,
 } from "../storage/storage";
+import { ClassificationProgress } from "./classification-progress";
 
 /**
  * Documents: what a case still needs, and what has arrived.
@@ -204,7 +205,27 @@ export class DocumentsService {
   constructor(
     private readonly db: DbService,
     @Inject(STORAGE) private readonly storage: StorageDriver,
+    private readonly classificationProgress: ClassificationProgress,
   ) { }
+
+  /**
+   * True while AI is (or is about to be) reading this file.
+   *
+   * In-flight wins. Otherwise: bytes landed, not yet claimed (`classified_at`
+   * null), and not already filed — i.e. sitting in the queue the arrival
+   * sweep will pick up. Classification off → never analyzing, so a missing
+   * OPENAI key does not leave a permanent spinner on Unmatched.
+   */
+  private isAnalyzing(d: {
+    id: string;
+    storageKey: string | null;
+    classifiedAt: Date | null;
+    requirementId: string | null;
+  }): boolean {
+    if (this.classificationProgress.isAnalyzing(d.id)) return true;
+    if (!env.openaiApiKey) return false;
+    return d.storageKey !== null && d.classifiedAt === null && d.requirementId === null;
+  }
 
   /**
    * The core read: what this case still needs.
@@ -275,6 +296,7 @@ export class DocumentsService {
             autoFiled: d.autoFiled,
             classifiedType: d.classifiedType,
             classificationConfidence: d.classificationConfidence,
+            analyzing: this.isAnalyzing(d),
           })),
         };
       });
@@ -308,6 +330,7 @@ export class DocumentsService {
             classificationConfidence: d.classificationConfidence,
             suggestedRequirementId: suggestedLabel ? d.suggestedRequirementId : null,
             suggestedLabel,
+            analyzing: this.isAnalyzing(d),
           };
         });
 
@@ -858,10 +881,11 @@ export class LocalUploadController {
   // registered on the app.
   imports: [StorageModule],
   controllers: [DocumentsController, LocalUploadController],
-  providers: [DocumentsService],
+  providers: [DocumentsService, ClassificationProgress],
   // Exported so the nudge feature can read the live checklist from the one place
   // that computes it - the dashboard and the document requests can never then
-  // disagree about what a case still needs.
-  exports: [DocumentsService],
+  // disagree about what a case still needs. ClassificationProgress is exported
+  // so ClassifyApplier can mark in-flight docs without a module cycle.
+  exports: [DocumentsService, ClassificationProgress],
 })
 export class DocumentsModule { }

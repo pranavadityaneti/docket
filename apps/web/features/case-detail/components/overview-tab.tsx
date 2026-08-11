@@ -104,7 +104,7 @@ function OwnerAssign({
   }
 
   return (
-    <div className="space-y-1.5">
+    <div className="max-w-xs space-y-1.5">
       <label htmlFor="case-owner" className="text-sm text-muted-foreground">
         Owner
       </label>
@@ -113,6 +113,7 @@ function OwnerAssign({
         value={ownerId}
         disabled={saving || members.length === 0}
         placeholder="Unassigned"
+        className="w-full"
         options={[
           { value: "", label: "Unassigned" },
           ...members.map((m) => ({ value: m.id, label: m.name })),
@@ -227,9 +228,7 @@ export function OverviewTab({
             <ReadRow label="Source" value={detail.source ?? ""} />
             <ReadRow label="Created" value={formatDate(detail.createdAt, "")} />
             <ReadRow label="Reminders" value={detail.nudgesPausedAt ? "Paused" : "Active"} />
-            <div className="sm:col-span-2">
-              <OwnerAssign detail={detail} onSaved={onSaved} />
-            </div>
+            <OwnerAssign detail={detail} onSaved={onSaved} />
           </div>
         </Card>
         {sorted.length > 0 || extra.length > 0 ? (

@@ -49,6 +49,9 @@ export default function ConversationsPage() {
     reload,
   } = useAsyncResource(loader, [offset], {
     fallbackError: "Couldn't load conversations.",
+    // Mail + WhatsApp land on their own clock; keep the inbox current without
+    // spinning the Refresh button every tick.
+    pollIntervalMs: 15_000,
   });
   const busy = loading || refreshing;
   const rows = page?.items ?? null;

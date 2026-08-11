@@ -4,57 +4,15 @@ import { SegmentedControl } from "@/components/shared/segmented-control";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
-import type {
-  ApiConversationAttachment,
-  ApiConversationEntry,
-} from "@/features/case-detail/api";
+import type { ApiConversationEntry } from "@/features/case-detail/api";
 import { formatDateTime } from "@/lib/format";
 import * as React from "react";
+import { AttachmentTile } from "./attachment-tile";
+import { ChatMarkdown } from "./chat-markdown";
 import { CHANNEL_LABEL, MESSAGE_KIND_LABEL, type PreviewTarget } from "./meta";
 import { preferredReplyChannel } from "./preferred-reply-channel";
 
 export { preferredReplyChannel } from "./preferred-reply-channel";
-
-function attachmentIcon(mimeType: string | null, fileName: string): string {
-  const mime = (mimeType ?? "").toLowerCase();
-  const ext = fileName.split(".").pop()?.toLowerCase() ?? "";
-  if (mime.startsWith("image/") || ["png", "jpg", "jpeg", "gif", "webp"].includes(ext)) {
-    return "image";
-  }
-  if (mime === "application/pdf" || ext === "pdf") return "picture_as_pdf";
-  return "attach_file";
-}
-
-function AttachmentChip({
-  file,
-  onPreview,
-}: {
-  file: ApiConversationAttachment;
-  onPreview: (doc: PreviewTarget) => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={() =>
-        onPreview({
-          id: file.id,
-          fileName: file.fileName,
-          mimeType: file.mimeType,
-        })
-      }
-      className="inline-flex max-w-full items-center gap-1.5 rounded-[8px] border border-border/80 bg-background px-2.5 py-1.5 text-left text-xs transition-colors hover:bg-muted"
-      title={`Preview ${file.fileName}`}
-    >
-      <Icon
-        name={attachmentIcon(file.mimeType, file.fileName)}
-        size={14}
-        className="shrink-0 text-muted-foreground"
-      />
-      <span className="min-w-0 truncate font-medium">{file.fileName}</span>
-      <Icon name="visibility" size={12} className="shrink-0 text-muted-foreground" />
-    </button>
-  );
-}
 
 function ReplyComposer({
   preferredChannel,
@@ -216,17 +174,13 @@ export function ConversationsTab({
                     ) : null}
                   </div>
                   {message.subject ? (
-                    <div className="text-sm font-medium">{message.subject}</div>
+                    <div className="mb-0.5 text-sm font-medium">{message.subject}</div>
                   ) : null}
-                  {message.body ? (
-                    <div className="max-h-64 overflow-y-auto whitespace-pre-wrap break-words text-sm">
-                      {message.body}
-                    </div>
-                  ) : null}
+                  {message.body ? <ChatMarkdown text={message.body} /> : null}
                   {attachments.length > 0 ? (
-                    <div className="mt-2 flex flex-wrap gap-1.5">
+                    <div className="mt-2 flex flex-wrap gap-2">
                       {attachments.map((file) => (
-                        <AttachmentChip
+                        <AttachmentTile
                           key={file.id}
                           file={file}
                           onPreview={onPreview}

@@ -62,4 +62,38 @@ describe("useAsyncResource", () => {
     );
     await waitFor(() => expect(result.current.error).toBe("boom"));
   });
+
+  it("silentReload updates data without refreshing flag", async () => {
+    const loader = vi
+      .fn()
+      .mockResolvedValueOnce({ n: 1 })
+      .mockResolvedValueOnce({ n: 2 });
+    const { result } = renderHook(() => useAsyncResource(loader, []));
+    await waitFor(() => expect(result.current.data).toEqual({ n: 1 }));
+
+    await act(async () => {
+      result.current.silentReload();
+    });
+    // Never flips the visible refresh chrome.
+    expect(result.current.refreshing).toBe(false);
+    await waitFor(() => expect(result.current.data).toEqual({ n: 2 }));
+    expect(result.current.refreshing).toBe(false);
+  });
+
+  it("pollIntervalMs silently reloads while the tab is visible", async () => {
+    const loader = vi
+      .fn()
+      .mockResolvedValueOnce({ n: 1 })
+      .mockResolvedValueOnce({ n: 2 });
+    const { result } = renderHook(() =>
+      useAsyncResource(loader, [], { pollIntervalMs: 1_000 }),
+    );
+    await waitFor(() => expect(result.current.data).toEqual({ n: 1 }));
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1_000);
+    });
+    await waitFor(() => expect(result.current.data).toEqual({ n: 2 }));
+    expect(result.current.refreshing).toBe(false);
+  });
 });

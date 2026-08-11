@@ -10,6 +10,7 @@ export type NotificationKind =
   | "follow_up_due"
   | "comment"
   | "stage_changed"
+  | "message"
   | "generic";
 
 export type ApiNotification = {
@@ -26,6 +27,8 @@ export type ApiNotification = {
 export type ListNotificationsOpts = {
   unreadOnly?: boolean;
   kind?: NotificationKind;
+  /** Case-insensitive match on title, body, or kind. */
+  q?: string;
   limit?: number;
   offset?: number;
 };
@@ -36,6 +39,7 @@ export function listNotifications(
   const params = new URLSearchParams();
   if (opts.unreadOnly) params.set("unreadOnly", "true");
   if (opts.kind) params.set("kind", opts.kind);
+  if (opts.q?.trim()) params.set("q", opts.q.trim());
   if (opts.limit !== undefined) params.set("limit", String(opts.limit));
   if (opts.offset !== undefined) params.set("offset", String(opts.offset));
   const qs = params.toString();
@@ -58,6 +62,14 @@ export function markAllNotificationsRead(): Promise<{ updated: number }> {
   return apiFetch("/notifications/read-all", { method: "POST" });
 }
 
+export function markCaseNotificationsRead(
+  caseId: string,
+): Promise<{ updated: number }> {
+  return apiFetch(`/notifications/case/${encodeURIComponent(caseId)}/read`, {
+    method: "POST",
+  });
+}
+
 export const NOTIFICATION_KIND_META: Record<
   NotificationKind,
   { icon: string; label: string }
@@ -68,5 +80,6 @@ export const NOTIFICATION_KIND_META: Record<
   follow_up_due: { icon: "campaign", label: "Follow-up" },
   comment: { icon: "sticky_note_2", label: "Note" },
   stage_changed: { icon: "swap_horiz", label: "Stage" },
+  message: { icon: "forum", label: "Message" },
   generic: { icon: "notifications", label: "Update" },
 };

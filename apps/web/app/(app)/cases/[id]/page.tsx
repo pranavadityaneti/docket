@@ -30,6 +30,11 @@ import {
   type CaseTab,
   type PreviewTarget,
 } from "@/features/case-detail/components";
+import {
+  countUnseenInbound,
+  markConversationSeen,
+} from "@/features/case-detail/components/conversation-seen";
+import { markCaseNotificationsRead } from "@/features/notifications/api";
 import type { ApiFieldDef } from "@/features/workflows/api";
 import { listWorkflows } from "@/features/workflows/api";
 import { formatDate } from "@/lib/format";
@@ -103,6 +108,7 @@ function CaseDetailPageInner() {
   const [pausing, setPausing] = React.useState(false);
   const [nudgeNotice, setNudgeNotice] = React.useState<string | null>(null);
   const refreshGen = React.useRef(0);
+  const fetchInFlightRef = React.useRef(false);
 
   // `hasData` distinguishes "never loaded" from "reload failed". A failure with
   // data already on screen must NOT blank the checklist - it becomes a banner,
@@ -110,7 +116,12 @@ function CaseDetailPageInner() {
   // than showing slightly stale data next to the error.
   const refresh = React.useCallback(async (opts?: { background?: boolean }) => {
     const background = opts?.background === true;
+    // Stacked silent polls fight each other and can leave the UI on an older
+    // snapshot; skip if one is already in flight. Manual / post-action refresh
+    // always runs - it bumps the generation and wins.
+    if (background && fetchInFlightRef.current) return;
     const gen = ++refreshGen.current;
+    fetchInFlightRef.current = true;
     try {
       const [c, cl, msgs, evs, conv] = await Promise.all([
         getCase(caseId),
@@ -147,7 +158,10 @@ function CaseDetailPageInner() {
       });
       return;
     } finally {
-      if (gen === refreshGen.current) setLoading(false);
+      if (gen === refreshGen.current) {
+        setLoading(false);
+        fetchInFlightRef.current = false;
+      }
     }
     if (gen !== refreshGen.current) return;
     setHasData(true);
@@ -211,7 +225,7 @@ function CaseDetailPageInner() {
   }, [actionInFlight]);
 
   /**
-   * Auto-refresh while a case is open.
+   * Auto-refresh while a case is open - silent, no spinner / "Checking...".
    *
    * Documents arrive on their own schedule - the mailbox is polled once a
    * minute, then the classifier reads each file - so the case a person is
@@ -219,18 +233,53 @@ function CaseDetailPageInner() {
    * pipeline's own latency, so files appear on screen shortly after they are
    * real, and it is quiet enough to be unnoticeable.
    *
-   * Three guards: skip while the tab is hidden (a backgrounded tab polling
-   * forever is pure waste), skip while an action is in flight, and skip while
-   * a fetch is already running. Failures stay silent - see refresh().
+   * Guards: skip while the tab is hidden, skip while an action is in flight,
+   * skip while a fetch is already running (inside refresh). Failures stay
+   * silent - see refresh(). Also refetch when the tab becomes visible again.
    */
   React.useEffect(() => {
-    const id = setInterval(() => {
+    const tick = () => {
       if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
       if (busyRef.current) return;
       void refresh({ background: true });
-    }, 15_000);
-    return () => clearInterval(id);
+    };
+    const id = setInterval(tick, 15_000);
+    const onVisibility = () => {
+      if (document.visibilityState === "visible" && !busyRef.current) {
+        void refresh({ background: true });
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
   }, [refresh]);
+
+  // While staff are on the Conversations tab, keep the "seen" cursor current so
+  // the tab badge and related bell items clear as new inbound lines land.
+  React.useEffect(() => {
+    if (tab !== "conversations") return;
+    markConversationSeen(caseId, conversation);
+    void markCaseNotificationsRead(caseId).catch(() => {});
+  }, [tab, caseId, conversation]);
+
+  // First open of this case in this browser: baseline the seen cursor so the
+  // Conversations badge only counts messages that arrive AFTER now, not history.
+  React.useEffect(() => {
+    if (countUnseenInbound(caseId, conversation) === 0) return;
+    if (tab === "conversations") return;
+    // Only baseline when there is no stored cursor yet (count equals all inbound).
+    const inbound = conversation.filter((m) => m.direction === "inbound").length;
+    if (inbound > 0 && countUnseenInbound(caseId, conversation) === inbound) {
+      markConversationSeen(caseId, conversation);
+    }
+  }, [caseId, conversation, tab]);
+
+  const conversationBadge = React.useMemo(
+    () => (tab === "conversations" ? 0 : countUnseenInbound(caseId, conversation)),
+    [tab, caseId, conversation],
+  );
 
   async function handleUpload(item: ApiChecklistItem, file: File) {
     setActionError(null);
@@ -239,7 +288,8 @@ function CaseDetailPageInner() {
       await uploadDocument(caseId, file, item.requirementId);
       // Refetch rather than patch local state: the server decides status and
       // reads the real size back from storage, so anything assembled here
-      // would be a guess that can disagree with it.
+      // would be a guess that can disagree with it. Does not flip the Refresh
+      // button - only manualRefresh sets that chrome.
       await refresh();
     } catch (e) {
       if (e instanceof AuthRequiredError) return;
@@ -581,7 +631,11 @@ function CaseDetailPageInner() {
         </div>
       ) : null}
 
-      <TabBar tab={tab} onChange={setTab} />
+      <TabBar
+        tab={tab}
+        onChange={setTab}
+        badges={{ conversations: conversationBadge }}
+      />
 
       {tab === "overview" ? (
         <OverviewTab
@@ -680,30 +734,61 @@ function CaseDetailPageInner() {
                     className="flex flex-wrap items-center gap-2 rounded-[12px] border bg-background px-3 py-2"
                   >
                     <Icon
-                      name={d.suggestedLabel ? "auto_awesome" : "help"}
+                      name={
+                        d.analyzing
+                          ? "progress_activity"
+                          : d.suggestedLabel
+                            ? "auto_awesome"
+                            : "help"
+                      }
                       size={16}
-                      className={`shrink-0 ${d.suggestedLabel ? "text-info" : "text-muted-foreground"}`}
+                      className={`shrink-0 ${
+                        d.analyzing
+                          ? "animate-spin text-sky-600"
+                          : d.suggestedLabel
+                            ? "text-info"
+                            : "text-muted-foreground"
+                      }`}
                     />
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-sm">{d.fileName}</div>
                       <div className="truncate text-xs text-muted-foreground">
                         {[
-                          d.sourceChannel ? CHANNEL_LABEL[d.sourceChannel] ?? d.sourceChannel : null,
+                          d.sourceChannel
+                            ? CHANNEL_LABEL[d.sourceChannel] ?? d.sourceChannel
+                            : null,
                           formatDate(d.receivedAt, ""),
                           // What the classifier read, even when it proposed nothing:
                           // "looks like a utility bill" is useful to a human placing
-                          // it by hand.
-                          d.classifiedType ? `looks like ${d.classifiedType}` : null,
+                          // it by hand. Hidden while analyzing so we do not show a
+                          // stale reading next to the spinner.
+                          d.analyzing
+                            ? null
+                            : d.classifiedType
+                              ? `looks like ${d.classifiedType}`
+                              : null,
                         ]
                           .filter(Boolean)
                           .join(" · ")}
                       </div>
+                      {d.analyzing ? (
+                        <div className="mt-1.5 space-y-1">
+                          <div className="text-xs text-sky-700 dark:text-sky-300">
+                            AI is reading this file to match a checklist item…
+                          </div>
+                          <div
+                            className="h-1 overflow-hidden rounded-full bg-sky-100 dark:bg-sky-950"
+                            aria-hidden
+                          >
+                            <div className="h-full w-1/2 animate-pulse rounded-full bg-sky-500/80" />
+                          </div>
+                        </div>
+                      ) : null}
                     </div>
 
-                    {/* A proposal the classifier was not confident enough to act on.
-                    One click files it (through the same capacity check every
-                    other placement runs); one click makes it stop asking. */}
-                    {d.suggestedLabel ? (
+                    {d.analyzing ? (
+                      <StatusBadge status={d.status} landed={d.uploaded} analyzing />
+                    ) : d.suggestedLabel ? (
                       <>
                         <Badge
                           variant="outline"
@@ -750,11 +835,6 @@ function CaseDetailPageInner() {
                     ) : (
                       <>
                         <StatusBadge status={d.status} landed={d.uploaded} />
-                        {/* The manual second look. Only for files whose bytes have
-                        actually landed - there is nothing to read otherwise -
-                        and only when no suggestion is pending (a pending
-                        proposal has its own two buttons; dismissing it brings
-                        this one back). */}
                         {d.uploaded ? (
                           <>
                             <Button

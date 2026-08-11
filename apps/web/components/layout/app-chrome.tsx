@@ -3,6 +3,7 @@
 import { AppHeader } from "@/components/layout/app-header";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { SidebarInset, SidebarProvider, useSidebar } from "@/components/ui/sidebar";
+import { ToastProvider } from "@/components/ui/toast";
 import { AUTH_REQUIRED_EVENT } from "@/lib/http";
 import { usePathname, useRouter } from "next/navigation";
 import * as React from "react";
@@ -30,14 +31,16 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
   }, [router, pathname]);
 
   return (
-    <SidebarProvider>
-      <MobileNavCloser pathname={pathname} />
-      <AppSidebar />
-      <SidebarInset className="min-w-0 overflow-x-hidden">
-        <AppHeader />
-        <div className="flex-1 overflow-x-hidden p-3 sm:p-4 md:p-5">{children}</div>
-      </SidebarInset>
-    </SidebarProvider>
+    <ToastProvider>
+      <SidebarProvider>
+        <MobileNavCloser pathname={pathname} />
+        <AppSidebar />
+        <SidebarInset className="min-w-0 overflow-x-hidden">
+          <AppHeader />
+          <div className="flex-1 overflow-x-hidden p-3 sm:p-4 md:p-5">{children}</div>
+        </SidebarInset>
+      </SidebarProvider>
+    </ToastProvider>
   );
 }
 

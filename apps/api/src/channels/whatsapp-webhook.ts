@@ -28,6 +28,7 @@ import { createHash, createHmac, randomUUID, timingSafeEqual } from "node:crypto
 import { ClassifyApplier } from "../classify/classify";
 import { env } from "../config/env";
 import { DbService } from "../db/db";
+import { NotificationsService } from "../notifications/notifications";
 import { STORAGE, type StorageDriver, documentKey, unmatchedKey } from "../storage/storage";
 
 /**
@@ -102,6 +103,7 @@ export class WhatsappService {
     private readonly db: DbService,
     @Inject(STORAGE) private readonly storage: StorageDriver,
     private readonly classify: ClassifyApplier,
+    private readonly notifications: NotificationsService,
   ) { }
 
   /**
@@ -392,7 +394,7 @@ export class WhatsappService {
     body: string,
   ): Promise<void> {
     try {
-      await tx
+      const inserted = await tx
         .insert(conversationMessages)
         .values({
           tenantId: channel.tenantId,
@@ -403,7 +405,18 @@ export class WhatsappService {
           body: body.slice(0, 8_000),
           externalId: message.id,
         })
-        .onConflictDoNothing();
+        .onConflictDoNothing()
+        .returning({ id: conversationMessages.id });
+      if (inserted.length > 0) {
+        const preview = (body.trim() || "New WhatsApp message").slice(0, 140);
+        void this.notifications.notify(channel.tenantId, {
+          kind: "message",
+          title: "New WhatsApp message",
+          body: preview,
+          href: `/cases/${caseId}?tab=conversations`,
+          caseId,
+        });
+      }
     } catch (e) {
       this.log.warn(
         `WhatsApp: could not record message text for case ${caseId}: ${e instanceof Error ? e.message : e}`,

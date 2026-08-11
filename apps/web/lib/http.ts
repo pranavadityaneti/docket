@@ -45,9 +45,16 @@ export function isLoggedIn(): boolean {
   return readBrowserCookie(SESSION_COOKIE) === "1";
 }
 
+/** Drop the readable presence cookie so Next middleware will allow /login. */
+function clearPresenceCookie(): void {
+  if (typeof document === "undefined") return;
+  document.cookie = `${SESSION_COOKIE}=; Path=/; Max-Age=0; SameSite=Lax`;
+}
+
 export function clearSession(): void {
   if (typeof window !== "undefined") {
     window.localStorage.removeItem(PROFILE_KEY);
+    clearPresenceCookie();
   }
 }
 
@@ -74,9 +81,17 @@ export function getStoredProfile(): LoginProfile | null {
   }
 }
 
+const CREDENTIALS: RequestCredentials = "include";
+
 function emitAuthRequired(): void {
   clearSession();
   if (typeof window !== "undefined") {
+    // Clear the httpOnly JWT without going through apiFetch (would re-enter
+    // this 401 path). Logout itself is unauthenticated - it only clears cookies.
+    void fetch(`${API_URL}/auth/logout`, {
+      method: "POST",
+      credentials: CREDENTIALS,
+    }).catch(() => {});
     window.dispatchEvent(new Event(AUTH_REQUIRED_EVENT));
   }
 }
@@ -95,8 +110,6 @@ export function friendlyErrorMessage(body: string, fallback: string): string {
   }
   return fallback;
 }
-
-const CREDENTIALS: RequestCredentials = "include";
 
 export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
   const res = await fetch(`${API_URL}${path}`, {

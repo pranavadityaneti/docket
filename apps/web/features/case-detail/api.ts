@@ -38,6 +38,9 @@ export type ApiConversationAttachment = {
   id: string;
   fileName: string;
   mimeType: string | null;
+  /** Soft-deleted from the checklist; bytes are gone, placeholder remains. */
+  deleted?: boolean;
+  deletionReason?: string | null;
 };
 
 export type ApiConversationEntry = {
@@ -70,6 +73,8 @@ export type ApiDocument = {
   autoFiled: boolean;
   classifiedType: string | null;
   classificationConfidence: ClassificationConfidence | null;
+  /** True while AI is reading / about to read this file. */
+  analyzing?: boolean;
 };
 
 export type ApiUnclassifiedDocument = Pick<
@@ -83,6 +88,7 @@ export type ApiUnclassifiedDocument = Pick<
   | "uploaded"
   | "classifiedType"
   | "classificationConfidence"
+  | "analyzing"
 > & {
   suggestedRequirementId: string | null;
   suggestedLabel: string | null;
