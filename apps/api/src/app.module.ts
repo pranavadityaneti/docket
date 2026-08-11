@@ -5,7 +5,6 @@ import { ActivityModule } from "./activity/activity";
 import { AuthModule } from "./auth/auth";
 import { CasesModule } from "./cases/cases";
 import { ChannelsModule } from "./channels/channels";
-import { ClassifyTestModule } from "./classify/classify-test";
 import { env } from "./config/env";
 import { ContactsModule } from "./contacts/contacts";
 import { DbModule } from "./db/db";
@@ -51,8 +50,6 @@ class HealthController {
     UnmatchedModule,
     IntakeModule,
     ActivityModule,
-    // Local-only classifier playground (POST /classify/test). Never ship in prod.
-    ...(!env.isProd ? [ClassifyTestModule] : []),
   ],
   controllers: [HealthController],
 })

@@ -4,20 +4,10 @@ import type { NextRequest } from "next/server";
 const SESSION_COOKIE = "docket_session";
 const AUTH_COOKIE = "docket_token";
 
-const PUBLIC_PREFIXES = [
-  "/login",
-  "/forgot",
-  "/reset",
-  // Local model playground — never public in production builds.
-  ...(process.env.NODE_ENV !== "production" ? ["/test"] : []),
-];
+const PUBLIC_PREFIXES = ["/login", "/forgot", "/reset"];
 
 function isPublic(pathname: string) {
   return PUBLIC_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
-}
-
-function isDevOnlyTestPath(pathname: string) {
-  return pathname === "/test" || pathname.startsWith("/test/");
 }
 
 function hasSession(req: NextRequest) {
@@ -41,11 +31,6 @@ export function middleware(req: NextRequest) {
     pathname.startsWith("/favicon")
   ) {
     return NextResponse.next();
-  }
-
-  // /test is a local-only ML playground — hide completely when deployed.
-  if (process.env.NODE_ENV === "production" && isDevOnlyTestPath(pathname)) {
-    return new NextResponse(null, { status: 404 });
   }
 
   const authed = hasSession(req);

@@ -104,10 +104,14 @@ export const env = {
   /** Meta Graph API version used for media download. */
   graphApiVersion: process.env.GRAPH_API_VERSION?.trim() || "v21.0",
   /**
-   * Optional local cache dir for Hugging Face ONNX models used by classify.
-   * Defaults to `<cwd>/.cache/transformers` when unset.
+   * OpenAI credentials for document classification. Optional: when unset the
+   * classifier no-ops and every arrival stays wherever it lands today — the
+   * feature degrades to "off", never to "broken". Supplied in prod via the
+   * Secrets Manager secret.
    */
-  transformersCache: process.env.TRANSFORMERS_CACHE?.trim() || undefined,
+  openaiApiKey: process.env.OPENAI_API_KEY?.trim() || undefined,
+  /** Overridable so a model swap is an env change, not a redeploy. */
+  openaiModel: process.env.OPENAI_MODEL?.trim() || "gpt-4o-mini",
   /**
    * Canonical app origin for links we email (e.g. the reset link). The first
    * WEB_ORIGIN entry in prod (the dashboard's own origin); localhost in dev

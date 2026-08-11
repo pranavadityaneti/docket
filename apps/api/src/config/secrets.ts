@@ -34,6 +34,11 @@ const ALLOWED = new Set([
   "RESEND_FROM_EMAIL",
   "CHANNEL_SECRET_KEY",
   "WHATSAPP_VERIFY_TOKEN",
+  // Document classification (OpenAI vision / text).
+  "OPENAI_API_KEY",
+  // Without this the advertised "swap the model with an env var" is only half
+  // true: env.ts reads it, but nothing in prod could supply it.
+  "OPENAI_MODEL",
   // Machine-intake credentials (marketing-site enquiry form -> cases).
   "INTAKE_API_KEY",
   "INTAKE_TENANT_SLUG",
