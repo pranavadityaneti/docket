@@ -3,6 +3,8 @@
 // required is missing or unsafe - a crash on deploy is far better than a
 // silently misconfigured (or insecure) server accepting traffic.
 
+import { isAllowedWebOrigin } from "./tenant-host";
+
 function required(name: string): string {
   const value = process.env[name]?.trim();
   if (!value) throw new Error(`Missing required environment variable: ${name}`);
@@ -13,8 +15,10 @@ const nodeEnv = process.env.NODE_ENV ?? "development";
 const isProd = nodeEnv === "production";
 
 // Comma-separated allow-list of web origins permitted by CORS.
-// Required in production (never a wildcard in prod); optional in dev, where an
-// unset value falls back to reflecting any origin for local convenience.
+// Required in production as a *seed* list (legacy hosts / vercel.app). Tenant
+// subdomains (<slug>.finlot.ai, <slug>-uat.finlot.ai, <slug>.docket.in) are
+// also allowed via isAllowedWebOrigin - never a bare `*`, credentials need a
+// real allow check. Optional in dev = reflect any origin for local convenience.
 const webOriginRaw = process.env.WEB_ORIGIN?.trim();
 if (isProd && !webOriginRaw) {
   throw new Error(
@@ -73,12 +77,25 @@ export const env = {
   maxUploadBytes: Number(process.env.MAX_UPLOAD_BYTES ?? 25 * 1024 * 1024),
   /**
    * Value passed to `enableCors({ origin })`:
-   *   - any WEB_ORIGIN set  -> that explicit allow-list
-   *   - dev with none set   -> `true` (reflect any origin - local only)
-   * In production WEB_ORIGIN is guaranteed present (validated above), so this
-   * is always the explicit list there.
+   *   - WEB_ORIGIN set (prod) → callback allowing explicit list + slug hosts
+   *   - dev with none set     → `true` (reflect any origin - local only)
    */
-  corsOrigin: webOrigins.length > 0 ? webOrigins : true,
+  corsOrigin:
+    webOrigins.length > 0
+      ? (origin: string | undefined, cb: (err: Error | null, allow?: boolean) => void) => {
+          if (!origin) {
+            cb(null, true);
+            return;
+          }
+          cb(null, isAllowedWebOrigin(origin, webOrigins));
+        }
+      : true,
+  /**
+   * Template for per-tenant dashboard origins in email links, e.g.
+   * `https://{slug}-uat.finlot.ai` or `https://{slug}.finlot.ai`.
+   * When unset, inferred from the request Origin / tenantSlug at send time.
+   */
+  tenantOriginTemplate: process.env.TENANT_ORIGIN_TEMPLATE?.trim() || undefined,
   /**
    * Resend credentials for transactional email (password reset). Optional: when
    * either is unset the email module logs and no-ops, so dev and tests run
@@ -113,9 +130,8 @@ export const env = {
   /** Overridable so a model swap is an env change, not a redeploy. */
   openaiModel: process.env.OPENAI_MODEL?.trim() || "gpt-4o-mini",
   /**
-   * Canonical app origin for links we email (e.g. the reset link). The first
-   * WEB_ORIGIN entry in prod (the dashboard's own origin); localhost in dev
-   * where WEB_ORIGIN is unset. Never taken from request input.
+   * Fallback app origin when a tenant slug / request Origin is unavailable
+   * (legacy single-host). Prefer originForSlug / matchTenantHost at call sites.
    */
   appOrigin: webOrigins[0] ?? "http://localhost:3000",
   /**

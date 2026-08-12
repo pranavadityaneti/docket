@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { matchTenantHost } from "@/lib/tenant-host";
 
 const AUTH_COOKIE = "docket_token";
+const TENANT_SLUG_HEADER = "x-docket-tenant-slug";
 
 const PUBLIC_PREFIXES = ["/login", "/forgot", "/reset"];
 
@@ -21,6 +23,10 @@ function hasSession(req: NextRequest) {
  * Edge gate for authenticated routes. Real auth still happens on the API;
  * this stops the app chrome flashing for signed-out users and keeps deep
  * links honest via ?next=.
+ *
+ * Also stamps `x-docket-tenant-slug` when the Host is a tenant subdomain
+ * (`acme-uat.finlot.ai` → `acme`) so server components / future loaders can
+ * read it without re-parsing.
  */
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -32,13 +38,19 @@ export function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
+  const hostMatch = matchTenantHost(req.headers.get("host") ?? "");
+  const requestHeaders = new Headers(req.headers);
+  if (hostMatch) {
+    requestHeaders.set(TENANT_SLUG_HEADER, hostMatch.slug);
+  }
+
   const authed = hasSession(req);
 
   if (isPublic(pathname)) {
     if (authed && (pathname === "/login" || pathname.startsWith("/login/"))) {
       return NextResponse.redirect(new URL("/", req.url));
     }
-    return NextResponse.next();
+    return NextResponse.next({ request: { headers: requestHeaders } });
   }
 
   if (!authed) {
@@ -48,7 +60,7 @@ export function middleware(req: NextRequest) {
     return NextResponse.redirect(login);
   }
 
-  return NextResponse.next();
+  return NextResponse.next({ request: { headers: requestHeaders } });
 }
 
 export const config = {

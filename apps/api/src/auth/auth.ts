@@ -22,6 +22,7 @@ import {
   NotFoundException,
   Patch,
   Post,
+  Req,
   Res,
   SetMetadata,
   UnauthorizedException,
@@ -30,10 +31,11 @@ import {
 import { Reflector } from "@nestjs/core";
 import { JwtService } from "@nestjs/jwt";
 import { Throttle, ThrottlerGuard } from "@nestjs/throttler";
-import { IsEmail, IsString, MaxLength, MinLength } from "class-validator";
+import { IsEmail, IsOptional, IsString, MaxLength, MinLength } from "class-validator";
 import { and, asc, eq, gt, isNull } from "drizzle-orm";
-import type { Response } from "express";
+import type { Request, Response } from "express";
 import { env } from "../config/env";
+import { matchTenantHost, originForSlug, isAllowedWebOrigin } from "../config/tenant-host";
 import { DbService } from "../db/db";
 import { EmailModule, EmailService } from "../email/email";
 import { clearAuthCookies, extractAccessToken, setAuthCookies } from "./cookies";
@@ -78,12 +80,23 @@ export class LoginDto {
   @MinLength(1)
   @MaxLength(200)
   password!: string;
+
+  /** Workspace slug from the browser host (`acme` for acme-uat.finlot.ai). */
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  tenantSlug?: string;
 }
 
 export class ForgotPasswordDto {
   @IsEmail()
   @MaxLength(320)
   email!: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  tenantSlug?: string;
 }
 
 export class ResetPasswordDto {
@@ -153,7 +166,7 @@ export class AuthService {
     private readonly email: EmailService,
   ) { }
 
-  async login(email: string, password: string) {
+  async login(email: string, password: string, tenantSlug?: string) {
     const clean = email.trim().toLowerCase();
     const [user] = await this.db.admin.select().from(users).where(eq(users.email, clean)).limit(1);
     const passwordOk = await verifyPassword(user?.passwordHash ?? DUMMY_HASH, password);
@@ -161,25 +174,58 @@ export class AuthService {
       throw new UnauthorizedException("Invalid email or password");
     }
 
-    const [m] = await this.db.admin
-      .select()
-      .from(memberships)
-      .where(eq(memberships.userId, user.id))
-      .limit(1);
-    if (!m) throw new UnauthorizedException("No workspace membership");
+    const slug = tenantSlug?.trim().toLowerCase() || undefined;
+    let membership:
+      | { tenantId: string; role: string }
+      | undefined;
+    let tenant: { id: string; name: string; slug: string } | undefined;
 
-    const [tenant] = await this.db.admin
-      .select()
-      .from(tenants)
-      .where(eq(tenants.id, m.tenantId))
-      .limit(1);
+    if (slug) {
+      const [row] = await this.db.admin
+        .select({
+          tenantId: memberships.tenantId,
+          role: memberships.role,
+          id: tenants.id,
+          name: tenants.name,
+          slug: tenants.slug,
+        })
+        .from(memberships)
+        .innerJoin(tenants, eq(tenants.id, memberships.tenantId))
+        .where(and(eq(memberships.userId, user.id), eq(tenants.slug, slug)))
+        .limit(1);
+      if (!row) {
+        throw new UnauthorizedException("No access to this workspace");
+      }
+      membership = { tenantId: row.tenantId, role: row.role };
+      tenant = { id: row.id, name: row.name, slug: row.slug };
+    } else {
+      // Legacy single-host login: first membership wins.
+      const [m] = await this.db.admin
+        .select()
+        .from(memberships)
+        .where(eq(memberships.userId, user.id))
+        .limit(1);
+      if (!m) throw new UnauthorizedException("No workspace membership");
+      const [t] = await this.db.admin
+        .select()
+        .from(tenants)
+        .where(eq(tenants.id, m.tenantId))
+        .limit(1);
+      if (!t) throw new UnauthorizedException("Workspace not found");
+      membership = { tenantId: m.tenantId, role: m.role };
+      tenant = { id: t.id, name: t.name, slug: t.slug };
+    }
 
-    const token = await this.jwt.signAsync({ sub: user.id, tenantId: m.tenantId, role: m.role });
+    const token = await this.jwt.signAsync({
+      sub: user.id,
+      tenantId: membership.tenantId,
+      role: membership.role,
+    });
     return {
       token,
       user: { id: user.id, name: user.name, email: user.email },
-      tenant: { id: tenant.id, name: tenant.name, slug: tenant.slug },
-      role: m.role,
+      tenant,
+      role: membership.role,
     };
   }
 
@@ -239,7 +285,7 @@ export class AuthService {
     return row;
   }
 
-  async forgotPassword(email: string): Promise<{ ok: true }> {
+  async forgotPassword(email: string, tenantSlug?: string, requestOrigin?: string): Promise<{ ok: true }> {
     const clean = email.trim().toLowerCase();
     const [user] = await this.db.admin.select().from(users).where(eq(users.email, clean)).limit(1);
     if (user) {
@@ -260,10 +306,23 @@ export class AuthService {
         tokenHash: hash,
         expiresAt: new Date(now.getTime() + 60 * 60 * 1000),
       });
+
+      const fromOrigin = requestOrigin ? matchTenantHost(requestOrigin) : null;
+      const slug = (tenantSlug?.trim().toLowerCase() || fromOrigin?.slug || "").trim();
+      let appOrigin = env.appOrigin;
+      if (slug) {
+        const kind = fromOrigin?.kind ?? (env.tenantOriginTemplate?.includes("-uat") ? "uat" : "prod");
+        const built = originForSlug(slug, env.tenantOriginTemplate, kind);
+        // Only emit links for origins we would also allow over CORS.
+        if (isAllowedWebOrigin(built, env.webOrigins)) appOrigin = built;
+      } else if (fromOrigin && isAllowedWebOrigin(fromOrigin.origin, env.webOrigins)) {
+        appOrigin = fromOrigin.origin;
+      }
+
       void this.email
         .sendPasswordResetEmail(
           user.email,
-          `${env.appOrigin}/reset?token=${encodeURIComponent(raw)}`,
+          `${appOrigin}/reset?token=${encodeURIComponent(raw)}`,
         )
         .catch(() => { });
     }
@@ -316,8 +375,17 @@ export class AuthController {
   @Post("login")
   @UseGuards(LoginThrottlerGuard)
   @Throttle({ default: { limit: 5, ttl: 60_000, blockDuration: 300_000 } })
-  async login(@Body() body: LoginDto, @Res({ passthrough: true }) res: Response) {
-    const result = await this.auth.login(body.email, body.password);
+  async login(
+    @Body() body: LoginDto,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const fromHost =
+      body.tenantSlug?.trim() ||
+      matchTenantHost(String(req.headers.origin ?? ""))?.slug ||
+      matchTenantHost(String(req.headers["x-forwarded-host"] ?? ""))?.slug ||
+      matchTenantHost(String(req.headers.host ?? ""))?.slug;
+    const result = await this.auth.login(body.email, body.password, fromHost);
     setAuthCookies(res, result.token);
     const { token: _token, ...profile } = result;
     return profile;
@@ -332,8 +400,15 @@ export class AuthController {
   @Post("forgot-password")
   @UseGuards(LoginThrottlerGuard)
   @Throttle({ default: { limit: 3, ttl: 60_000, blockDuration: 300_000 } })
-  forgot(@Body() body: ForgotPasswordDto) {
-    return this.auth.forgotPassword(body.email);
+  forgot(@Body() body: ForgotPasswordDto, @Req() req: Request) {
+    const slug =
+      body.tenantSlug?.trim() ||
+      matchTenantHost(String(req.headers.origin ?? ""))?.slug;
+    return this.auth.forgotPassword(
+      body.email,
+      slug,
+      typeof req.headers.origin === "string" ? req.headers.origin : undefined,
+    );
   }
 
   @Post("reset-password")

@@ -18,6 +18,11 @@ import { env } from "../config/env";
 import { DbService } from "../db/db";
 import { NotificationsService } from "../notifications/notifications";
 import { documentKey, STORAGE, unmatchedKey, type StorageDriver } from "../storage/storage";
+import {
+  referencedImageNames,
+  shouldKeepEmailAttachment,
+  stripResolvedImagePlaceholders,
+} from "./email-inline";
 
 export type PollResult = {
   fetched: number;
@@ -201,13 +206,21 @@ export class EmailPollerService {
     if (!message.source) return { imported: 0, caseId: null };
     const parsed = await simpleParser(message.source);
 
-    const attachments = (parsed.attachments ?? []).filter(
-      (a) => a.content && a.content.length > 0 && a.contentDisposition !== "inline",
-    );
-
     const subject = parsed.subject ?? "";
     const fromEmail = parsed.from?.value?.[0]?.address?.toLowerCase() ?? null;
-    const bodyText = (parsed.text ?? "").trim();
+    const rawBody = (parsed.text ?? "").trim();
+    // Keep real embedded screenshots (Apple Mail marks them inline + puts
+    // `[image: …]` in text/plain) while still dropping tiny signature logos.
+    const referenced = referencedImageNames(rawBody);
+    const attachments = (parsed.attachments ?? []).filter((a) =>
+      shouldKeepEmailAttachment(a, referenced),
+    );
+    const keptNames = new Set(
+      attachments
+        .map((a) => (a.filename ?? "").trim())
+        .filter(Boolean),
+    );
+    const bodyText = stripResolvedImagePlaceholders(rawBody, keptNames);
     // A message with no attachments, no words and no subject carries nothing
     // a human could ever want back. Everything else proceeds - a text-only
     // reply ("sending the rest tomorrow") used to be dropped entirely, which

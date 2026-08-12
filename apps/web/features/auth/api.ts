@@ -7,6 +7,7 @@ import {
   getStoredProfile,
   type LoginProfile,
 } from "@/lib/http";
+import { tenantSlugFromLocation } from "@/lib/tenant-host";
 
 export type { LoginProfile } from "@/lib/http";
 export {
@@ -57,9 +58,14 @@ export type ApiMember = {
 
 /** POST /auth/login - sets httpOnly cookie; returns profile only. */
 export async function login(email: string, password: string): Promise<LoginProfile> {
+  const tenantSlug = tenantSlugFromLocation();
   const profile = await publicJsonFetch<LoginProfile>(
     "/auth/login",
-    { email, password },
+    {
+      email,
+      password,
+      ...(tenantSlug ? { tenantSlug } : {}),
+    },
     "Login failed",
   );
   writeProfile(profile);
@@ -119,7 +125,12 @@ export async function updateWorkspace(input: {
 }
 
 export async function requestPasswordReset(email: string): Promise<void> {
-  await publicPost("/auth/forgot-password", { email }, "Request failed");
+  const tenantSlug = tenantSlugFromLocation();
+  await publicPost(
+    "/auth/forgot-password",
+    { email, ...(tenantSlug ? { tenantSlug } : {}) },
+    "Request failed",
+  );
 }
 
 export async function resetPassword(token: string, password: string): Promise<void> {

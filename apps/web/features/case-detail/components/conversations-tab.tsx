@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
 import type { ApiConversationEntry } from "@/features/case-detail/api";
+import { stripResolvedImagePlaceholders } from "@/lib/email-body";
 import { formatDateTime } from "@/lib/format";
 import * as React from "react";
 import { AttachmentTile } from "./attachment-tile";
@@ -148,6 +149,12 @@ export function ConversationsTab({
         <div className="flex max-h-[min(28rem,55vh)] flex-col gap-3 overflow-y-auto p-4">
           {shown.map((message) => {
             const attachments = message.attachments ?? [];
+            const body = message.body
+              ? stripResolvedImagePlaceholders(
+                  message.body,
+                  attachments.map((file) => file.fileName),
+                )
+              : "";
             return (
               <div
                 key={message.id}
@@ -176,7 +183,7 @@ export function ConversationsTab({
                   {message.subject ? (
                     <div className="mb-0.5 text-sm font-medium">{message.subject}</div>
                   ) : null}
-                  {message.body ? <ChatMarkdown text={message.body} /> : null}
+                  {body ? <ChatMarkdown text={body} /> : null}
                   {attachments.length > 0 ? (
                     <div className="mt-2 flex flex-wrap gap-2">
                       {attachments.map((file) => (

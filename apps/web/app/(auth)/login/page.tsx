@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { login } from "@/features/auth/api";
 import { AuthCardHeader, AuthShell } from "@/features/auth/components/auth-shell";
 import { safeNext } from "@/features/auth/safe-next";
+import { tenantSlugFromLocation } from "@/lib/tenant-host";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import * as React from "react";
@@ -100,12 +101,17 @@ function LoginForm() {
 }
 
 export default function LoginPage() {
+  const workspace = tenantSlugFromLocation();
   return (
     <AuthShell footer={<BuildMarker />}>
       <AuthCardHeader
         icon={<Icon name="lock" size={20} />}
         title="Sign in"
-        description="Finlot’s AI workforce for document-led origination."
+        description={
+          workspace
+            ? `Workspace “${workspace}” — Finlot’s AI workforce for document-led origination.`
+            : "Finlot’s AI workforce for document-led origination."
+        }
       />
 
       {/* The Suspense boundary wraps ONLY the form, because only the form reads

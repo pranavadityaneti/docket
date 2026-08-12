@@ -26,8 +26,15 @@ import {
 import { initials } from "@/lib/format";
 import type { LoginProfile } from "@/lib/http";
 import { AuthRequiredError, getStoredProfile } from "@/lib/http";
+import { matchTenantHost, originForSlug } from "@/lib/tenant-host";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+
+function workspaceUrl(slug: string): string {
+  if (typeof window === "undefined") return originForSlug(slug);
+  const kind = matchTenantHost(window.location.host)?.kind ?? "prod";
+  return originForSlug(slug, undefined, kind);
+}
 import * as React from "react";
 
 function roleLabel(role: string) {
@@ -207,7 +214,9 @@ export default function SettingsPage() {
             </div>
             <div className="min-w-0 flex-1">
               <div className="truncate text-sm font-medium">{profile.tenant.name}</div>
-              <div className="truncate text-xs text-muted-foreground">/{profile.tenant.slug}</div>
+              <div className="truncate text-xs text-muted-foreground">
+                {workspaceUrl(profile.tenant.slug)}
+              </div>
             </div>
             {canEdit ? (
               <Button variant="outline" size="sm" className="gap-1.5" onClick={openEdit}>
@@ -321,7 +330,9 @@ export default function SettingsPage() {
               />
             </label>
             {profile ? (
-              <p className="text-xs text-muted-foreground">Slug: /{profile.tenant.slug}</p>
+              <p className="text-xs text-muted-foreground">
+                URL: {workspaceUrl(profile.tenant.slug)}
+              </p>
             ) : null}
             {editError ? (
               <div className="border border-danger-border bg-danger-muted px-2.5 py-1.5 text-xs text-danger-muted-foreground">
