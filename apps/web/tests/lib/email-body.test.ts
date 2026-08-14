@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
 import { stripResolvedImagePlaceholders } from "@/lib/email-body";
+import { describe, expect, it } from "vitest";
 
 describe("stripResolvedImagePlaceholders", () => {
   it("removes Apple Mail stubs when the file is attached", () => {

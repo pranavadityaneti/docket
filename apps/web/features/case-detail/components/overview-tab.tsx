@@ -116,7 +116,10 @@ function OwnerAssign({
         className="w-full"
         options={[
           { value: "", label: "Unassigned" },
-          ...members.map((m) => ({ value: m.id, label: m.name })),
+          ...members.map((m) => ({
+            value: m.id,
+            label: m.title ? `${m.name} · ${m.title}` : m.name,
+          })),
         ]}
         onChange={(next) => void saveOwner(next)}
       />

@@ -1,5 +1,8 @@
 import {
+  API_URL,
+  AuthRequiredError,
   apiFetch,
+  friendlyErrorMessage,
   publicJsonFetch,
   publicPost,
   writeProfile,
@@ -54,6 +57,8 @@ export type ApiMember = {
   name: string;
   email: string;
   role: string;
+  title: string | null;
+  createdAt?: string;
 };
 
 /** POST /auth/login - sets httpOnly cookie; returns profile only. */
@@ -92,12 +97,51 @@ export function listMembers(): Promise<ApiMember[]> {
   return apiFetch<ApiMember[]>("/auth/members");
 }
 
+export function addMember(input: {
+  name: string;
+  email: string;
+  role: string;
+  password: string;
+  title?: string;
+}): Promise<ApiMember> {
+  return apiFetch<ApiMember>("/auth/members", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function updateMember(
+  userId: string,
+  input: { name?: string; role?: string; password?: string; title?: string },
+): Promise<ApiMember> {
+  return apiFetch<ApiMember>(`/auth/members/${userId}`, {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
+}
+
+export function removeMember(userId: string): Promise<{ ok: true; id: string; email: string }> {
+  return apiFetch(`/auth/members/${userId}`, { method: "DELETE" });
+}
+
 /** Owner/admin can rename the workspace; agents and reviewers are read-only. */
 export function canEditWorkspace(role: string | null | undefined): boolean {
   return role === "owner" || role === "admin";
 }
 
-export type WorkspaceTenant = { id: string; name: string; slug: string };
+export type WorkspaceTenant = {
+  id: string;
+  name: string;
+  slug: string;
+  logoUpdatedAt?: string | null;
+};
+
+export function workspaceLogoUrl(tenant: {
+  logoUpdatedAt?: string | null;
+} | null | undefined): string | null {
+  if (!tenant?.logoUpdatedAt) return null;
+  return `${API_URL}/auth/workspace/logo?v=${encodeURIComponent(tenant.logoUpdatedAt)}`;
+}
 
 /** Fired after workspace/profile cache changes so chrome (sidebar) can refresh. */
 export const PROFILE_UPDATED_EVENT = "docket:profile-updated";
@@ -108,6 +152,15 @@ function emitProfileUpdated(): void {
   }
 }
 
+function cacheTenant(tenant: WorkspaceTenant): WorkspaceTenant {
+  const profile = getStoredProfile();
+  if (profile) {
+    writeProfile({ ...profile, tenant: { ...profile.tenant, ...tenant } });
+    emitProfileUpdated();
+  }
+  return tenant;
+}
+
 /** PATCH /auth/workspace - rename this tenant (owner/admin only). */
 export async function updateWorkspace(input: {
   name: string;
@@ -116,12 +169,31 @@ export async function updateWorkspace(input: {
     method: "PATCH",
     body: JSON.stringify(input),
   });
-  const profile = getStoredProfile();
-  if (profile) {
-    writeProfile({ ...profile, tenant: { ...profile.tenant, ...tenant } });
-    emitProfileUpdated();
+  return cacheTenant(tenant);
+}
+
+export async function uploadWorkspaceLogo(file: File): Promise<WorkspaceTenant> {
+  const res = await fetch(`${API_URL}/auth/workspace/logo`, {
+    method: "PUT",
+    credentials: "include",
+    headers: { "content-type": file.type || "image/png" },
+    body: file,
+  });
+  if (res.status === 401) {
+    throw new AuthRequiredError();
   }
-  return tenant;
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(friendlyErrorMessage(body, "Couldn't upload the logo"));
+  }
+  return cacheTenant((await res.json()) as WorkspaceTenant);
+}
+
+export async function deleteWorkspaceLogo(): Promise<WorkspaceTenant> {
+  const tenant = await apiFetch<WorkspaceTenant>("/auth/workspace/logo", {
+    method: "DELETE",
+  });
+  return cacheTenant(tenant);
 }
 
 export async function requestPasswordReset(email: string): Promise<void> {

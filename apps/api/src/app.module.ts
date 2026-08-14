@@ -13,6 +13,7 @@ import { IntakeModule } from "./intake/intake";
 import { NudgesModule } from "./nudges/nudges";
 import { NotificationsModule } from "./notifications/notifications";
 import { OverviewModule } from "./overview/overview";
+import { PlatformModule } from "./platform/platform";
 import { StorageModule } from "./storage/storage";
 import { UnmatchedModule } from "./unmatched/unmatched";
 import { WorkflowsModule } from "./workflows/workflows";
@@ -38,6 +39,7 @@ class HealthController {
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]),
     DbModule,
     AuthModule,
+    PlatformModule,
     StorageModule,
     CasesModule,
     DocumentsModule,

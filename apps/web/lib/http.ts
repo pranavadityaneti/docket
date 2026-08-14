@@ -60,7 +60,7 @@ export function clearSession(): void {
 
 export type LoginProfile = {
   user: { id: string; name: string; email: string };
-  tenant: { id: string; name: string; slug: string };
+  tenant: { id: string; name: string; slug: string; logoUpdatedAt?: string | null };
   role: string;
 };
 

@@ -4,3 +4,6 @@ export * from "./password";
 export * from "./reference";
 export * from "./reset-token";
 export * from "./secret-box";
+export * from "./slug";
+export * from "./provision";
+export * from "./platform-roles";

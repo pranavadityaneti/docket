@@ -6,7 +6,8 @@ import "reflect-metadata";
 import { hydrateSecrets } from "./config/secrets";
 
 /** Uploads carry raw file bytes and must not be pre-parsed. */
-const isUploadPath = (url: string) => url.startsWith("/uploads/");
+const isUploadPath = (url: string) =>
+  url.startsWith("/uploads/") || url.startsWith("/auth/workspace/logo");
 
 async function bootstrap() {
   // Secrets FIRST. config/env validates the environment at import time and

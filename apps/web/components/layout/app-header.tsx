@@ -39,6 +39,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/workflows": "Workflows",
   "/channels": "Channels",
   "/settings": "Settings",
+  "/team": "Team",
   "/notifications": "Notifications",
 };
 

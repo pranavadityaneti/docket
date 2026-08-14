@@ -19,7 +19,7 @@ import {
   SidebarMenuItem,
   SidebarRail,
 } from "@/components/ui/sidebar";
-import { fetchMe, PROFILE_UPDATED_EVENT } from "@/features/auth/api";
+import { fetchMe, PROFILE_UPDATED_EVENT, workspaceLogoUrl } from "@/features/auth/api";
 import { getStoredProfile, type LoginProfile } from "@/lib/http";
 
 type NavItem = {
@@ -92,7 +92,7 @@ const NAV: NavGroup[] = [
       // configured once rather than worked out of.
       { title: "Channels", symbol: "hub", href: "/channels" },
       { title: "Integrations", symbol: "extension" },
-      { title: "Team", symbol: "group" },
+      { title: "Team", symbol: "group", href: "/team" },
       { title: "Settings", symbol: "settings", href: "/settings" },
     ],
   },
@@ -144,14 +144,21 @@ export function AppSidebar() {
     <Sidebar className="border-sidebar-border">
       <SidebarHeader className="px-4 pb-2 pt-5">
         <Link href="/" className="flex items-center gap-2.5 px-1 py-1">
-          <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-foreground text-[13px] font-semibold text-background">
-            {mark}
-          </div>
+          {workspaceLogoUrl(profile?.tenant) ? (
+            <img
+              src={workspaceLogoUrl(profile?.tenant) ?? ""}
+              alt=""
+              className="size-8 shrink-0 rounded-lg object-contain bg-muted"
+            />
+          ) : (
+            <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-foreground text-[13px] font-semibold text-background">
+              {mark}
+            </div>
+          )}
           <div className="grid min-w-0 leading-tight">
             <span className="truncate text-[15px] font-semibold tracking-tight">
               {companyName}
             </span>
-            <span className="truncate text-xs text-muted-foreground">Docket</span>
           </div>
         </Link>
         <Button
@@ -227,7 +234,12 @@ export function AppSidebar() {
 
       {/* Which deployment you are looking at - see build-marker.tsx. */}
       <SidebarFooter className="border-t border-sidebar-border px-4 py-3">
-        <BuildMarker />
+        <div className="flex items-end justify-between gap-2">
+          <span className="select-none text-[10px] font-medium tracking-[0.16em] text-muted-foreground/40">
+            by Docket
+          </span>
+          <BuildMarker />
+        </div>
       </SidebarFooter>
 
       <SidebarRail />

@@ -12,33 +12,54 @@ import {
   BadRequestException,
   Body,
   CanActivate,
+  ConflictException,
   Controller,
   createParamDecorator,
+  Delete,
   ExecutionContext,
   ForbiddenException,
   Get,
+  HttpCode,
+  Inject,
   Injectable,
   Module,
   NotFoundException,
+  Param,
+  ParseUUIDPipe,
   Patch,
   Post,
+  Put,
   Req,
   Res,
   SetMetadata,
+  StreamableFile,
   UnauthorizedException,
   UseGuards,
 } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
 import { JwtService } from "@nestjs/jwt";
 import { Throttle, ThrottlerGuard } from "@nestjs/throttler";
-import { IsEmail, IsOptional, IsString, MaxLength, MinLength } from "class-validator";
-import { and, asc, eq, gt, isNull } from "drizzle-orm";
+import { IsEmail, IsIn, IsOptional, IsString, MaxLength, MinLength } from "class-validator";
+import { and, asc, count, eq, gt, isNull } from "drizzle-orm";
 import type { Request, Response } from "express";
 import { env } from "../config/env";
-import { matchTenantHost, originForSlug, isAllowedWebOrigin } from "../config/tenant-host";
+import { isAllowedWebOrigin, matchTenantHost, originForSlug } from "../config/tenant-host";
 import { DbService } from "../db/db";
 import { EmailModule, EmailService } from "../email/email";
+import {
+  brandingLogoKey,
+  STORAGE,
+  StorageModule,
+  type StorageDriver,
+} from "../storage/storage";
 import { clearAuthCookies, extractAccessToken, setAuthCookies } from "./cookies";
+import {
+  MEMBER_TITLE_MAX,
+  memberMutationError,
+  normalizeMemberTitle,
+  WORKSPACE_ROLES,
+  type WorkspaceRole,
+} from "./team";
 
 export type AuthUser = { userId: string; tenantId: string; role: string };
 
@@ -118,6 +139,99 @@ export class UpdateWorkspaceDto {
   name!: string;
 }
 
+const WORKSPACE_ROLE_VALUES = [...WORKSPACE_ROLES];
+
+export class AddMemberDto {
+  @IsEmail()
+  @MaxLength(320)
+  email!: string;
+
+  @IsString()
+  @MinLength(1)
+  @MaxLength(80)
+  name!: string;
+
+  @IsIn(WORKSPACE_ROLE_VALUES)
+  role!: WorkspaceRole;
+
+  @IsString()
+  @MinLength(12)
+  @MaxLength(200)
+  password!: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(MEMBER_TITLE_MAX)
+  title?: string;
+}
+
+export class UpdateMemberDto {
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(80)
+  name?: string;
+
+  @IsOptional()
+  @IsIn(WORKSPACE_ROLE_VALUES)
+  role?: WorkspaceRole;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(12)
+  @MaxLength(200)
+  password?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(MEMBER_TITLE_MAX)
+  title?: string;
+}
+
+const LOGO_MIME = new Set(["image/png", "image/jpeg", "image/webp"]);
+const LOGO_MAX_BYTES = 2 * 1024 * 1024;
+
+type TenantBranding = Record<string, unknown>;
+
+function logoUpdatedAtOf(branding: TenantBranding | null | undefined): string | null {
+  const v = branding?.logoUpdatedAt;
+  return typeof v === "string" && v.length > 0 ? v : null;
+}
+
+function logoMimeOf(branding: TenantBranding | null | undefined): string | null {
+  const v = branding?.logoMimeType;
+  return typeof v === "string" && LOGO_MIME.has(v) ? v : null;
+}
+
+function shapeTenant(row: {
+  id: string;
+  name: string;
+  slug: string;
+  branding?: TenantBranding | null;
+}) {
+  return {
+    id: row.id,
+    name: row.name,
+    slug: row.slug,
+    logoUpdatedAt: logoUpdatedAtOf(row.branding),
+  };
+}
+
+async function readLimitedBody(req: Request, maxBytes: number): Promise<Buffer> {
+  const chunks: Buffer[] = [];
+  let total = 0;
+  for await (const chunk of req) {
+    total += (chunk as Buffer).byteLength;
+    if (total > maxBytes) {
+      throw new BadRequestException(
+        `Logo must be ${Math.floor(maxBytes / 1024 / 1024)}MB or smaller`,
+      );
+    }
+    chunks.push(chunk as Buffer);
+  }
+  return Buffer.concat(chunks);
+}
+
 const DUMMY_HASH =
   "$argon2id$v=19$m=19456,t=2,p=1$6I7QyPRhpNUWqg8thD0S0Q$CmdZjwGsFqTdBRlsUx6TYStwwwZFVFnSuWjooRlaUOY";
 
@@ -146,6 +260,9 @@ export class JwtAuthGuard implements CanActivate {
     }
     try {
       const payload = await this.jwt.verifyAsync(token);
+      if (payload?.kind === "platform" || !payload?.tenantId || !payload?.sub) {
+        throw new UnauthorizedException("Invalid token");
+      }
       req.user = { userId: payload.sub, tenantId: payload.tenantId, role: payload.role };
       return true;
     } catch {
@@ -164,6 +281,7 @@ export class AuthService {
     private readonly db: DbService,
     private readonly jwt: JwtService,
     private readonly email: EmailService,
+    @Inject(STORAGE) private readonly storage: StorageDriver,
   ) { }
 
   async login(email: string, password: string, tenantSlug?: string) {
@@ -178,7 +296,7 @@ export class AuthService {
     let membership:
       | { tenantId: string; role: string }
       | undefined;
-    let tenant: { id: string; name: string; slug: string } | undefined;
+    let tenant: { id: string; name: string; slug: string; logoUpdatedAt: string | null } | undefined;
 
     if (slug) {
       const [row] = await this.db.admin
@@ -188,6 +306,7 @@ export class AuthService {
           id: tenants.id,
           name: tenants.name,
           slug: tenants.slug,
+          branding: tenants.branding,
         })
         .from(memberships)
         .innerJoin(tenants, eq(tenants.id, memberships.tenantId))
@@ -197,7 +316,7 @@ export class AuthService {
         throw new UnauthorizedException("No access to this workspace");
       }
       membership = { tenantId: row.tenantId, role: row.role };
-      tenant = { id: row.id, name: row.name, slug: row.slug };
+      tenant = shapeTenant({ id: row.id, name: row.name, slug: row.slug, branding: row.branding });
     } else {
       // Legacy single-host login: first membership wins.
       const [m] = await this.db.admin
@@ -213,7 +332,7 @@ export class AuthService {
         .limit(1);
       if (!t) throw new UnauthorizedException("Workspace not found");
       membership = { tenantId: m.tenantId, role: m.role };
-      tenant = { id: t.id, name: t.name, slug: t.slug };
+      tenant = shapeTenant(t);
     }
 
     const token = await this.jwt.signAsync({
@@ -237,7 +356,12 @@ export class AuthService {
       .limit(1);
     if (!user) throw new UnauthorizedException("User not found");
     const [tenant] = await this.db.admin
-      .select({ id: tenants.id, name: tenants.name, slug: tenants.slug })
+      .select({
+        id: tenants.id,
+        name: tenants.name,
+        slug: tenants.slug,
+        branding: tenants.branding,
+      })
       .from(tenants)
       .where(eq(tenants.id, tenantId))
       .limit(1);
@@ -248,22 +372,279 @@ export class AuthService {
       .where(and(eq(memberships.userId, userId), eq(memberships.tenantId, tenantId)))
       .limit(1);
     if (!m) throw new UnauthorizedException("Not a member of this workspace");
-    return { user, tenant, role: m.role };
+    return { user, tenant: shapeTenant(tenant), role: m.role };
   }
 
-  /** Workspace members - for case owner assignment. */
-  listMembers(tenantId: string) {
-    return this.db.admin
+  /** Workspace members - for case owner assignment and the Team screen. */
+  async listMembers(tenantId: string) {
+    const rows = await this.db.admin
       .select({
         id: users.id,
         name: users.name,
         email: users.email,
         role: memberships.role,
+        title: memberships.title,
+        createdAt: memberships.createdAt,
       })
       .from(memberships)
       .innerJoin(users, eq(memberships.userId, users.id))
       .where(eq(memberships.tenantId, tenantId))
       .orderBy(asc(users.name));
+    return rows.map((r) => this.shapeMember(r));
+  }
+
+  private async ownerCount(tenantId: string): Promise<number> {
+    const [row] = await this.db.admin
+      .select({ n: count() })
+      .from(memberships)
+      .where(and(eq(memberships.tenantId, tenantId), eq(memberships.role, "owner")));
+    return Number(row?.n ?? 0);
+  }
+
+  private denyMemberMutation(error: string | null): void {
+    if (!error) return;
+    if (error.startsWith("Only workspace")) throw new ForbiddenException(error);
+    if (error === "Member not found") throw new NotFoundException(error);
+    if (error.startsWith("Cannot ") || error.includes("already")) {
+      throw new ConflictException(error);
+    }
+    throw new BadRequestException(error);
+  }
+
+  private shapeMember(row: {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+    title: string | null;
+    createdAt: Date;
+  }) {
+    return {
+      id: row.id,
+      name: row.name,
+      email: row.email,
+      role: row.role,
+      title: row.title,
+      createdAt: row.createdAt.toISOString(),
+    };
+  }
+
+  async addMember(
+    actor: AuthUser,
+    input: { email: string; name: string; role: WorkspaceRole; password: string; title?: string },
+  ) {
+    this.denyMemberMutation(
+      memberMutationError({
+        actorRole: actor.role,
+        actorUserId: actor.userId,
+        nextRole: input.role,
+        kind: "add",
+        ownerCount: 0,
+      }),
+    );
+
+    const email = input.email.trim().toLowerCase();
+    const name = input.name.trim();
+    if (!name) throw new BadRequestException("Name is required");
+    const passwordHash = await hashPassword(input.password);
+
+    const [existing] = await this.db.admin
+      .select({
+        id: users.id,
+        name: users.name,
+        email: users.email,
+        passwordHash: users.passwordHash,
+      })
+      .from(users)
+      .where(eq(users.email, email))
+      .limit(1);
+
+    let userId: string;
+    let displayName = name;
+    if (existing) {
+      const [already] = await this.db.admin
+        .select({ id: memberships.id })
+        .from(memberships)
+        .where(and(eq(memberships.userId, existing.id), eq(memberships.tenantId, actor.tenantId)))
+        .limit(1);
+      if (already) throw new ConflictException("That person is already in this workspace");
+      userId = existing.id;
+      displayName = existing.name;
+      if (existing.passwordHash === null) {
+        await this.db.admin
+          .update(users)
+          .set({ passwordHash, name: existing.name || name })
+          .where(eq(users.id, existing.id));
+      }
+    } else {
+      try {
+        const [created] = await this.db.admin
+          .insert(users)
+          .values({ email, name, passwordHash })
+          .returning({ id: users.id, name: users.name });
+        if (!created) throw new ConflictException("Could not create that user");
+        userId = created.id;
+        displayName = created.name;
+      } catch (e: unknown) {
+        const code = e && typeof e === "object" && "code" in e ? String((e as { code: unknown }).code) : "";
+        if (code === "23505") throw new ConflictException("That email is already in use");
+        throw e;
+      }
+    }
+
+    try {
+      const [membership] = await this.db.admin
+        .insert(memberships)
+        .values({
+          userId,
+          tenantId: actor.tenantId,
+          role: input.role,
+          title: normalizeMemberTitle(input.title),
+        })
+        .returning({
+          role: memberships.role,
+          title: memberships.title,
+          createdAt: memberships.createdAt,
+        });
+      if (!membership) throw new ConflictException("Could not add that member");
+
+      return this.shapeMember({
+        id: userId,
+        name: displayName,
+        email,
+        role: membership.role,
+        title: membership.title,
+        createdAt: membership.createdAt,
+      });
+    } catch (e: unknown) {
+      const code = e && typeof e === "object" && "code" in e ? String((e as { code: unknown }).code) : "";
+      if (code === "23505") throw new ConflictException("That person is already in this workspace");
+      throw e;
+    }
+  }
+
+  async updateMember(
+    actor: AuthUser,
+    userId: string,
+    input: { name?: string; role?: WorkspaceRole; password?: string; title?: string },
+  ) {
+    const name = input.name?.trim();
+    const titleProvided = typeof input.title === "string";
+    if (!name && !input.role && !input.password && !titleProvided) {
+      throw new BadRequestException("Nothing to update");
+    }
+
+    const [target] = await this.db.admin
+      .select({
+        id: users.id,
+        name: users.name,
+        email: users.email,
+        role: memberships.role,
+        title: memberships.title,
+        createdAt: memberships.createdAt,
+      })
+      .from(memberships)
+      .innerJoin(users, eq(users.id, memberships.userId))
+      .where(and(eq(memberships.userId, userId), eq(memberships.tenantId, actor.tenantId)))
+      .limit(1);
+    if (!target) throw new NotFoundException("Member not found");
+
+    const owners = await this.ownerCount(actor.tenantId);
+
+    if (input.role && input.role !== target.role) {
+      this.denyMemberMutation(
+        memberMutationError({
+          actorRole: actor.role,
+          actorUserId: actor.userId,
+          targetUserId: userId,
+          targetRole: target.role,
+          nextRole: input.role,
+          kind: "role",
+          ownerCount: owners,
+        }),
+      );
+    }
+    if (input.password) {
+      this.denyMemberMutation(
+        memberMutationError({
+          actorRole: actor.role,
+          actorUserId: actor.userId,
+          targetUserId: userId,
+          targetRole: target.role,
+          kind: "password",
+          ownerCount: owners,
+        }),
+      );
+    }
+
+    if (name) {
+      await this.db.admin.update(users).set({ name }).where(eq(users.id, userId));
+    }
+    if (input.password) {
+      await this.db.admin
+        .update(users)
+        .set({ passwordHash: await hashPassword(input.password) })
+        .where(eq(users.id, userId));
+    }
+    if (input.role && input.role !== target.role) {
+      await this.db.admin
+        .update(memberships)
+        .set({ role: input.role })
+        .where(and(eq(memberships.userId, userId), eq(memberships.tenantId, actor.tenantId)));
+    }
+    if (titleProvided) {
+      await this.db.admin
+        .update(memberships)
+        .set({ title: normalizeMemberTitle(input.title) })
+        .where(and(eq(memberships.userId, userId), eq(memberships.tenantId, actor.tenantId)));
+    }
+
+    const [row] = await this.db.admin
+      .select({
+        id: users.id,
+        name: users.name,
+        email: users.email,
+        role: memberships.role,
+        title: memberships.title,
+        createdAt: memberships.createdAt,
+      })
+      .from(memberships)
+      .innerJoin(users, eq(users.id, memberships.userId))
+      .where(and(eq(memberships.userId, userId), eq(memberships.tenantId, actor.tenantId)))
+      .limit(1);
+    if (!row) throw new NotFoundException("Member not found");
+    return this.shapeMember(row);
+  }
+
+  async removeMember(actor: AuthUser, userId: string) {
+    const [target] = await this.db.admin
+      .select({
+        id: users.id,
+        role: memberships.role,
+        email: users.email,
+      })
+      .from(memberships)
+      .innerJoin(users, eq(users.id, memberships.userId))
+      .where(and(eq(memberships.userId, userId), eq(memberships.tenantId, actor.tenantId)))
+      .limit(1);
+    if (!target) throw new NotFoundException("Member not found");
+
+    this.denyMemberMutation(
+      memberMutationError({
+        actorRole: actor.role,
+        actorUserId: actor.userId,
+        targetUserId: userId,
+        targetRole: target.role,
+        kind: "remove",
+        ownerCount: await this.ownerCount(actor.tenantId),
+      }),
+    );
+
+    await this.db.admin
+      .delete(memberships)
+      .where(and(eq(memberships.userId, userId), eq(memberships.tenantId, actor.tenantId)));
+
+    return { ok: true as const, id: target.id, email: target.email };
   }
 
   /**
@@ -280,9 +661,90 @@ export class AuthService {
       .update(tenants)
       .set({ name: clean })
       .where(eq(tenants.id, tenantId))
-      .returning({ id: tenants.id, name: tenants.name, slug: tenants.slug });
+      .returning({
+        id: tenants.id,
+        name: tenants.name,
+        slug: tenants.slug,
+        branding: tenants.branding,
+      });
+    if (!row) throw new NotFoundException("Workspace not found");
+    return shapeTenant(row);
+  }
+
+  private async loadTenant(tenantId: string) {
+    const [row] = await this.db.admin
+      .select({
+        id: tenants.id,
+        name: tenants.name,
+        slug: tenants.slug,
+        branding: tenants.branding,
+      })
+      .from(tenants)
+      .where(eq(tenants.id, tenantId))
+      .limit(1);
     if (!row) throw new NotFoundException("Workspace not found");
     return row;
+  }
+
+  async putWorkspaceLogo(tenantId: string, body: Buffer, contentType: string) {
+    const mime = contentType.split(";")[0]?.trim().toLowerCase() ?? "";
+    if (!LOGO_MIME.has(mime)) {
+      throw new BadRequestException("Logo must be a PNG, JPEG, or WebP image");
+    }
+    if (body.byteLength === 0) throw new BadRequestException("Logo file is empty");
+    const current = await this.loadTenant(tenantId);
+    await this.storage.put(brandingLogoKey(tenantId), body, mime);
+    const branding = {
+      ...(current.branding ?? {}),
+      logoMimeType: mime,
+      logoUpdatedAt: new Date().toISOString(),
+    };
+    const [row] = await this.db.admin
+      .update(tenants)
+      .set({ branding })
+      .where(eq(tenants.id, tenantId))
+      .returning({
+        id: tenants.id,
+        name: tenants.name,
+        slug: tenants.slug,
+        branding: tenants.branding,
+      });
+    if (!row) throw new NotFoundException("Workspace not found");
+    return shapeTenant(row);
+  }
+
+  async getWorkspaceLogo(tenantId: string): Promise<{ body: Buffer; mimeType: string }> {
+    const row = await this.loadTenant(tenantId);
+    if (!logoUpdatedAtOf(row.branding)) {
+      throw new NotFoundException("No logo uploaded");
+    }
+    const mime = logoMimeOf(row.branding) ?? "image/png";
+    try {
+      const body = await this.storage.get(brandingLogoKey(tenantId));
+      return { body, mimeType: mime };
+    } catch {
+      throw new NotFoundException("No logo uploaded");
+    }
+  }
+
+  async deleteWorkspaceLogo(tenantId: string) {
+    const current = await this.loadTenant(tenantId);
+    await this.storage.delete(brandingLogoKey(tenantId));
+    const branding = { ...(current.branding ?? {}) };
+    delete branding.logoMimeType;
+    delete branding.logoUpdatedAt;
+    const [row] = await this.db.admin
+      .update(tenants)
+      .set({ branding })
+      .where(eq(tenants.id, tenantId))
+      .returning({
+        id: tenants.id,
+        name: tenants.name,
+        slug: tenants.slug,
+        branding: tenants.branding,
+      });
+    if (!row) throw new NotFoundException("Workspace not found");
+    return shapeTenant(row);
   }
 
   async forgotPassword(email: string, tenantSlug?: string, requestOrigin?: string): Promise<{ ok: true }> {
@@ -365,11 +827,68 @@ export class AuthController {
     return this.auth.listMembers(u.tenantId);
   }
 
+  @Post("members")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles("owner", "admin")
+  addMember(@CurrentUser() u: AuthUser, @Body() body: AddMemberDto) {
+    return this.auth.addMember(u, body);
+  }
+
+  @Patch("members/:userId")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles("owner", "admin")
+  updateMember(
+    @CurrentUser() u: AuthUser,
+    @Param("userId", ParseUUIDPipe) userId: string,
+    @Body() body: UpdateMemberDto,
+  ) {
+    return this.auth.updateMember(u, userId, body);
+  }
+
+  @Delete("members/:userId")
+  @HttpCode(200)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles("owner", "admin")
+  removeMember(
+    @CurrentUser() u: AuthUser,
+    @Param("userId", ParseUUIDPipe) userId: string,
+  ) {
+    return this.auth.removeMember(u, userId);
+  }
+
   @Patch("workspace")
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles("owner", "admin")
   updateWorkspace(@CurrentUser() u: AuthUser, @Body() body: UpdateWorkspaceDto) {
     return this.auth.updateWorkspace(u.tenantId, body.name);
+  }
+
+  @Get("workspace/logo")
+  @UseGuards(JwtAuthGuard)
+  async workspaceLogo(
+    @CurrentUser() u: AuthUser,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const { body, mimeType } = await this.auth.getWorkspaceLogo(u.tenantId);
+    res.setHeader("content-type", mimeType);
+    res.setHeader("cache-control", "private, max-age=3600");
+    return new StreamableFile(body);
+  }
+
+  @Put("workspace/logo")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles("owner", "admin")
+  async putWorkspaceLogo(@CurrentUser() u: AuthUser, @Req() req: Request) {
+    const contentType = String(req.headers["content-type"] ?? "");
+    const body = await readLimitedBody(req, LOGO_MAX_BYTES);
+    return this.auth.putWorkspaceLogo(u.tenantId, body, contentType);
+  }
+
+  @Delete("workspace/logo")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles("owner", "admin")
+  deleteWorkspaceLogo(@CurrentUser() u: AuthUser) {
+    return this.auth.deleteWorkspaceLogo(u.tenantId);
   }
 
   @Post("login")
@@ -420,9 +939,9 @@ export class AuthController {
 }
 
 @Module({
-  imports: [EmailModule],
+  imports: [EmailModule, StorageModule],
   controllers: [AuthController],
-  providers: [AuthService, JwtAuthGuard, RolesGuard],
-  exports: [JwtAuthGuard, RolesGuard],
+  providers: [AuthService, JwtAuthGuard, RolesGuard, LoginThrottlerGuard],
+  exports: [JwtAuthGuard, RolesGuard, LoginThrottlerGuard],
 })
 export class AuthModule { }

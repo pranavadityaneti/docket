@@ -58,6 +58,10 @@ export type SubjectKind = (typeof SUBJECT_KINDS)[number];
 export const ROLES = ["owner", "admin", "agent", "reviewer"] as const;
 export type Role = (typeof ROLES)[number];
 
+/** Console operators — not tenant members. See platform-roles.ts for privileges. */
+export const PLATFORM_ROLES = ["super_admin", "admin", "sub_admin"] as const;
+export type PlatformRole = (typeof PLATFORM_ROLES)[number];
+
 /**
  * Lifecycle of one received document.
  *
@@ -162,6 +166,8 @@ export const memberships = pgTable(
     userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
     tenantId: uuid("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
     role: text("role", { enum: ROLES }).notNull().default("agent"),
+    /** Optional job title / tag in this workspace, e.g. "Loan officer". */
+    title: text("title"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
@@ -169,6 +175,33 @@ export const memberships = pgTable(
     index("memberships_tenant_idx").on(t.tenantId),
   ],
 );
+
+/**
+ * Operators for the platform console. GLOBAL, not tenant-scoped: these
+ * people create and manage workspaces, they are not members of one. No
+ * tenant_id and no RLS - see migration 0026, which also revokes the app
+ * role's auto-granted access so a tenant-scoped connection can never read
+ * platform credentials. `role` is super_admin | admin | sub_admin (0027).
+ */
+export const platformAdmins = pgTable("platform_admins", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  email: text("email").notNull().unique(),
+  name: text("name").notNull(),
+  passwordHash: text("password_hash").notNull(),
+  role: text("role", { enum: PLATFORM_ROLES }).notNull().default("super_admin"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * Privilege templates for console roles. Super admin is always all privileges
+ * (not stored here). Admin and sub-admin grants are edited by a super admin.
+ * Revoked from docket_app in migration 0028 — same isolation as platform_admins.
+ */
+export const platformRolePrivileges = pgTable("platform_role_privileges", {
+  role: text("role", { enum: ["admin", "sub_admin"] }).primaryKey(),
+  privileges: jsonb("privileges").$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
 
 /**
  * One-time password-reset tokens. GLOBAL (per-user), not tenant-scoped: a reset
@@ -773,6 +806,7 @@ export const notifications = pgTable(
 export type Tenant = typeof tenants.$inferSelect;
 export type User = typeof users.$inferSelect;
 export type Membership = typeof memberships.$inferSelect;
+export type PlatformAdmin = typeof platformAdmins.$inferSelect;
 export type Workflow = typeof workflows.$inferSelect;
 export type WorkflowStage = typeof workflowStages.$inferSelect;
 export type FieldConfig = typeof fieldConfigs.$inferSelect;

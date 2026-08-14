@@ -11,3 +11,12 @@ export function safeNext(raw: string | null, fallback = DEFAULT_POST_LOGIN): str
   if (!raw || !raw.startsWith("/") || raw.startsWith("//")) return fallback;
   return raw;
 }
+
+export const DEFAULT_POST_ADMIN_LOGIN = "/admin";
+
+/** Post-login target for the platform console - must stay under /admin. */
+export function safeAdminNext(raw: string | null): string {
+  const next = safeNext(raw, DEFAULT_POST_ADMIN_LOGIN);
+  if (next === "/admin" || next.startsWith("/admin/")) return next;
+  return DEFAULT_POST_ADMIN_LOGIN;
+}

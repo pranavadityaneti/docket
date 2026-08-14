@@ -244,15 +244,6 @@ function CasesPage() {
         <LoadErrorState
           title={`Couldn't load ${plural(caseLabel).toLowerCase()}`}
           error={error}
-          hint={
-            <>
-              Make sure the API is running (
-              <code className="rounded bg-background/60 px-1 py-0.5 text-[11px]">
-                pnpm --filter @docket/api dev
-              </code>
-              ).
-            </>
-          }
           onRetry={refresh}
         />
       ) : loading ? (

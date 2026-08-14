@@ -17,11 +17,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import type { WorkspacePrefs } from "@/features/auth/api";
 import {
   canEditWorkspace,
+  deleteWorkspaceLogo,
   fetchMe,
   getWorkspacePrefs,
   logout,
   setWorkspacePrefs,
   updateWorkspace,
+  uploadWorkspaceLogo,
+  workspaceLogoUrl,
 } from "@/features/auth/api";
 import { initials } from "@/lib/format";
 import type { LoginProfile } from "@/lib/http";
@@ -78,6 +81,9 @@ export default function SettingsPage() {
   const [prefs, setPrefs] = React.useState<WorkspacePrefs>(getWorkspacePrefs);
   const [editOpen, setEditOpen] = React.useState(false);
   const [editName, setEditName] = React.useState("");
+  const [logoFile, setLogoFile] = React.useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = React.useState<string | null>(null);
+  const [clearLogo, setClearLogo] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
   const [editError, setEditError] = React.useState<string | null>(null);
 
@@ -123,8 +129,22 @@ export default function SettingsPage() {
   function openEdit() {
     if (!profile) return;
     setEditName(profile.tenant.name);
+    setLogoFile(null);
+    setLogoPreview(workspaceLogoUrl(profile.tenant));
+    setClearLogo(false);
     setEditError(null);
     setEditOpen(true);
+  }
+
+  function onLogoPicked(file: File | null) {
+    if (logoPreview && logoPreview.startsWith("blob:")) URL.revokeObjectURL(logoPreview);
+    if (!file) {
+      setLogoFile(null);
+      return;
+    }
+    setLogoFile(file);
+    setClearLogo(false);
+    setLogoPreview(URL.createObjectURL(file));
   }
 
   async function saveWorkspace() {
@@ -136,7 +156,12 @@ export default function SettingsPage() {
     setSaving(true);
     setEditError(null);
     try {
-      const tenant = await updateWorkspace({ name });
+      let tenant = await updateWorkspace({ name });
+      if (logoFile) {
+        tenant = await uploadWorkspaceLogo(logoFile);
+      } else if (clearLogo) {
+        tenant = await deleteWorkspaceLogo();
+      }
       setProfile((prev) => (prev ? { ...prev, tenant: { ...prev.tenant, ...tenant } } : prev));
       setEditOpen(false);
     } catch (e) {
@@ -209,9 +234,17 @@ export default function SettingsPage() {
         </div>
         {profile ? (
           <div className="flex h-[58px] items-center gap-3 border-b px-4">
-            <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
-              <Icon name="apartment" size={16} />
-            </div>
+            {workspaceLogoUrl(profile.tenant) ? (
+              <img
+                src={workspaceLogoUrl(profile.tenant) ?? ""}
+                alt=""
+                className="size-8 shrink-0 rounded-md object-contain bg-muted"
+              />
+            ) : (
+              <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                <Icon name="apartment" size={16} />
+              </div>
+            )}
             <div className="min-w-0 flex-1">
               <div className="truncate text-sm font-medium">{profile.tenant.name}</div>
               <div className="truncate text-xs text-muted-foreground">
@@ -225,6 +258,12 @@ export default function SettingsPage() {
             ) : null}
           </div>
         ) : null}
+        <SettingsLinkRow
+          href="/team"
+          icon="group"
+          title="Team"
+          description="People who can sign into this workspace"
+        />
         <SettingsLinkRow
           href="/channels"
           icon="hub"
@@ -304,6 +343,9 @@ export default function SettingsPage() {
         open={editOpen}
         onOpenChange={(open) => {
           if (saving) return;
+          if (!open && logoPreview?.startsWith("blob:")) {
+            URL.revokeObjectURL(logoPreview);
+          }
           setEditOpen(open);
         }}
       >
@@ -311,8 +353,8 @@ export default function SettingsPage() {
           <DialogHeader className="border-b">
             <DialogTitle>Edit workspace</DialogTitle>
             <DialogDescription>
-              Company name shows in the sidebar for everyone in this workspace. The slug stays
-              fixed.
+              Company name and logo show in the sidebar for everyone in this workspace. The slug
+              stays fixed.
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-3 px-5 py-4">
@@ -329,6 +371,43 @@ export default function SettingsPage() {
                 }}
               />
             </label>
+            <div className="space-y-1.5">
+              <span className="text-xs font-medium text-muted-foreground">Company logo</span>
+              <div className="flex items-center gap-3">
+                <div className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border bg-muted">
+                  {logoPreview && !clearLogo ? (
+                    <img src={logoPreview} alt="" className="size-full object-contain" />
+                  ) : (
+                    <Icon name="apartment" size={20} className="text-muted-foreground" />
+                  )}
+                </div>
+                <div className="flex min-w-0 flex-col gap-1.5">
+                  <input
+                    id="workspace-logo"
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    disabled={saving}
+                    className="text-xs file:mr-2 file:rounded-md file:border-0 file:bg-muted file:px-2 file:py-1 file:text-xs file:font-medium"
+                    onChange={(e) => onLogoPicked(e.target.files?.[0] ?? null)}
+                  />
+                  <p className="text-[11px] text-muted-foreground">PNG, JPEG or WebP. Shows in the sidebar.</p>
+                  {logoPreview && !clearLogo ? (
+                    <button
+                      type="button"
+                      className="self-start text-[11px] font-medium text-destructive hover:underline"
+                      disabled={saving}
+                      onClick={() => {
+                        onLogoPicked(null);
+                        setClearLogo(true);
+                        setLogoPreview(null);
+                      }}
+                    >
+                      Remove logo
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            </div>
             {profile ? (
               <p className="text-xs text-muted-foreground">
                 URL: {workspaceUrl(profile.tenant.slug)}

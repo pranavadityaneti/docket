@@ -207,6 +207,8 @@ export class CasesService {
    * Resolve which workflow a request means. An explicit slug wins; otherwise,
    * if the tenant runs exactly one workflow, use it. Deliberately no default
    * slug - hardcoding "business-loan" here is what made this a lending tool.
+   * `null` means this workspace has no workflows yet (list returns empty;
+   * create still refuses).
    */
   private async resolveWorkflow(tx: any, slug?: string) {
     if (slug) {
@@ -217,7 +219,7 @@ export class CasesService {
     // RLS already scopes this to the tenant.
     const all = await tx.select().from(workflows).limit(2);
     if (all.length === 1) return all[0];
-    if (all.length === 0) throw new NotFoundException("This workspace has no workflows yet");
+    if (all.length === 0) return null;
     throw new BadRequestException("workflow is required when a workspace has more than one");
   }
 
@@ -229,6 +231,7 @@ export class CasesService {
     const offset = Math.max(opts.offset ?? 0, 0);
     return this.db.withTenant(tenantId, async (tx) => {
       const wf = await this.resolveWorkflow(tx, opts.workflowSlug);
+      if (!wf) return { items: [], total: 0, limit, offset };
       const where = and(eq(cases.workflowId, wf.id), isNull(cases.deletedAt));
       const [countRow] = await tx
         .select({ total: sql<number>`count(*)::int` })
@@ -324,6 +327,7 @@ export class CasesService {
     return this.db
       .withTenant(tenantId, async (tx) => {
         const wf = await this.resolveWorkflow(tx, input.workflow);
+        if (!wf) throw new NotFoundException("This workspace has no workflows yet");
 
         // The workflow's first stage, by position - not a stage named "Pending".
         // A college's first stage might be "Awaiting documents".

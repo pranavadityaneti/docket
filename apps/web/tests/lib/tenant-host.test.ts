@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
 import { matchTenantHost, originForSlug, tenantSlugFromLocation } from "@/lib/tenant-host";
+import { describe, expect, it } from "vitest";
 
 describe("matchTenantHost", () => {
   it("parses UAT hosts", () => {

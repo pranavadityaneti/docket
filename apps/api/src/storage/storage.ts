@@ -76,6 +76,11 @@ export function unmatchedKey(tenantId: string, unmatchedId: string): string {
   return `tenants/${tenantId}/unmatched/${unmatchedId}`;
 }
 
+/** Workspace brand mark — one object per tenant, replaced in place. */
+export function brandingLogoKey(tenantId: string): string {
+  return `tenants/${tenantId}/branding/logo`;
+}
+
 function sha256(buf: Buffer): string {
   return createHash("sha256").update(buf).digest("hex");
 }

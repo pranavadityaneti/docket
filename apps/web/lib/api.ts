@@ -7,7 +7,7 @@ export {
 } from "@/lib/http";
 
 export {
-  fetchMe, getWorkspacePrefs, listMembers, login,
+  fetchMe, getWorkspacePrefs, listMembers, addMember, updateMember, removeMember, login,
   logout, requestPasswordReset,
   resetPassword, setWorkspacePrefs,
   type ApiMember, type WorkspacePrefs

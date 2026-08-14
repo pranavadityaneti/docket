@@ -1,13 +1,17 @@
 import type { Request, Response } from "express";
 import { env } from "../config/env";
 
-/** HttpOnly JWT cookie - never readable by page JS. */
+/** HttpOnly JWT cookie - never readable by page JS. Tenant staff sessions. */
 export const AUTH_COOKIE = "docket_token";
 /**
  * Non-secret presence marker (not HttpOnly) so the browser and Next middleware
  * can tell a session exists without exposing the JWT.
  */
 export const SESSION_COOKIE = "docket_session";
+
+/** Platform super-admin session - separate from tenant cookies on purpose. */
+export const ADMIN_AUTH_COOKIE = "docket_admin_token";
+export const ADMIN_SESSION_COOKIE = "docket_admin_session";
 
 const MAX_AGE_SEC = 7 * 24 * 60 * 60;
 
@@ -32,6 +36,29 @@ export function clearAuthCookies(res: Response): void {
   const clear = `Path=/; Max-Age=0; SameSite=Lax${env.isProd ? "; Secure" : ""}`;
   res.append("Set-Cookie", `${AUTH_COOKIE}=; HttpOnly; ${clear}`);
   res.append("Set-Cookie", `${SESSION_COOKIE}=; ${clear}`);
+}
+
+export function setAdminAuthCookies(res: Response, token: string): void {
+  res.append(
+    "Set-Cookie",
+    `${ADMIN_AUTH_COOKIE}=${encodeURIComponent(token)}; ${cookieFlags(true)}`,
+  );
+  res.append("Set-Cookie", `${ADMIN_SESSION_COOKIE}=1; ${cookieFlags(false)}`);
+}
+
+export function clearAdminAuthCookies(res: Response): void {
+  const clear = `Path=/; Max-Age=0; SameSite=Lax${env.isProd ? "; Secure" : ""}`;
+  res.append("Set-Cookie", `${ADMIN_AUTH_COOKIE}=; HttpOnly; ${clear}`);
+  res.append("Set-Cookie", `${ADMIN_SESSION_COOKIE}=; ${clear}`);
+}
+
+export function extractAdminAccessToken(req: Request): string | undefined {
+  const header = req.headers.authorization;
+  if (typeof header === "string" && header.startsWith("Bearer ")) {
+    const bearer = header.slice(7).trim();
+    if (bearer) return bearer;
+  }
+  return readCookie(req, ADMIN_AUTH_COOKIE);
 }
 
 /** Read a single cookie value from the raw Cookie header (no cookie-parser). */

@@ -3,8 +3,10 @@ import { DEFAULT_POST_LOGIN, safeNext } from "@/features/auth/safe-next";
 import {
   getWorkspacePrefs,
   setWorkspacePrefs,
+  workspaceLogoUrl,
   type WorkspacePrefs,
 } from "@/features/auth/api";
+import { assignableRoles, canManageTeam, isWorkspaceRole } from "@/features/auth/roles";
 
 describe("safeNext", () => {
   it("allows same-origin absolute paths", () => {
@@ -65,5 +67,39 @@ describe("workspace prefs", () => {
   it("survives corrupt json", () => {
     store.set("docket_prefs", "{not-json");
     expect(getWorkspacePrefs().notifyNeedsReview).toBe(true);
+  });
+});
+
+describe("workspaceLogoUrl", () => {
+  it("is null until a logo has been uploaded", () => {
+    expect(workspaceLogoUrl(null)).toBeNull();
+    expect(workspaceLogoUrl({ logoUpdatedAt: null })).toBeNull();
+  });
+
+  it("cache-busts with the updated timestamp", () => {
+    const url = workspaceLogoUrl({ logoUpdatedAt: "2026-08-14T10:00:00.000Z" });
+    expect(url).toContain("/auth/workspace/logo?v=");
+    expect(url).toContain(encodeURIComponent("2026-08-14T10:00:00.000Z"));
+  });
+});
+
+describe("workspace team roles", () => {
+  it("lets owners and admins manage the team", () => {
+    expect(canManageTeam("owner")).toBe(true);
+    expect(canManageTeam("admin")).toBe(true);
+    expect(canManageTeam("agent")).toBe(false);
+    expect(canManageTeam("reviewer")).toBe(false);
+  });
+
+  it("stops admins from minting owners", () => {
+    expect(assignableRoles("owner")).toEqual(["owner", "admin", "agent", "reviewer"]);
+    expect(assignableRoles("admin")).toEqual(["admin", "agent", "reviewer"]);
+    expect(assignableRoles("agent")).toEqual([]);
+  });
+
+  it("recognises workspace roles", () => {
+    expect(isWorkspaceRole("owner")).toBe(true);
+    expect(isWorkspaceRole("super_admin")).toBe(false);
+    expect(isWorkspaceRole("Loan officer")).toBe(false);
   });
 });
