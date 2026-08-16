@@ -34,10 +34,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { canDeleteCases } from "@/features/auth/roles";
 import { deleteCases, previewDeleteCases } from "@/features/cases/api";
 import type { ApiFieldDef, ApiStage } from "@/features/workflows/api";
 import { initials, plural } from "@/lib/format";
-import { AuthRequiredError } from "@/lib/http";
+import { AuthRequiredError, getStoredProfile, type LoginProfile } from "@/lib/http";
 import { toneClass } from "@/lib/tones";
 import { useRouter, useSearchParams } from "next/navigation";
 import * as React from "react";
@@ -50,6 +51,7 @@ function CaseRowActions({
   onMoveStage,
   onDelete,
   onCopied,
+  canDelete,
 }: {
   lead: Lead;
   stages: ApiStage[];
@@ -57,6 +59,7 @@ function CaseRowActions({
   onMoveStage: (leadId: string, toStageId: string, toStageName: Stage) => void;
   onDelete: (leadId: string) => void;
   onCopied: (reference: string) => void;
+  canDelete: boolean;
 }) {
   const router = useRouter();
 
@@ -122,13 +125,17 @@ function CaseRowActions({
               </DropdownMenuSubContent>
             </DropdownMenuSub>
           ) : null}
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            variant="destructive"
-            onClick={() => onDelete(lead.id)}
-          >
-            Delete
-          </DropdownMenuItem>
+          {canDelete ? (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                variant="destructive"
+                onClick={() => onDelete(lead.id)}
+              >
+                Delete
+              </DropdownMenuItem>
+            </>
+          ) : null}
         </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -194,6 +201,11 @@ export function AllCasesView({
 
   const exportKind = plural(caseLabel).toLowerCase();
   const exportTitle = `${plural(caseLabel)} export`;
+  const [profile, setProfile] = React.useState<LoginProfile | null>(null);
+  React.useEffect(() => {
+    setProfile(getStoredProfile());
+  }, []);
+  const canDelete = canDeleteCases(profile?.role, profile?.privileges);
 
   const [deleteOpen, setDeleteOpen] = React.useState(false);
   const [deleteLines, setDeleteLines] = React.useState<DeleteLine[]>([]);
@@ -288,20 +300,22 @@ export function AllCasesView({
           size="sm"
           label="Download"
         />
-        <Button
-          size="sm"
-          variant="destructive"
-          className="gap-1.5"
-          onClick={() =>
-            void openDelete(
-              filtered
-                .filter((lead) => selection.isSelected(lead.id))
-                .map((lead) => lead.id),
-            )
-          }
-        >
-          <Icon name="delete" size={14} /> Delete
-        </Button>
+        {canDelete ? (
+          <Button
+            size="sm"
+            variant="destructive"
+            className="gap-1.5"
+            onClick={() =>
+              void openDelete(
+                filtered
+                  .filter((lead) => selection.isSelected(lead.id))
+                  .map((lead) => lead.id),
+              )
+            }
+          >
+            <Icon name="delete" size={14} /> Delete
+          </Button>
+        ) : null}
       </SelectionBar>
 
       {filtered.length === 0 ? (
@@ -369,6 +383,7 @@ export function AllCasesView({
                         caseLabel={caseLabel}
                         onMoveStage={onMoveStage}
                         onDelete={(id) => void openDelete([id])}
+                        canDelete={canDelete}
                         onCopied={(reference) =>
                           setNotice(
                             reference
@@ -480,6 +495,7 @@ export function AllCasesView({
                         caseLabel={caseLabel}
                         onMoveStage={onMoveStage}
                         onDelete={(id) => void openDelete([id])}
+                        canDelete={canDelete}
                         onCopied={(reference) =>
                           setNotice(
                             reference

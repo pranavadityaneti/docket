@@ -35,7 +35,7 @@ describe("cases types helpers", () => {
   it("toLead maps API case to UI lead", () => {
     const row: ApiCase = {
       id: "1",
-      reference: "DKT-1",
+      reference: "DPC-A12B3C4",
       source: "Email",
       data: { course: "BTech" },
       createdAt: new Date().toISOString(),
@@ -61,7 +61,7 @@ describe("cases types helpers", () => {
   it("toLead uses ownerName when present", () => {
     const row: ApiCase = {
       id: "1",
-      reference: "DKT-1",
+      reference: "DPC-A12B3C4",
       source: null,
       data: null,
       createdAt: new Date().toISOString(),

@@ -2,6 +2,7 @@ import { openSecret, type NudgeSnapshotItem } from "@docket/db";
 import { Injectable, Logger } from "@nestjs/common";
 import { Resend } from "resend";
 import { env } from "../config/env";
+import { resendFrom } from "../email/from";
 import { composeEmail, composeWhatsappParams, type ComposeContext } from "./compose";
 
 export type SendOutcome = { ok: true } | { ok: false; error: string };
@@ -35,7 +36,7 @@ export class EmailNudgeSender {
       return { ok: false, error: "Resend not configured", subject };
     }
     const { error } = await this.resend.emails.send({
-      from: `${ctx.tenantName} <${env.resendFromEmail}>`,
+      from: resendFrom(ctx.tenantName, env.resendFromEmail),
       to,
       replyTo,
       subject,
@@ -65,7 +66,7 @@ export class EmailNudgeSender {
       return { ok: false, error: "Resend not configured", subject };
     }
     const { error } = await this.resend.emails.send({
-      from: `${fromName} <${env.resendFromEmail}>`,
+      from: resendFrom(fromName, env.resendFromEmail),
       to,
       replyTo,
       subject,

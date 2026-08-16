@@ -31,6 +31,7 @@ import {
   REGISTRATION_FIELDS,
 } from "./company-registration-config";
 import { hashPassword } from "./password";
+import { generatePublicId } from "./public-id";
 import { generateCaseReference } from "./reference";
 import * as schema from "./schema";
 
@@ -327,6 +328,7 @@ async function ensureUser(
     [user] = await db
       .insert(schema.users)
       .values({
+        loginId: generatePublicId("user"),
         email,
         name,
         passwordHash: await hashPassword(password),
@@ -389,7 +391,7 @@ async function ensureChannel(
 
 async function insertCaseWithReference(
   db: Db,
-  values: typeof schema.cases.$inferInsert,
+  values: Omit<typeof schema.cases.$inferInsert, "reference">,
 ) {
   for (let attempt = 0; attempt < 8; attempt++) {
     try {

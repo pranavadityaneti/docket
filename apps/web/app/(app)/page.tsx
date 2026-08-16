@@ -11,11 +11,13 @@ import {
 } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
 import { LoadErrorState, PageSkeleton } from "@/components/shared/page-state";
+import { canCreateCases } from "@/features/auth/roles";
 import { getOverview } from "@/features/overview/api";
 import type { ApiAttentionItem, ApiOverview } from "@/features/overview/api";
 import { listWorkflows } from "@/features/workflows/api";
 import { plural, relativeTime } from "@/lib/format";
 import { useAsyncResource } from "@/hooks/use-async-resource";
+import { getStoredProfile, type LoginProfile } from "@/lib/http";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -130,6 +132,11 @@ type OverviewBundle = { overview: ApiOverview; caseLabel: string };
 
 export default function HomePage() {
   const router = useRouter();
+  const [profile, setProfile] = React.useState<LoginProfile | null>(null);
+  React.useEffect(() => {
+    setProfile(getStoredProfile());
+  }, []);
+  const showCreateCase = canCreateCases(profile?.role, profile?.privileges);
   const { data, error, loading, reload } = useAsyncResource<OverviewBundle>(
     async () => {
       const [overview, workflows] = await Promise.all([getOverview(), listWorkflows()]);
@@ -206,12 +213,14 @@ export default function HomePage() {
           <Button variant="outline" className="min-w-0 flex-1 gap-1.5 sm:flex-none" onClick={reload}>
             <Icon name="refresh" size={18} /> Refresh
           </Button>
-          <Link
-            href="/cases?new=1"
-            className={cn(buttonVariants(), "min-w-0 flex-1 gap-1.5 sm:flex-none")}
-          >
-            <Icon name="add" size={18} /> New {caseLabel.toLowerCase()}
-          </Link>
+          {showCreateCase ? (
+            <Link
+              href="/cases?new=1"
+              className={cn(buttonVariants(), "min-w-0 flex-1 gap-1.5 sm:flex-none")}
+            >
+              <Icon name="add" size={18} /> New {caseLabel.toLowerCase()}
+            </Link>
+          ) : null}
         </div>
       </div>
 

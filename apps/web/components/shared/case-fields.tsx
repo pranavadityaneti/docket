@@ -3,6 +3,7 @@
 import { SelectMenu } from "@/components/shared/select-menu";
 import { Input, fieldControlClassName } from "@/components/ui/input";
 import type { ApiFieldDef } from "@/features/workflows/api";
+import { sanitizeInteger } from "@/lib/validators";
 import * as React from "react";
 
 /* ------------------------------------------------------------------ *
@@ -53,17 +54,23 @@ export function Field({
   );
 }
 
+function isNumericField(field: ApiFieldDef): boolean {
+  return field.input_type === "number" || field.field_type === "integer";
+}
+
 /** One field, rendered from the workflow's own field config. */
 export function DynamicField({
   field,
   value,
   error,
   onChange,
+  onBlur,
 }: {
   field: ApiFieldDef;
   value: string;
   error?: string;
   onChange: (v: string) => void;
+  onBlur?: (value: string) => void;
 }) {
   const dropdownOptions = React.useMemo(() => {
     const opts = (field.options ?? []).map((o) => ({ value: o, label: o }));
@@ -77,7 +84,10 @@ export function DynamicField({
       {field.input_type === "dropdown" ? (
         <SelectMenu
           value={value}
-          onChange={onChange}
+          onChange={(next) => {
+            onChange(next);
+            onBlur?.(next);
+          }}
           options={dropdownOptions}
           placeholder="Choose..."
         />
@@ -85,16 +95,26 @@ export function DynamicField({
         <textarea
           value={value}
           onChange={(e) => onChange(e.target.value)}
+          onBlur={(e) => onBlur?.(e.target.value)}
           rows={3}
           placeholder={field.placeholder}
+          aria-invalid={error ? true : undefined}
           className={`${FIELD_CLASS} h-auto resize-none py-2`}
         />
       ) : (
         <Input
-          type={field.input_type === "number" ? "number" : "text"}
+          type="text"
+          inputMode={isNumericField(field) ? "numeric" : undefined}
           value={value}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={(e) => {
+            const next = isNumericField(field)
+              ? sanitizeInteger(e.target.value)
+              : e.target.value;
+            onChange(next);
+          }}
+          onBlur={(e) => onBlur?.(e.target.value)}
           placeholder={field.placeholder}
+          aria-invalid={error ? true : undefined}
         />
       )}
     </Field>

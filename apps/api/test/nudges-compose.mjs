@@ -15,7 +15,7 @@ const ok = (name, fn) => {
 const ctx = {
   contactName: "Asha",
   tenantName: "Acme Loans",
-  caseReference: "DKT-7F3K2M",
+  caseReference: "DPC-A12B3C4",
 };
 
 ok(
@@ -164,7 +164,7 @@ ok("email subject carries tenant + reference", () => {
     [{ key: "pan", label: "PAN card", state: "missing" }],
     ctx,
   );
-  assert.strictEqual(subject, "Documents needed - Acme Loans - DKT-7F3K2M");
+  assert.strictEqual(subject, "Documents needed - Acme Loans - DPC-A12B3C4");
 });
 
 ok("email body lists items and re-ask reason", () => {
@@ -177,7 +177,7 @@ ok("email body lists items and re-ask reason", () => {
   );
   assert.ok(text.includes("• PAN card"));
   assert.ok(text.includes("• Aadhaar - please re-send (blurry)"));
-  assert.ok(text.includes("DKT-7F3K2M"));
+  assert.ok(text.includes("DPC-A12B3C4"));
   assert.ok(text.includes("keep the subject line unchanged"));
 });
 
@@ -195,7 +195,7 @@ ok("whatsapp params are the 4 body variables in order", () => {
     [{ key: "pan", label: "PAN card", state: "missing" }],
     ctx,
   );
-  assert.deepStrictEqual(p, ["Asha", "Acme Loans", "DKT-7F3K2M", "PAN card"]);
+  assert.deepStrictEqual(p, ["Asha", "Acme Loans", "DPC-A12B3C4", "PAN card"]);
 });
 
 ok("whatsapp marks rejected items as re-send", () => {

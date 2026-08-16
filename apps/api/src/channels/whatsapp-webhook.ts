@@ -43,7 +43,7 @@ import { STORAGE, type StorageDriver, documentKey, unmatchedKey } from "../stora
  *            own Meta app secret (a forged body cannot be signed).
  *
  * Matching mirrors email exactly - conservative, never a guess:
- *   1. a DKT-XXXXXX reference in the message caption/text wins;
+ *   1. a DPC-XXXXXXX reference in the message caption/text wins;
  *   2. the sender's phone number mapped to their most recent case;
  *   3. otherwise the message is left for a human.
  */

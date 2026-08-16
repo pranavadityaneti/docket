@@ -15,7 +15,7 @@ import {
 import { Cron, CronExpression, ScheduleModule } from "@nestjs/schedule";
 import { IsEmail, IsInt, IsOptional, IsString, Max, MaxLength, Min, MinLength } from "class-validator";
 import { and, eq } from "drizzle-orm";
-import { CurrentUser, JwtAuthGuard, type AuthUser } from "../auth/auth";
+import { AuthModule, CurrentUser, JwtAuthGuard, PrivilegeGuard, RequirePrivilege, type AuthUser } from "../auth/auth";
 import { ClassifyModule } from "../classify/classify";
 import { env } from "../config/env";
 import { DbService } from "../db/db";
@@ -199,7 +199,7 @@ export class ChannelsService {
 }
 
 @Controller("channels")
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PrivilegeGuard)
 export class ChannelsController {
   constructor(private readonly channels: ChannelsService) { }
 
@@ -209,11 +209,13 @@ export class ChannelsController {
   }
 
   @Post("email")
+  @RequirePrivilege("channels.manage")
   createEmail(@CurrentUser() u: AuthUser, @Body() body: CreateEmailChannelDto) {
     return this.channels.createEmail(u.tenantId, body);
   }
 
   @Post("whatsapp")
+  @RequirePrivilege("channels.manage")
   createWhatsapp(@CurrentUser() u: AuthUser, @Body() body: CreateWhatsappChannelDto) {
     return this.channels.createWhatsapp(u.tenantId, body);
   }
@@ -225,7 +227,7 @@ export class ChannelsController {
 }
 
 @Module({
-  imports: [ScheduleModule.forRoot(), StorageModule, ClassifyModule, NotificationsModule],
+  imports: [AuthModule, ScheduleModule.forRoot(), StorageModule, ClassifyModule, NotificationsModule],
   controllers: [ChannelsController, WhatsappWebhookController],
   providers: [ChannelsService, EmailPollerService, WhatsappService],
   exports: [ChannelsService],

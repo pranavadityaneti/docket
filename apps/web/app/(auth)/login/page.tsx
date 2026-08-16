@@ -1,14 +1,13 @@
 "use client";
 
-import { BuildMarker } from "@/components/layout/build-marker";
 import { PasswordInput } from "@/components/shared/password-input";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
 import { login } from "@/features/auth/api";
-import { AuthCardHeader, AuthShell } from "@/features/auth/components/auth-shell";
+import { sanitizeEmail, sanitizeLoginId } from "@/lib/validators";
+import { AuthCardHeader, AuthShell, useAuthWorkspace } from "@/features/auth/components/auth-shell";
 import { safeNext } from "@/features/auth/safe-next";
-import { tenantSlugFromLocation } from "@/lib/tenant-host";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import * as React from "react";
@@ -23,6 +22,7 @@ function LoginForm() {
   const next = safeNext(searchParams.get("next"));
   const justReset = searchParams.get("reset") === "1";
 
+  const [userId, setUserId] = React.useState("");
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
@@ -33,7 +33,7 @@ function LoginForm() {
     setError(null);
     setSubmitting(true);
     try {
-      await login(email.trim(), password);
+      await login(userId.trim(), email.trim(), password);
       router.push(next);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed. Please try again.");
@@ -49,16 +49,31 @@ function LoginForm() {
         </div>
       ) : null}
       <div className="flex flex-col gap-1.5">
+        <label htmlFor="user-id" className="text-sm font-medium">
+          User ID
+        </label>
+        <Input
+          id="user-id"
+          type="text"
+          autoComplete="username"
+          required
+          value={userId}
+          onChange={(e) => setUserId(sanitizeLoginId(e.target.value))}
+          placeholder="DPU-A12B3C4"
+          className="font-mono"
+        />
+      </div>
+      <div className="flex flex-col gap-1.5">
         <label htmlFor="email" className="text-sm font-medium">
           Email
         </label>
         <Input
           id="email"
           type="email"
-          autoComplete="username"
+          autoComplete="email"
           required
           value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          onChange={(e) => setEmail(sanitizeEmail(e.target.value))}
           placeholder="you@company.com"
         />
       </div>
@@ -100,23 +115,32 @@ function LoginForm() {
   );
 }
 
-export default function LoginPage() {
-  const workspace = tenantSlugFromLocation();
+function LoginHeader() {
+  const { tenant, slug, status } = useAuthWorkspace();
+  const description = tenant
+    ? `Sign in to ${tenant.name}.`
+    : status === "missing" && slug
+      ? `No workspace found for “${slug}”.`
+      : slug
+        ? `Workspace “${slug}”.`
+        : "Sign in to your workspace.";
   return (
-    <AuthShell footer={<BuildMarker />}>
-      <AuthCardHeader
-        icon={<Icon name="lock" size={20} />}
-        title="Sign in"
-        description={
-          workspace
-            ? `Workspace “${workspace}” — Finlot’s AI workforce for document-led origination.`
-            : "Finlot’s AI workforce for document-led origination."
-        }
-      />
+    <AuthCardHeader
+      icon={<Icon name="lock" size={20} />}
+      title="Sign in"
+      description={description}
+    />
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <AuthShell>
+      <LoginHeader />
 
       {/* The Suspense boundary wraps ONLY the form, because only the form reads
           useSearchParams. Wrapping the whole card (as this once did) opted the
-          build marker out of prerendering too. */}
+          watermark out of prerendering too. */}
       <React.Suspense fallback={<div className="p-6" />}>
         <LoginForm />
       </React.Suspense>

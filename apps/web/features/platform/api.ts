@@ -23,25 +23,28 @@ export type PlatformOverview = {
 
 export type PlatformTenantListItem = {
   id: string;
+  publicId: string;
   name: string;
   slug: string;
   plan: string;
   createdAt: string;
   logoUpdatedAt?: string | null;
-  owner: { name: string; email: string } | null;
+  owner: { name: string; userId?: string; email: string } | null;
   memberCount: number;
 };
 
 export type PlatformTenantDetail = {
   id: string;
+  publicId: string;
   name: string;
   slug: string;
   plan: string;
   createdAt: string;
   logoUpdatedAt?: string | null;
-  owner: { id: string; name: string; email: string; role: string } | null;
+  owner: { id: string; userId?: string; name: string; email: string; role: string } | null;
   members: {
     id: string;
+    userId?: string;
     name: string;
     email: string;
     role: string;
@@ -59,8 +62,8 @@ export type CreateTenantInput = {
 };
 
 export type ProvisionedTenant = {
-  tenant: { id: string; name: string; slug: string; plan: string };
-  owner: { id: string; name: string; email: string };
+  tenant: { id: string; publicId: string; name: string; slug: string; plan: string };
+  owner: { id: string; userId: string; name: string; email: string };
   ownerCreated: boolean;
   passwordSet: boolean;
 };
@@ -244,7 +247,10 @@ export function updatePlatformTenant(
 export function updatePlatformTenantCredentials(
   id: string,
   input: { name?: string; email?: string; password?: string },
-): Promise<{ owner: { id: string; name: string; email: string }; passwordSet: boolean }> {
+): Promise<{
+  owner: { id: string; userId: string; name: string; email: string };
+  passwordSet: boolean;
+}> {
   return platformFetch(`/platform/tenants/${id}/credentials`, {
     method: "PATCH",
     body: JSON.stringify(input),

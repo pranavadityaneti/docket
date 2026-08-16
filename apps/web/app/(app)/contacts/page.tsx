@@ -274,7 +274,7 @@ export default function ContactsPage() {
                 </TableHeader>
                 <TableBody>
                   {filtered.map((c) => (
-                    <TableRow key={c.id} className="h-[58px] [&_td]:py-0">
+                    <TableRow key={c.id} className="h-14.5 [&_td]:py-0">
                       <TableCell className="w-10 pl-4">
                         <SelectCheckbox
                           checked={sel.isSelected(c.id)}

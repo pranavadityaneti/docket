@@ -1,6 +1,8 @@
 import { eq } from "drizzle-orm";
 import type { Db } from "./client";
 import { hashPassword } from "./password";
+import { postgresErrorInfo } from "./pg-error";
+import { withUniquePublicId } from "./public-id";
 import { memberships, tenants, users } from "./schema";
 import { isTenantSlug, normalizeTenantSlug } from "./slug";
 
@@ -24,20 +26,15 @@ export type ProvisionTenantInput = {
 };
 
 export type ProvisionedTenant = {
-  tenant: { id: string; name: string; slug: string; plan: string };
-  owner: { id: string; name: string; email: string };
+  tenant: { id: string; publicId: string; name: string; slug: string; plan: string };
+  owner: { id: string; loginId: string; name: string; email: string };
   ownerCreated: boolean;
   passwordSet: boolean;
 };
 
-function pgCode(e: unknown): string {
-  return e && typeof e === "object" && "code" in e ? String((e as { code: unknown }).code) : "";
-}
-
-function pgConstraint(e: unknown): string {
-  if (!e || typeof e !== "object") return "";
-  const rec = e as { constraint?: unknown; constraint_name?: unknown };
-  return String(rec.constraint ?? rec.constraint_name ?? "");
+function isPublicIdTaken(error: unknown, column: "public_id" | "login_id"): boolean {
+  const pg = postgresErrorInfo(error);
+  return pg?.code === "23505" && pg.constraint.includes(column);
 }
 
 /**
@@ -45,8 +42,9 @@ function pgConstraint(e: unknown): string {
  * which is required: the tenant being created is what RLS would otherwise
  * scope us to.
  *
- * Re-using an existing user (same email) attaches them as owner without
- * resetting their password, matching production bootstrap.
+ * Tenant ID (`DPT-…`) and User ID (`DPU-…`) are server-issued. Re-using an
+ * existing user (same email) attaches them as owner without resetting their
+ * password, matching production bootstrap.
  */
 export async function provisionTenant(
   db: Db,
@@ -74,49 +72,89 @@ export async function provisionTenant(
 
   try {
     return await db.transaction(async (tx) => {
-      const [insertedTenant] = await tx
-        .insert(tenants)
-        .values({ name, slug, plan })
-        .returning({
-          id: tenants.id,
-          name: tenants.name,
-          slug: tenants.slug,
-          plan: tenants.plan,
-        });
-      if (!insertedTenant) {
-        throw new ProvisionError("A workspace with that slug already exists", "conflict");
-      }
+      const insertedTenant = await withUniquePublicId(
+        "tenant",
+        async (publicId) => {
+          const [row] = await tx
+            .insert(tenants)
+            .values({ name, slug, plan, publicId })
+            .returning({
+              id: tenants.id,
+              publicId: tenants.publicId,
+              name: tenants.name,
+              slug: tenants.slug,
+              plan: tenants.plan,
+            });
+          if (!row) {
+            throw new ProvisionError("A workspace with that slug already exists", "conflict");
+          }
+          return row;
+        },
+        (error) => isPublicIdTaken(error, "public_id"),
+      );
 
-      const [insertedUser] = await tx
-        .insert(users)
-        .values({ email: ownerEmail, name: ownerName, passwordHash })
-        .onConflictDoNothing({ target: users.email })
-        .returning({ id: users.id, name: users.name, email: users.email });
+      const [byEmail] = await tx
+        .select({
+          id: users.id,
+          loginId: users.loginId,
+          name: users.name,
+          email: users.email,
+          passwordHash: users.passwordHash,
+        })
+        .from(users)
+        .where(eq(users.email, ownerEmail))
+        .limit(1);
 
-      let owner = insertedUser;
-      let passwordSet = Boolean(insertedUser);
-      if (!owner) {
-        const [existing] = await tx
-          .select({
-            id: users.id,
-            name: users.name,
-            email: users.email,
-            passwordHash: users.passwordHash,
-          })
-          .from(users)
-          .where(eq(users.email, ownerEmail))
-          .limit(1);
-        if (!existing) throw new ProvisionError("Failed to resolve owner after insert", "invalid");
-        if (existing.passwordHash === null) {
+      let owner: { id: string; loginId: string; name: string; email: string };
+      let ownerCreated = false;
+      let passwordSet = false;
+
+      if (byEmail) {
+        if (byEmail.passwordHash === null) {
           await tx
             .update(users)
             .set({ passwordHash, name: ownerName })
-            .where(eq(users.id, existing.id));
+            .where(eq(users.id, byEmail.id));
           passwordSet = true;
-          owner = { id: existing.id, name: ownerName, email: existing.email };
+          owner = {
+            id: byEmail.id,
+            loginId: byEmail.loginId,
+            name: ownerName,
+            email: byEmail.email,
+          };
         } else {
-          owner = { id: existing.id, name: existing.name, email: existing.email };
+          owner = {
+            id: byEmail.id,
+            loginId: byEmail.loginId,
+            name: byEmail.name,
+            email: byEmail.email,
+          };
         }
+      } else {
+        owner = await withUniquePublicId(
+          "user",
+          async (loginId) => {
+            const [created] = await tx
+              .insert(users)
+              .values({
+                loginId,
+                email: ownerEmail,
+                name: ownerName,
+                passwordHash,
+              })
+              .returning({
+                id: users.id,
+                loginId: users.loginId,
+                name: users.name,
+                email: users.email,
+              });
+            if (!created) throw new ProvisionError("Failed to create owner", "invalid");
+            return created;
+          },
+          (error) => isPublicIdTaken(error, "login_id"),
+        );
+        ownerCreated = true;
+        passwordSet = true;
       }
 
       await tx
@@ -129,18 +167,21 @@ export async function provisionTenant(
       return {
         tenant: insertedTenant,
         owner,
-        ownerCreated: Boolean(insertedUser),
+        ownerCreated,
         passwordSet,
       };
     });
   } catch (e) {
     if (e instanceof ProvisionError) throw e;
-    if (pgCode(e) === "23505") {
-      const constraint = pgConstraint(e);
-      if (constraint.includes("tenants_slug") || constraint.includes("slug")) {
+    const pg = postgresErrorInfo(e);
+    if (pg?.code === "23505") {
+      if (pg.constraint.includes("tenants_slug") || pg.constraint.includes("slug")) {
         throw new ProvisionError("A workspace with that slug already exists", "conflict");
       }
-      if (constraint.includes("email")) {
+      if (pg.constraint.includes("login_id")) {
+        throw new ProvisionError("That user ID is already in use", "conflict");
+      }
+      if (pg.constraint.includes("email")) {
         throw new ProvisionError("That email is already in use", "conflict");
       }
       throw new ProvisionError("A workspace with those details already exists", "conflict");
@@ -148,3 +189,4 @@ export async function provisionTenant(
     throw e;
   }
 }
+

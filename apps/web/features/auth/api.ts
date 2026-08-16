@@ -10,7 +10,8 @@ import {
   getStoredProfile,
   type LoginProfile,
 } from "@/lib/http";
-import { tenantSlugFromLocation } from "@/lib/tenant-host";
+import { hasWorkspacePrivilege, type WorkspacePrivilege } from "@/features/auth/roles";
+import { resolveWorkspaceSlug } from "@/lib/tenant-host";
 
 export type { LoginProfile } from "@/lib/http";
 export {
@@ -54,6 +55,7 @@ export function setWorkspacePrefs(next: WorkspacePrefs): void {
 
 export type ApiMember = {
   id: string;
+  userId: string;
   name: string;
   email: string;
   role: string;
@@ -62,11 +64,16 @@ export type ApiMember = {
 };
 
 /** POST /auth/login - sets httpOnly cookie; returns profile only. */
-export async function login(email: string, password: string): Promise<LoginProfile> {
-  const tenantSlug = tenantSlugFromLocation();
+export async function login(
+  userId: string,
+  email: string,
+  password: string,
+): Promise<LoginProfile> {
+  const tenantSlug = resolveWorkspaceSlug();
   const profile = await publicJsonFetch<LoginProfile>(
     "/auth/login",
     {
+      userId,
       email,
       password,
       ...(tenantSlug ? { tenantSlug } : {}),
@@ -124,13 +131,17 @@ export function removeMember(userId: string): Promise<{ ok: true; id: string; em
   return apiFetch(`/auth/members/${userId}`, { method: "DELETE" });
 }
 
-/** Owner/admin can rename the workspace; agents and reviewers are read-only. */
-export function canEditWorkspace(role: string | null | undefined): boolean {
-  return role === "owner" || role === "admin";
+/** Owner always can; others follow the tenant's role permissions. */
+export function canEditWorkspace(
+  role: string | null | undefined,
+  privileges?: readonly string[] | undefined,
+): boolean {
+  return hasWorkspacePrivilege(role, privileges, "workspace.edit");
 }
 
 export type WorkspaceTenant = {
   id: string;
+  publicId?: string;
   name: string;
   slug: string;
   logoUpdatedAt?: string | null;
@@ -141,6 +152,30 @@ export function workspaceLogoUrl(tenant: {
 } | null | undefined): string | null {
   if (!tenant?.logoUpdatedAt) return null;
   return `${API_URL}/auth/workspace/logo?v=${encodeURIComponent(tenant.logoUpdatedAt)}`;
+}
+
+export type PublicWorkspace = {
+  name: string;
+  slug: string;
+  logoUpdatedAt: string | null;
+};
+
+export function publicWorkspaceLogoUrl(workspace: PublicWorkspace): string | null {
+  if (!workspace.logoUpdatedAt) return null;
+  return `${API_URL}/auth/public/workspace/logo?slug=${encodeURIComponent(workspace.slug)}&v=${encodeURIComponent(workspace.logoUpdatedAt)}`;
+}
+
+export async function fetchPublicWorkspace(slug: string): Promise<PublicWorkspace> {
+  const res = await fetch(`${API_URL}/auth/public/workspace?slug=${encodeURIComponent(slug)}`);
+  const parsed = await res.json().catch(() => null);
+  if (!res.ok) {
+    const message =
+      parsed && typeof parsed === "object" && "message" in parsed && typeof parsed.message === "string"
+        ? parsed.message
+        : "Couldn't load this workspace";
+    throw new Error(message);
+  }
+  return parsed as PublicWorkspace;
 }
 
 /** Fired after workspace/profile cache changes so chrome (sidebar) can refresh. */
@@ -197,7 +232,7 @@ export async function deleteWorkspaceLogo(): Promise<WorkspaceTenant> {
 }
 
 export async function requestPasswordReset(email: string): Promise<void> {
-  const tenantSlug = tenantSlugFromLocation();
+  const tenantSlug = resolveWorkspaceSlug();
   await publicPost(
     "/auth/forgot-password",
     { email, ...(tenantSlug ? { tenantSlug } : {}) },
@@ -207,6 +242,28 @@ export async function requestPasswordReset(email: string): Promise<void> {
 
 export async function resetPassword(token: string, password: string): Promise<void> {
   await publicPost("/auth/reset-password", { token, password }, "Reset failed");
+}
+
+export type WorkspaceRoleGrants = {
+  roles: {
+    role: string;
+    locked: boolean;
+    privileges: WorkspacePrivilege[];
+  }[];
+};
+
+export function listWorkspaceRoleGrants(): Promise<WorkspaceRoleGrants> {
+  return apiFetch("/auth/roles");
+}
+
+export function updateWorkspaceRoleGrants(
+  role: string,
+  privileges: WorkspacePrivilege[],
+): Promise<{ role: string; locked: boolean; privileges: WorkspacePrivilege[] }> {
+  return apiFetch(`/auth/roles/${encodeURIComponent(role)}`, {
+    method: "PUT",
+    body: JSON.stringify({ privileges }),
+  });
 }
 
 export { getStoredProfile as readStoredProfile } from "@/lib/http";

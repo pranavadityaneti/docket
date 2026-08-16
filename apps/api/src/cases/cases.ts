@@ -43,7 +43,7 @@ import {
   MinLength,
 } from "class-validator";
 import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
-import { CurrentUser, JwtAuthGuard, type AuthUser } from "../auth/auth";
+import { AuthModule, CurrentUser, JwtAuthGuard, PrivilegeGuard, RequirePrivilege, type AuthUser } from "../auth/auth";
 import { DbService } from "../db/db";
 import { NudgeService, NudgesModule } from "../nudges/nudges";
 import {
@@ -107,7 +107,7 @@ export class CreateCaseDto {
 
   @IsOptional()
   @IsString()
-  @MaxLength(32)
+  @MaxLength(10)
   phone?: string;
 
   @IsOptional()
@@ -157,7 +157,7 @@ export class UpdateCaseDto {
 
   @IsOptional()
   @IsString()
-  @MaxLength(32)
+  @MaxLength(10)
   phone?: string | null;
 
   @IsOptional()
@@ -846,7 +846,7 @@ export class CasesService {
 }
 
 @Controller("cases")
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PrivilegeGuard)
 export class CasesController {
   constructor(
     private readonly cases: CasesService,
@@ -875,6 +875,7 @@ export class CasesController {
   }
 
   @Post()
+  @RequirePrivilege("cases.create")
   create(@CurrentUser() u: AuthUser, @Body() body: CreateCaseDto) {
     return this.cases.create(u.tenantId, u.userId, body);
   }
@@ -907,6 +908,7 @@ export class CasesController {
   }
 
   @Post("delete")
+  @RequirePrivilege("cases.delete")
   deleteMany(@CurrentUser() u: AuthUser, @Body() body: BulkIdsDto) {
     return this.cases.deleteMany(u.tenantId, u.userId, body.ids);
   }
@@ -946,7 +948,7 @@ export class CasesController {
 }
 
 @Module({
-  imports: [NudgesModule],
+  imports: [AuthModule, NudgesModule],
   controllers: [CasesController],
   providers: [CasesService, ConversationReplyService],
   // Exported for the intake endpoint: a case born from the website must be

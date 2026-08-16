@@ -1,6 +1,7 @@
 import { Injectable, Logger, Module } from "@nestjs/common";
 import { Resend } from "resend";
 import { env } from "../config/env";
+import { resendFrom } from "./from";
 
 /**
  * Transactional email via Resend.
@@ -21,7 +22,7 @@ export class EmailService {
       return;
     }
     const { error } = await this.resend.emails.send({
-      from: env.resendFromEmail,
+      from: resendFrom("Docket", env.resendFromEmail),
       to,
       subject: "Reset your Docket password",
       text:
@@ -33,6 +34,36 @@ export class EmailService {
     // not the account exists, so a send failure must not surface to the user.
     if (error) {
       this.log.error(`Password-reset email to ${to} failed: ${error.message ?? String(error)}`);
+    }
+  }
+
+  async sendWelcomeEmail(
+    to: string,
+    input: {
+      userId: string;
+      email: string;
+      password: string;
+      workspaceName: string;
+      signInUrl: string;
+    },
+  ): Promise<void> {
+    if (!this.resend || !env.resendFromEmail) {
+      this.log.warn(`Resend not configured - skipping welcome email to ${to}`);
+      return;
+    }
+    const { error } = await this.resend.emails.send({
+      from: resendFrom("Docket", env.resendFromEmail),
+      to,
+      subject: `Your ${input.workspaceName} Docket account`,
+      text:
+        `An account was created for you on ${input.workspaceName}.\n\n` +
+        `User ID: ${input.userId}\n` +
+        `Email: ${input.email}\n` +
+        `Password: ${input.password}\n\n` +
+        `Sign in here:\n${input.signInUrl}\n`,
+    });
+    if (error) {
+      this.log.error(`Welcome email to ${to} failed: ${error.message ?? String(error)}`);
     }
   }
 }

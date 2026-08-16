@@ -10,8 +10,8 @@ import { ContactsModule } from "./contacts/contacts";
 import { DbModule } from "./db/db";
 import { DocumentsModule } from "./documents/documents";
 import { IntakeModule } from "./intake/intake";
-import { NudgesModule } from "./nudges/nudges";
 import { NotificationsModule } from "./notifications/notifications";
+import { NudgesModule } from "./nudges/nudges";
 import { OverviewModule } from "./overview/overview";
 import { PlatformModule } from "./platform/platform";
 import { StorageModule } from "./storage/storage";
@@ -35,8 +35,13 @@ class HealthController {
     }),
     // Baseline bucket (ttl in ms). Routes that need to be stricter - /auth/login
     // in particular - override this with @Throttle. Only controllers that opt in
-    // via ThrottlerGuard are actually limited.
-    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]),
+    // via ThrottlerGuard are actually limited. Object form (not a bare array)
+    // is required for errorMessage - otherwise the client sees
+    // "ThrottlerException: Too Many Requests".
+    ThrottlerModule.forRoot({
+      errorMessage: "Too many attempts. Please wait a few minutes and try again.",
+      throttlers: [{ ttl: 60_000, limit: 100 }],
+    }),
     DbModule,
     AuthModule,
     PlatformModule,

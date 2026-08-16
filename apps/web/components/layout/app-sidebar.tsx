@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import * as React from "react";
 
-import { BuildMarker } from "@/components/layout/build-marker";
+import { DocketWatermark } from "@/components/brand/docket-mark";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import {
@@ -20,6 +20,7 @@ import {
   SidebarRail,
 } from "@/components/ui/sidebar";
 import { fetchMe, PROFILE_UPDATED_EVENT, workspaceLogoUrl } from "@/features/auth/api";
+import { canCreateCases } from "@/features/auth/roles";
 import { getStoredProfile, type LoginProfile } from "@/lib/http";
 
 type NavItem = {
@@ -138,7 +139,9 @@ export function AppSidebar() {
   }, []);
 
   const companyName = profile?.tenant.name?.trim() || "Workspace";
+  const tenantId = profile?.tenant.publicId?.trim() || "";
   const mark = tenantMark(companyName);
+  const showCreateCase = canCreateCases(profile?.role, profile?.privileges);
 
   return (
     <Sidebar className="border-sidebar-border">
@@ -159,15 +162,22 @@ export function AppSidebar() {
             <span className="truncate text-[15px] font-semibold tracking-tight">
               {companyName}
             </span>
+            {tenantId ? (
+              <span className="truncate font-mono text-[11px] text-muted-foreground">
+                {tenantId}
+              </span>
+            ) : null}
           </div>
         </Link>
-        <Button
-          className="mt-3 w-full justify-start gap-2"
-          onClick={() => router.push("/cases?new=1")}
-        >
-          <Icon name="add" size={18} />
-          Create new case
-        </Button>
+        {showCreateCase ? (
+          <Button
+            className="mt-3 w-full justify-start gap-2"
+            onClick={() => router.push("/cases?new=1")}
+          >
+            <Icon name="add" size={18} />
+            Create new case
+          </Button>
+        ) : null}
       </SidebarHeader>
 
       <SidebarContent className="px-2 py-1">
@@ -232,14 +242,8 @@ export function AppSidebar() {
         ))}
       </SidebarContent>
 
-      {/* Which deployment you are looking at - see build-marker.tsx. */}
-      <SidebarFooter className="border-t border-sidebar-border px-4 py-3">
-        <div className="flex items-end justify-between gap-2">
-          <span className="select-none text-[10px] font-medium tracking-[0.16em] text-muted-foreground/40">
-            by Docket
-          </span>
-          <BuildMarker />
-        </div>
+      <SidebarFooter className="border-t border-sidebar-border px-4 py-4">
+        <DocketWatermark />
       </SidebarFooter>
 
       <SidebarRail />

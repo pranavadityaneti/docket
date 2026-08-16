@@ -22,7 +22,7 @@ async function bootstrap() {
   const { AppModule } = await import("./app.module");
 
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
-    logger: ["error", "warn", "log"],
+    logger: env.isProd ? ["error", "warn", "log"] : ["error", "warn", "log", "debug", "verbose"],
     // Nest's default parsers are installed globally, which would consume the
     // request stream on the raw upload route before the handler can read it -
     // a file uploaded as application/json would silently arrive as 0 bytes.
@@ -59,6 +59,9 @@ async function bootstrap() {
   if (env.isProd) app.set("trust proxy", 1);
 
   app.enableCors({ origin: env.corsOrigin, credentials: true });
+  const { AllExceptionsFilter, requestLoggingMiddleware } = await import("./http/logging");
+  app.use(requestLoggingMiddleware);
+  app.useGlobalFilters(new AllExceptionsFilter());
   // Reject malformed payloads at the edge: strip unknown fields, 400 on any
   // extra field, and coerce/validate declared fields against each DTO.
   app.useGlobalPipes(

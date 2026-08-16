@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 export type SelectOption = {
   value: string;
   label: string;
+  description?: string;
   disabled?: boolean;
 };
 
@@ -80,7 +81,7 @@ export function SelectMenu({
       <DropdownMenuContent
         align="start"
         className={cn(
-          "max-h-64 min-w-[var(--anchor-width,12rem)] overflow-y-auto rounded-[12px]",
+          "max-h-80 min-w-[var(--anchor-width,12rem)] overflow-y-auto rounded-[12px]",
           size === "sm" && "min-w-44 text-[11px]",
         )}
       >
@@ -91,15 +92,22 @@ export function SelectMenu({
               <DropdownMenuItem
                 key={`${opt.value}::${opt.label}`}
                 disabled={opt.disabled}
-                className="gap-2"
+                className={cn("gap-2", opt.description && "items-start py-1.5")}
                 onClick={() => {
                   if (opt.disabled || opt.value === value) return;
                   onChange(opt.value);
                 }}
               >
-                <span className="min-w-0 flex-1 truncate">{opt.label}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate">{opt.label}</span>
+                  {opt.description ? (
+                    <span className="mt-0.5 block text-xs leading-snug text-foreground/70">
+                      {opt.description}
+                    </span>
+                  ) : null}
+                </span>
                 {isCurrent ? (
-                  <Icon name="check" size={14} className="shrink-0 text-primary" />
+                  <Icon name="check" size={14} className="mt-0.5 shrink-0 text-primary" />
                 ) : null}
               </DropdownMenuItem>
             );

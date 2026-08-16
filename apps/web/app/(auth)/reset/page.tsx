@@ -5,11 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { resetPassword } from "@/features/auth/api";
 import { AuthCardHeader, AuthShell } from "@/features/auth/components/auth-shell";
+import { PASSWORD_MIN } from "@/lib/validators";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import * as React from "react";
-
-const MIN_LENGTH = 12;
 
 function ResetForm() {
   const router = useRouter();
@@ -45,8 +44,8 @@ function ResetForm() {
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    if (password.length < MIN_LENGTH) {
-      setError(`Use at least ${MIN_LENGTH} characters.`);
+    if (password.length < PASSWORD_MIN) {
+      setError(`Use at least ${PASSWORD_MIN} characters.`);
       return;
     }
     if (password !== confirm) {
@@ -69,7 +68,7 @@ function ResetForm() {
       <AuthCardHeader
         icon={<Icon name="lock_reset" size={20} />}
         title="Choose a new password"
-        description={`Use at least ${MIN_LENGTH} characters.`}
+        description={`Use at least ${PASSWORD_MIN} characters.`}
       />
       <form onSubmit={submit} className="flex flex-col gap-4 p-6">
         <div className="flex flex-col gap-1.5">
@@ -82,7 +81,7 @@ function ResetForm() {
             required
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="At least 12 characters"
+            placeholder="At least 6 characters"
           />
         </div>
         <div className="flex flex-col gap-1.5">

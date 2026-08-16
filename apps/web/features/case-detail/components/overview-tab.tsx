@@ -18,6 +18,20 @@ import { updateCase } from "@/features/cases/api";
 import type { ApiFieldDef } from "@/features/workflows/api";
 import { formatDate } from "@/lib/format";
 import { AuthRequiredError } from "@/lib/http";
+import {
+  EMAIL_MAX,
+  ORGANISATION_MAX,
+  PERSON_NAME_MAX,
+  PHONE_MAX,
+  sanitizeEmail,
+  sanitizePhone,
+  setKeyedError,
+  validateContactForm,
+  validateEmail,
+  validateOrganisation,
+  validatePersonName,
+  validatePhone,
+} from "@/lib/validators";
 import * as React from "react";
 
 function humanise(key: string): string {
@@ -168,10 +182,20 @@ export function OverviewTab({
     setEditing(true);
   }
 
+  function patchError(key: string, message: string | null) {
+    setErrors((prev) => setKeyedError(prev, key, message));
+  }
+
+  const nameLabel = `${subject} name`;
+
   async function save() {
-    const nextErrors: Record<string, string> = {};
-    if (!name.trim()) nextErrors.__name = `${subject} name is required.`;
-    if (email.trim() && !email.includes("@")) nextErrors.__email = "That does not look like an email.";
+    const nextErrors = validateContactForm({
+      name,
+      organisation,
+      email,
+      phone,
+      nameLabel,
+    });
     for (const field of sorted) {
       const message = validateField(field, values[field.field_key] ?? "");
       if (message) nextErrors[field.field_key] = message;
@@ -266,19 +290,62 @@ export function OverviewTab({
         <div className="border-b p-4 font-medium">{subject}</div>
         <div className="p-4">
           <Field label="Full name" error={errors.__name} required>
-            <Input value={name} onChange={(event) => setName(event.target.value)} />
+            <Input
+              value={name}
+              maxLength={PERSON_NAME_MAX}
+              aria-invalid={errors.__name ? true : undefined}
+              onChange={(event) => {
+                const next = event.target.value;
+                setName(next);
+                if (errors.__name) patchError("__name", validatePersonName(next, { label: nameLabel }));
+              }}
+              onBlur={() => patchError("__name", validatePersonName(name, { label: nameLabel }))}
+            />
           </Field>
           <div className="mt-3">
-            <Field label="Organisation">
-              <Input value={organisation} onChange={(event) => setOrganisation(event.target.value)} />
+            <Field label="Organisation" error={errors.__organisation}>
+              <Input
+                value={organisation}
+                maxLength={ORGANISATION_MAX}
+                aria-invalid={errors.__organisation ? true : undefined}
+                onChange={(event) => {
+                  const next = event.target.value;
+                  setOrganisation(next);
+                  if (errors.__organisation) patchError("__organisation", validateOrganisation(next));
+                }}
+                onBlur={() => patchError("__organisation", validateOrganisation(organisation))}
+              />
             </Field>
           </div>
           <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Field label="Email" error={errors.__email}>
-              <Input type="email" value={email} onChange={(event) => setEmail(event.target.value)} />
+              <Input
+                type="email"
+                value={email}
+                maxLength={EMAIL_MAX}
+                aria-invalid={errors.__email ? true : undefined}
+                onChange={(event) => {
+                  const next = sanitizeEmail(event.target.value);
+                  setEmail(next);
+                  if (errors.__email) patchError("__email", validateEmail(next));
+                }}
+                onBlur={() => patchError("__email", validateEmail(email))}
+              />
             </Field>
-            <Field label="Phone">
-              <Input value={phone} onChange={(event) => setPhone(event.target.value)} />
+            <Field label="Phone" error={errors.__phone}>
+              <Input
+                value={phone}
+                maxLength={PHONE_MAX}
+                inputMode="tel"
+                autoComplete="tel"
+                aria-invalid={errors.__phone ? true : undefined}
+                onChange={(event) => {
+                  const next = sanitizePhone(event.target.value);
+                  setPhone(next);
+                  if (errors.__phone) patchError("__phone", validatePhone(next));
+                }}
+                onBlur={() => patchError("__phone", validatePhone(phone))}
+              />
             </Field>
           </div>
           <div className="mt-3 inline-flex max-w-xl items-start gap-1.5 rounded-[12px] border border-warning-border bg-warning-muted px-3 py-2 text-xs text-warning-muted-foreground">
@@ -300,8 +367,14 @@ export function OverviewTab({
                 field={field}
                 value={values[field.field_key] ?? ""}
                 error={errors[field.field_key]}
-                onChange={(value) =>
-                  setValues((previous) => ({ ...previous, [field.field_key]: value }))
+                onChange={(value) => {
+                  setValues((previous) => ({ ...previous, [field.field_key]: value }));
+                  if (errors[field.field_key]) {
+                    patchError(field.field_key, validateField(field, value));
+                  }
+                }}
+                onBlur={(value) =>
+                  patchError(field.field_key, validateField(field, value))
                 }
               />
             ))}

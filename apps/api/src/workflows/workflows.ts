@@ -47,8 +47,8 @@ import { and, asc, count, eq, inArray, isNull } from "drizzle-orm";
 import {
   CurrentUser,
   JwtAuthGuard,
-  Roles,
-  RolesGuard,
+  PrivilegeGuard,
+  RequirePrivilege,
   AuthModule,
   type AuthUser,
 } from "../auth/auth";
@@ -812,7 +812,7 @@ export class WorkflowsService {
 /* ------------------------------------------------------------------ */
 
 @Controller("workflows")
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, PrivilegeGuard)
 export class WorkflowsController {
   constructor(private readonly workflows: WorkflowsService) {}
 
@@ -822,7 +822,7 @@ export class WorkflowsController {
   }
 
   @Post()
-  @Roles("owner", "admin")
+  @RequirePrivilege("workflows.edit")
   create(@CurrentUser() u: AuthUser, @Body() body: CreateWorkflowDto) {
     return this.workflows.create(u.tenantId, body);
   }
@@ -834,7 +834,7 @@ export class WorkflowsController {
   }
 
   @Put(":slug/stages")
-  @Roles("owner", "admin")
+  @RequirePrivilege("workflows.edit")
   putStages(
     @CurrentUser() u: AuthUser,
     @Param("slug") slug: string,
@@ -849,7 +849,7 @@ export class WorkflowsController {
   }
 
   @Put(":slug/fields")
-  @Roles("owner", "admin")
+  @RequirePrivilege("workflows.edit")
   putFields(
     @CurrentUser() u: AuthUser,
     @Param("slug") slug: string,
@@ -864,7 +864,7 @@ export class WorkflowsController {
   }
 
   @Put(":slug/requirements")
-  @Roles("owner", "admin")
+  @RequirePrivilege("workflows.edit")
   putRequirements(
     @CurrentUser() u: AuthUser,
     @Param("slug") slug: string,
@@ -879,7 +879,7 @@ export class WorkflowsController {
   }
 
   @Patch(":slug")
-  @Roles("owner", "admin")
+  @RequirePrivilege("workflows.edit")
   update(
     @CurrentUser() u: AuthUser,
     @Param("slug") slug: string,
@@ -889,7 +889,7 @@ export class WorkflowsController {
   }
 
   @Delete(":slug")
-  @Roles("owner", "admin")
+  @RequirePrivilege("workflows.edit")
   delete(@CurrentUser() u: AuthUser, @Param("slug") slug: string) {
     return this.workflows.delete(u.tenantId, slug);
   }

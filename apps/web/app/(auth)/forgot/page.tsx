@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
 import { requestPasswordReset } from "@/features/auth/api";
-import { AuthCardHeader, AuthShell } from "@/features/auth/components/auth-shell";
+import { sanitizeEmail } from "@/lib/validators";
+import { AuthCardHeader, AuthShell, useAuthWorkspace } from "@/features/auth/components/auth-shell";
 import Link from "next/link";
 import * as React from "react";
 
@@ -13,6 +14,23 @@ import * as React from "react";
  * registered, so on a completed request we always show the same neutral
  * confirmation - never "no such account".
  */
+function ForgotHeader({ sent }: { sent: boolean }) {
+  const { tenant } = useAuthWorkspace();
+  return (
+    <AuthCardHeader
+      icon={<Icon name={sent ? "mark_email_read" : "lock_reset"} size={20} />}
+      title="Reset your password"
+      description={
+        sent
+          ? "Check your inbox for the next step."
+          : tenant
+            ? `Enter your email and we'll send a reset link for ${tenant.name}.`
+            : "Enter your email and we'll send you a reset link."
+      }
+    />
+  );
+}
+
 export default function ForgotPasswordPage() {
   const [email, setEmail] = React.useState("");
   const [sent, setSent] = React.useState(false);
@@ -26,10 +44,10 @@ export default function ForgotPasswordPage() {
     try {
       await requestPasswordReset(email.trim());
       setSent(true);
-    } catch {
-      // Only a genuine network/5xx failure reaches here - the API returns ok
-      // whether or not the email exists, so this is not "no such account".
-      setError("Couldn't reach the server. Please try again.");
+    } catch (err) {
+      // Account existence is never revealed (API always returns ok). A thrown
+      // error is rate-limit, validation, or a genuine network/5xx failure.
+      setError(err instanceof Error ? err.message : "Couldn't reach the server. Please try again.");
     } finally {
       setSubmitting(false);
     }
@@ -37,15 +55,7 @@ export default function ForgotPasswordPage() {
 
   return (
     <AuthShell>
-      <AuthCardHeader
-        icon={<Icon name={sent ? "mark_email_read" : "lock_reset"} size={20} />}
-        title="Reset your password"
-        description={
-          sent
-            ? "Check your inbox for the next step."
-            : "Enter your email and we'll send you a reset link."
-        }
-      />
+      <ForgotHeader sent={sent} />
 
       {sent ? (
         <div className="flex flex-col gap-4 p-6">
@@ -74,7 +84,7 @@ export default function ForgotPasswordPage() {
               autoComplete="username"
               required
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => setEmail(sanitizeEmail(e.target.value))}
               placeholder="you@company.com"
             />
           </div>

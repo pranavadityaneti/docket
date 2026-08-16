@@ -1,3 +1,4 @@
+import { hasWorkspacePrivilege } from "@/features/auth/roles";
 import { apiFetch } from "@/lib/http";
 
 /** Shape returned by GET /workflows/:slug/stages. */
@@ -162,7 +163,10 @@ export function putRequirements(
   });
 }
 
-/** Owner/admin can mutate workflows; agents and reviewers are read-only. */
-export function canEditWorkflows(role: string | null | undefined): boolean {
-  return role === "owner" || role === "admin";
+/** Owner always can; others follow the tenant's role permissions. */
+export function canEditWorkflows(
+  role: string | null | undefined,
+  privileges?: readonly string[] | undefined,
+): boolean {
+  return hasWorkspacePrivilege(role, privileges, "workflows.edit");
 }

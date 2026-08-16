@@ -142,6 +142,8 @@ export type RequirementCondition = {
 
 export const tenants = pgTable("tenants", {
   id: uuid("id").primaryKey().defaultRandom(),
+  /** Server-issued public Tenant ID (`DPT-XXXXXXX`). Distinct from the UUID. */
+  publicId: text("public_id").notNull().unique(),
   name: text("name").notNull(),
   slug: text("slug").notNull().unique(),
   plan: text("plan").notNull().default("trial"),
@@ -151,6 +153,8 @@ export const tenants = pgTable("tenants", {
 
 export const users = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),
+  /** Server-issued User ID (`DPU-XXXXXXX`). Required with email + password at sign-in. */
+  loginId: text("login_id").notNull().unique(),
   email: text("email").notNull().unique(),
   name: text("name").notNull(),
   avatarUrl: text("avatar_url"),
@@ -202,6 +206,24 @@ export const platformRolePrivileges = pgTable("platform_role_privileges", {
   privileges: jsonb("privileges").$type<string[]>().notNull().default(sql`'[]'::jsonb`),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+/**
+ * Per-tenant privilege templates for Admin / Agent / Reviewer.
+ * Owner always has every permission and is not stored here.
+ */
+export const workspaceRolePrivileges = pgTable(
+  "workspace_role_privileges",
+  {
+    tenantId: uuid("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
+    role: text("role", { enum: ["admin", "agent", "reviewer"] }).notNull(),
+    privileges: jsonb("privileges").$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("workspace_role_privileges_tenant_role_uq").on(t.tenantId, t.role),
+    index("workspace_role_privileges_tenant_idx").on(t.tenantId),
+  ],
+);
 
 /**
  * One-time password-reset tokens. GLOBAL (per-user), not tenant-scoped: a reset
@@ -365,9 +387,9 @@ export const cases = pgTable(
     contactId: uuid("contact_id").references(() => contacts.id, { onDelete: "set null" }),
     stageId: uuid("stage_id").references(() => workflowStages.id, { onDelete: "set null" }),
     ownerId: uuid("owner_id").references(() => users.id, { onDelete: "set null" }),
-    // Human-readable handle (DKT-7F3K2M). Quoted in WhatsApp and email, and
-    // read aloud to the voice bot - hence a short, unambiguous alphabet
-    // rather than a UUID or a sequence. See generateCaseReference().
+    // Server-issued handle (DPC-XXXXXXX). Quoted in WhatsApp and email, and
+    // read aloud to the voice bot — hence a short alphanumeric code rather
+    // than a UUID. See generateCaseReference().
     reference: text("reference").notNull(),
     // How the case arrived (Website, WhatsApp, Email, Referral, Import, API).
     // Structural, not domain-specific - it describes the channel, not the industry.
@@ -524,7 +546,7 @@ export const documents = pgTable(
     /**
      * Set when this document was carried over from another case of the same
      * subject rather than collected again. Keeps the audit trail honest: staff
-     * can see it was originally supplied on DKT-7F3K2M in March.
+     * can see it was originally supplied on DPC-A12B3C4 in March.
      */
     reusedFromId: uuid("reused_from_id").references((): AnyPgColumn => documents.id, {
       onDelete: "set null",

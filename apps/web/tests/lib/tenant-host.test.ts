@@ -1,4 +1,9 @@
-import { matchTenantHost, originForSlug, tenantSlugFromLocation } from "@/lib/tenant-host";
+import {
+  matchTenantHost,
+  originForSlug,
+  resolveWorkspaceSlug,
+  tenantSlugFromLocation,
+} from "@/lib/tenant-host";
 import { describe, expect, it } from "vitest";
 
 describe("matchTenantHost", () => {
@@ -31,5 +36,25 @@ describe("matchTenantHost", () => {
 
   it("reads location helper", () => {
     expect(tenantSlugFromLocation("summit-uat.finlot.ai")).toBe("summit");
+  });
+
+  it("parses local tenant hosts", () => {
+    expect(matchTenantHost("test-tenant.localhost")).toEqual({
+      slug: "test-tenant",
+      origin: "http://test-tenant.localhost",
+      kind: "local",
+    });
+    expect(tenantSlugFromLocation("acme.lvh.me")).toBe("acme");
+    expect(matchTenantHost("localhost")).toBeNull();
+  });
+
+  it("resolves slug from host or query", () => {
+    expect(resolveWorkspaceSlug({ hostname: "localhost", search: "?workspace=test-tenant" })).toBe(
+      "test-tenant",
+    );
+    expect(resolveWorkspaceSlug({ hostname: "acme.finlot.ai", search: "?workspace=other" })).toBe(
+      "acme",
+    );
+    expect(resolveWorkspaceSlug({ hostname: "localhost", search: "" })).toBeNull();
   });
 });

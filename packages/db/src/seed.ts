@@ -1,6 +1,7 @@
 import { createDb } from "./client";
 import * as schema from "./schema";
 import { hashPassword } from "./password";
+import { generatePublicId } from "./public-id";
 import {
   DOCUMENT_REQUIREMENTS,
   LEAD_FIELDS,
@@ -15,13 +16,19 @@ async function main() {
 
   const [tenant] = await db
     .insert(schema.tenants)
-    .values({ name: "Finlot (Demo)", slug: "finlot", plan: "trial" })
+    .values({
+      name: "Finlot (Demo)",
+      slug: "finlot",
+      plan: "trial",
+      publicId: generatePublicId("tenant"),
+    })
     .returning();
 
   const adminPassword = process.env.SEED_ADMIN_PASSWORD ?? "DocketAdmin!2026";
   const [user] = await db
     .insert(schema.users)
     .values({
+      loginId: generatePublicId("user"),
       email: "admin@finlot.ai",
       name: "Demo Admin",
       passwordHash: await hashPassword(adminPassword),
@@ -68,7 +75,8 @@ async function main() {
   );
 
   console.log(`Seeded tenant "${tenant.slug}" with the Business Loan workflow (${STAGES.length} stages, ${LEAD_FIELDS.length} fields, ${DOCUMENT_REQUIREMENTS.length} document requirements).`);
-  console.log(`Admin login: admin@finlot.ai / ${adminPassword}`);
+  console.log(`Admin login: ${user.loginId} / admin@finlot.ai / ${adminPassword}`);
+  console.log(`Tenant ID: ${tenant.publicId}`);
   process.exit(0);
 }
 

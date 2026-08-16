@@ -35,3 +35,7 @@ services/classifier/.venv
 services/classifier/training/datasets/blobs
 services/classifier/training/checkpoints
 
+
+
+# local prod data exports (never commit)
+.tmp-prod-dump/

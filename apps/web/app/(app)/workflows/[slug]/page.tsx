@@ -147,7 +147,7 @@ function SectionHeader({
 export default function WorkflowEditorPage() {
   const params = useParams<{ slug: string }>();
   const slug = decodeURIComponent(params.slug ?? "");
-  const canEdit = canEditWorkflows(getStoredProfile()?.role);
+  const canEdit = canEditWorkflows(getStoredProfile()?.role, getStoredProfile()?.privileges);
 
   const [workflow, setWorkflow] = React.useState<ApiWorkflow | null>(null);
   const [name, setName] = React.useState("");

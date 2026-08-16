@@ -98,7 +98,7 @@ export function DeleteDialog({
               {deletable.length > 0 ? (
                 <div className="mb-3">
                   <div className="mb-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                    Will be deleted ({deletable.length})
+                    Will be deleted
                   </div>
                   <div className="flex flex-col gap-1">
                     {deletable.map((l) => (
@@ -121,7 +121,7 @@ export function DeleteDialog({
               {blocked.length > 0 ? (
                 <div>
                   <div className="mb-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                    Cannot be deleted ({blocked.length})
+                    Cannot be deleted
                   </div>
                   <div className="flex flex-col gap-1">
                     {blocked.map((l) => (
@@ -177,7 +177,7 @@ export function DeleteDialog({
               </>
             ) : (
               <>
-                <Icon name="delete" size={16} /> Delete {deletable.length || ""}
+                <Icon name="delete" size={16} /> Delete
               </>
             )}
           </Button>

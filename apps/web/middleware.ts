@@ -1,5 +1,5 @@
 import { matchTenantHost } from "@/lib/tenant-host";
-import type { NextRequest } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 
 const AUTH_COOKIE = "docket_token";
 const ADMIN_SESSION_COOKIE = "docket_admin_session";

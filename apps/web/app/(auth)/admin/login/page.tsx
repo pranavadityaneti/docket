@@ -1,6 +1,5 @@
 "use client";
 
-import { BuildMarker } from "@/components/layout/build-marker";
 import { PasswordInput } from "@/components/shared/password-input";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
@@ -12,6 +11,7 @@ import {
   platformBootstrap,
   platformLogin,
 } from "@/features/platform/api";
+import { sanitizeEmail } from "@/lib/validators";
 import { useRouter, useSearchParams } from "next/navigation";
 import * as React from "react";
 
@@ -73,7 +73,7 @@ function AdminLoginForm() {
           autoComplete="username"
           required
           value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          onChange={(e) => setEmail(sanitizeEmail(e.target.value))}
           placeholder="you@finlot.ai"
         />
       </div>
@@ -117,6 +117,7 @@ function AdminLoginForm() {
 export default function AdminLoginPage() {
   return (
     <AuthShell
+      resolveTenant={false}
       brandHref="/admin/login"
       kicker="Platform console"
       headline={

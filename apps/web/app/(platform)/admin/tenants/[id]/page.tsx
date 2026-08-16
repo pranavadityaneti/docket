@@ -14,12 +14,15 @@ import {
   getPlatformTenant,
   updatePlatformTenant,
   updatePlatformTenantCredentials,
+  type PlatformTenantDetail,
 } from "@/features/platform/api";
-import { TenantLogoMark } from "@/features/platform/tenant-logo";
 import { usePlatformPrivilege } from "@/features/platform/session";
+import { tenantEditorSeed } from "@/features/platform/tenant-editor";
+import { TenantLogoMark } from "@/features/platform/tenant-logo";
 import { useAsyncResource } from "@/hooks/use-async-resource";
 import { formatDate } from "@/lib/format";
 import { AuthRequiredError } from "@/lib/http";
+import { sanitizeEmail } from "@/lib/validators";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import * as React from "react";
@@ -39,10 +42,44 @@ export default function TenantDetailPage() {
     { fallbackError: "Couldn't load this workspace." },
   );
 
-  const [name, setName] = React.useState("");
-  const [plan, setPlan] = React.useState("trial");
-  const [ownerName, setOwnerName] = React.useState("");
-  const [ownerEmail, setOwnerEmail] = React.useState("");
+  if (loading && !data) return <PageSkeleton />;
+  if (error && !data) return <LoadErrorState error={error} onRetry={reload} />;
+  if (!data) return <PageSkeleton />;
+
+  return (
+    <TenantDetailEditor
+      key={data.id}
+      data={data}
+      canWrite={canWrite}
+      canCredentials={canCredentials}
+      canDelete={canDelete}
+      onReload={reload}
+      onDeleted={() => router.push("/admin/tenants")}
+    />
+  );
+}
+
+function TenantDetailEditor({
+  data,
+  canWrite,
+  canCredentials,
+  canDelete,
+  onReload,
+  onDeleted,
+}: {
+  data: PlatformTenantDetail;
+  canWrite: boolean;
+  canCredentials: boolean;
+  canDelete: boolean;
+  onReload: () => void;
+  onDeleted: () => void;
+}) {
+  const seed = tenantEditorSeed(data);
+  const [name, setName] = React.useState(seed.name);
+  const [plan, setPlan] = React.useState(seed.plan);
+  const [ownerName, setOwnerName] = React.useState(seed.ownerName);
+  const ownerUserId = seed.ownerUserId;
+  const [ownerEmail, setOwnerEmail] = React.useState(seed.ownerEmail);
   const [ownerPassword, setOwnerPassword] = React.useState("");
   const [savingTenant, setSavingTenant] = React.useState(false);
   const [savingCreds, setSavingCreds] = React.useState(false);
@@ -51,22 +88,13 @@ export default function TenantDetailPage() {
   const [credsNotice, setCredsNotice] = React.useState<string | null>(null);
   const [deleteOpen, setDeleteOpen] = React.useState(false);
 
-  React.useEffect(() => {
-    if (!data) return;
-    setName(data.name);
-    setPlan(data.plan);
-    setOwnerName(data.owner?.name ?? "");
-    setOwnerEmail(data.owner?.email ?? "");
-    setOwnerPassword("");
-  }, [data]);
-
   async function saveTenant(e: React.FormEvent) {
     e.preventDefault();
     setSavingTenant(true);
     setTenantError(null);
     try {
-      await updatePlatformTenant(id, { name, plan });
-      reload();
+      await updatePlatformTenant(data.id, { name, plan });
+      onReload();
     } catch (err) {
       if (err instanceof AuthRequiredError) return;
       setTenantError(err instanceof Error ? err.message : "Couldn't update the workspace.");
@@ -81,7 +109,7 @@ export default function TenantDetailPage() {
     setCredsError(null);
     setCredsNotice(null);
     try {
-      const result = await updatePlatformTenantCredentials(id, {
+      const result = await updatePlatformTenantCredentials(data.id, {
         name: ownerName,
         email: ownerEmail,
         ...(ownerPassword ? { password: ownerPassword } : {}),
@@ -92,7 +120,7 @@ export default function TenantDetailPage() {
           ? "Owner details and password updated."
           : "Owner details updated. Password unchanged.",
       );
-      reload();
+      onReload();
     } catch (err) {
       if (err instanceof AuthRequiredError) return;
       setCredsError(err instanceof Error ? err.message : "Couldn't update credentials.");
@@ -100,10 +128,6 @@ export default function TenantDetailPage() {
       setSavingCreds(false);
     }
   }
-
-  if (loading && !data) return <PageSkeleton />;
-  if (error && !data) return <LoadErrorState error={error} onRetry={reload} />;
-  if (!data) return <PageSkeleton />;
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-5">
@@ -119,7 +143,8 @@ export default function TenantDetailPage() {
             </Link>
             <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">{data.name}</h1>
             <p className="text-sm text-muted-foreground">
-              {data.slug} · created {formatDate(data.createdAt)}
+              <span className="font-mono">{data.publicId}</span> · {data.slug} · created{" "}
+              {formatDate(data.createdAt)}
             </p>
           </div>
         </div>
@@ -134,9 +159,17 @@ export default function TenantDetailPage() {
         <Card className="gap-0 border-0 py-0">
           <CardHeader className="px-4 py-4">
             <CardTitle className="text-base font-semibold">Workspace</CardTitle>
-            <CardDescription>Slug stays fixed — it is the host key, not a label.</CardDescription>
+            <CardDescription>
+              Tenant ID and slug stay fixed — the ID is server-issued, the slug is the host key.
+            </CardDescription>
           </CardHeader>
           <CardContent className="grid gap-4 border-t border-border/60 px-4 py-4">
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="ws-public-id" className="text-sm font-medium">
+                Tenant ID
+              </label>
+              <Input id="ws-public-id" readOnly value={data.publicId} className="font-mono" />
+            </div>
             <div className="flex flex-col gap-1.5">
               <label htmlFor="ws-name" className="text-sm font-medium">
                 Name
@@ -211,6 +244,13 @@ export default function TenantDetailPage() {
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
+                  <label htmlFor="cred-login-id" className="text-sm font-medium">
+                    User ID
+                  </label>
+                  <Input id="cred-login-id" readOnly value={ownerUserId} className="font-mono" />
+                  <p className="text-xs text-muted-foreground">Assigned automatically. Cannot be changed.</p>
+                </div>
+                <div className="flex flex-col gap-1.5">
                   <label htmlFor="cred-email" className="text-sm font-medium">
                     Email
                   </label>
@@ -220,7 +260,7 @@ export default function TenantDetailPage() {
                     required
                     value={ownerEmail}
                     disabled={!canCredentials}
-                    onChange={(e) => setOwnerEmail(e.target.value)}
+                    onChange={(e) => setOwnerEmail(sanitizeEmail(e.target.value))}
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
@@ -273,7 +313,10 @@ export default function TenantDetailPage() {
               <div key={m.id} className="flex items-center gap-3 px-4 py-3">
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-sm font-medium">{m.name}</div>
-                  <div className="truncate text-xs text-muted-foreground">{m.email}</div>
+                  <div className="truncate text-xs text-muted-foreground">
+                    {m.userId ? `${m.userId} · ` : ""}
+                    {m.email}
+                  </div>
                 </div>
                 <Badge variant="secondary">{m.role}</Badge>
               </div>
@@ -297,7 +340,7 @@ export default function TenantDetailPage() {
           loading={false}
           onConfirm={async () => {
             await deletePlatformTenant(data.id);
-            router.push("/admin/tenants");
+            onDeleted();
           }}
         />
       ) : null}

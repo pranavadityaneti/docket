@@ -20,10 +20,11 @@ import {
   type Stage,
   type View,
 } from "@/features/cases/components";
+import { canCreateCases } from "@/features/auth/roles";
 import type { ApiStage, ApiWorkflow } from "@/features/workflows/api";
 import { listStages, listWorkflows } from "@/features/workflows/api";
 import { plural } from "@/lib/format";
-import { AuthRequiredError } from "@/lib/http";
+import { AuthRequiredError, getStoredProfile, type LoginProfile } from "@/lib/http";
 import { useRouter, useSearchParams } from "next/navigation";
 import * as React from "react";
 
@@ -51,6 +52,13 @@ function CasesPage() {
   const [moveError, setMoveError] = React.useState<string | null>(null);
   const [createOpen, setCreateOpen] = React.useState(false);
   const refreshGen = React.useRef(0);
+  const [profile, setProfile] = React.useState<LoginProfile | null>(null);
+  const [profileReady, setProfileReady] = React.useState(false);
+  React.useEffect(() => {
+    setProfile(getStoredProfile());
+    setProfileReady(true);
+  }, []);
+  const showCreateCase = canCreateCases(profile?.role, profile?.privileges);
 
   // No auth checks here by design: AppChrome won't render this page without a
   // session, and it redirects centrally if the API rejects the token. These
@@ -166,11 +174,12 @@ function CasesPage() {
   // case"). Depend on searchParams so it still fires when you're already on
   // /cases - a mount-only effect silently no-ops on soft navigation.
   React.useEffect(() => {
-    if (searchParams.get("new") !== "1") return;
+    if (!profileReady || searchParams.get("new") !== "1") return;
+    router.replace("/cases", { scroll: false });
+    if (!showCreateCase) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setCreateOpen(true);
-    router.replace("/cases", { scroll: false });
-  }, [searchParams, router]);
+  }, [searchParams, router, showCreateCase, profileReady]);
 
   return (
     <div className="flex w-full flex-col gap-4 sm:gap-5">
@@ -200,12 +209,14 @@ function CasesPage() {
               setSelectedSlug(slug);
             }}
           />
-          <Button
-            className="min-w-0 flex-1 gap-1.5 sm:flex-none"
-            onClick={() => setCreateOpen(true)}
-          >
-            <Icon name="add" size={18} /> New {caseLabel.toLowerCase()}
-          </Button>
+          {showCreateCase ? (
+            <Button
+              className="min-w-0 flex-1 gap-1.5 sm:flex-none"
+              onClick={() => setCreateOpen(true)}
+            >
+              <Icon name="add" size={18} /> New {caseLabel.toLowerCase()}
+            </Button>
+          ) : null}
         </div>
       </div>
 
@@ -297,6 +308,7 @@ function CasesPage() {
         onOpenChange={setCreateOpen}
         workflows={workflows}
         selectedSlug={selectedSlug}
+        loading={loading}
         onCreate={async (input) => {
           try {
             // Honour the dialog's "What is this for?" choice. Fall back to the

@@ -36,6 +36,7 @@ import { usePlatformPrivilege } from "@/features/platform/session";
 import { useAsyncResource } from "@/hooks/use-async-resource";
 import { formatDate } from "@/lib/format";
 import { AuthRequiredError } from "@/lib/http";
+import { sanitizeEmail, sanitizeSlug } from "@/lib/validators";
 import { useRouter, useSearchParams } from "next/navigation";
 import * as React from "react";
 
@@ -72,7 +73,9 @@ function TenantTable({
                   <TenantLogoMark tenant={t} />
                   <div className="min-w-0">
                     <div className="truncate font-medium">{t.name}</div>
-                    <div className="truncate text-xs text-muted-foreground">{t.slug}</div>
+                    <div className="truncate font-mono text-xs text-muted-foreground">
+                      {t.publicId} · {t.slug}
+                    </div>
                   </div>
                 </div>
               </TableCell>
@@ -80,7 +83,10 @@ function TenantTable({
                 {t.owner ? (
                   <>
                     <div className="text-sm">{t.owner.name}</div>
-                    <div className="text-xs text-muted-foreground">{t.owner.email}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {t.owner.userId ? `${t.owner.userId} · ` : ""}
+                      {t.owner.email}
+                    </div>
                   </>
                 ) : (
                   <span className="text-muted-foreground">—</span>
@@ -170,7 +176,8 @@ function CreateTenantDialog({
           <DialogHeader className="border-b pr-10">
             <DialogTitle>New tenant</DialogTitle>
             <DialogDescription>
-              Creates a workspace and its owner login. They sign in at /login, not this console.
+              Creates a workspace and its owner. Tenant ID and user ID are assigned automatically;
+              the owner is emailed their user ID, email, and password.
             </DialogDescription>
           </DialogHeader>
           <div className="grid max-h-[60vh] gap-4 overflow-y-auto px-5 py-4">
@@ -197,7 +204,7 @@ function CreateTenantDialog({
                   value={slug}
                   onChange={(e) => {
                     setSlugTouched(true);
-                    setSlug(e.target.value.toLowerCase());
+                    setSlug(sanitizeSlug(e.target.value));
                   }}
                   placeholder="harbor"
                 />
@@ -235,7 +242,7 @@ function CreateTenantDialog({
                 type="email"
                 required
                 value={ownerEmail}
-                onChange={(e) => setOwnerEmail(e.target.value)}
+                onChange={(e) => setOwnerEmail(sanitizeEmail(e.target.value))}
                 placeholder="priya@harbor.test"
               />
             </div>
@@ -295,7 +302,7 @@ function TenantsPageInner() {
     const q = query.trim().toLowerCase();
     if (!q || !data) return data ?? [];
     return data.filter((t) =>
-      [t.name, t.slug, t.plan, t.owner?.email, t.owner?.name]
+      [t.name, t.publicId, t.slug, t.plan, t.owner?.email, t.owner?.userId, t.owner?.name]
         .filter(Boolean)
         .some((v) => String(v).toLowerCase().includes(q)),
     );
@@ -323,7 +330,7 @@ function TenantsPageInner() {
       <Input
         value={query}
         onChange={(e) => setQuery(e.target.value)}
-        placeholder="Search name, slug, or owner…"
+        placeholder="Search name, tenant ID, slug, or owner…"
         className="max-w-sm"
       />
 

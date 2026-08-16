@@ -2,9 +2,12 @@ import {
   hashPassword,
   isConfigurablePlatformRole,
   isPlatformRole,
+  isPublicId,
   isTenantSlug,
   memberships,
+  normalizePublicId,
   normalizeTenantSlug,
+  postgresErrorInfo,
   platformAdmins,
   platformRolePrivileges,
   PLATFORM_PRIVILEGES,
@@ -68,6 +71,9 @@ import {
   setAdminAuthCookies,
 } from "../auth/cookies";
 import { DbService } from "../db/db";
+import { EmailModule, EmailService } from "../email/email";
+import { env } from "../config/env";
+import { isAllowedWebOrigin, originForSlug } from "../config/tenant-host";
 import {
   STORAGE,
   StorageModule,
@@ -306,6 +312,7 @@ export class PlatformService {
   constructor(
     private readonly db: DbService,
     private readonly jwt: JwtService,
+    private readonly email: EmailService,
     @Inject(STORAGE) private readonly storage: StorageDriver,
   ) {}
 
@@ -616,6 +623,7 @@ export class PlatformService {
     const rows = await this.db.admin
       .select({
         id: tenants.id,
+        publicId: tenants.publicId,
         name: tenants.name,
         slug: tenants.slug,
         plan: tenants.plan,
@@ -632,6 +640,7 @@ export class PlatformService {
       .select({
         tenantId: memberships.tenantId,
         name: users.name,
+        loginId: users.loginId,
         email: users.email,
         createdAt: memberships.createdAt,
       })
@@ -640,10 +649,10 @@ export class PlatformService {
       .where(and(eq(memberships.role, "owner"), inArray(memberships.tenantId, ids)))
       .orderBy(asc(memberships.createdAt));
 
-    const ownerByTenant = new Map<string, { name: string; email: string }>();
+    const ownerByTenant = new Map<string, { name: string; userId: string; email: string }>();
     for (const o of owners) {
       if (!ownerByTenant.has(o.tenantId)) {
-        ownerByTenant.set(o.tenantId, { name: o.name, email: o.email });
+        ownerByTenant.set(o.tenantId, { name: o.name, userId: o.loginId, email: o.email });
       }
     }
 
@@ -656,6 +665,7 @@ export class PlatformService {
 
     return rows.map((t) => ({
       id: t.id,
+      publicId: t.publicId,
       name: t.name,
       slug: t.slug,
       plan: t.plan,
@@ -667,9 +677,11 @@ export class PlatformService {
   }
 
   async getTenant(id: string) {
+    const key = id.trim();
     const [tenant] = await this.db.admin
       .select({
         id: tenants.id,
+        publicId: tenants.publicId,
         name: tenants.name,
         slug: tenants.slug,
         plan: tenants.plan,
@@ -677,13 +689,14 @@ export class PlatformService {
         branding: tenants.branding,
       })
       .from(tenants)
-      .where(eq(tenants.id, id))
+      .where(isPublicId("tenant", key) ? eq(tenants.publicId, normalizePublicId(key)) : eq(tenants.id, key))
       .limit(1);
     if (!tenant) throw new NotFoundException("Workspace not found");
 
     const members = await this.db.admin
       .select({
         id: users.id,
+        loginId: users.loginId,
         name: users.name,
         email: users.email,
         role: memberships.role,
@@ -697,16 +710,24 @@ export class PlatformService {
     const owner = members.find((m) => m.role === "owner") ?? members[0] ?? null;
     return {
       id: tenant.id,
+      publicId: tenant.publicId,
       name: tenant.name,
       slug: tenant.slug,
       plan: tenant.plan,
       createdAt: tenant.createdAt.toISOString(),
       logoUpdatedAt: logoUpdatedAtOf(tenant.branding),
       owner: owner
-        ? { id: owner.id, name: owner.name, email: owner.email, role: owner.role }
+        ? {
+            id: owner.id,
+            userId: owner.loginId,
+            name: owner.name,
+            email: owner.email,
+            role: owner.role,
+          }
         : null,
       members: members.map((m) => ({
         id: m.id,
+        userId: m.loginId,
         name: m.name,
         email: m.email,
         role: m.role,
@@ -740,7 +761,7 @@ export class PlatformService {
       );
     }
     try {
-      return await provisionTenant(this.db.admin, {
+      const created = await provisionTenant(this.db.admin, {
         name: input.name,
         slug,
         plan: input.plan,
@@ -748,6 +769,33 @@ export class PlatformService {
         ownerEmail: input.ownerEmail,
         ownerPassword: input.ownerPassword,
       });
+      if (created.ownerCreated || created.passwordSet) {
+        const kind = env.tenantOriginTemplate?.includes("-uat") ? "uat" : "prod";
+        const built = originForSlug(created.tenant.slug, env.tenantOriginTemplate, kind);
+        const signInUrl = isAllowedWebOrigin(built, env.webOrigins)
+          ? `${built}/login`
+          : `${env.appOrigin}/login`;
+        void this.email
+          .sendWelcomeEmail(created.owner.email, {
+            userId: created.owner.loginId,
+            email: created.owner.email,
+            password: input.ownerPassword,
+            workspaceName: created.tenant.name,
+            signInUrl,
+          })
+          .catch(() => {});
+      }
+      return {
+        tenant: created.tenant,
+        owner: {
+          id: created.owner.id,
+          userId: created.owner.loginId,
+          name: created.owner.name,
+          email: created.owner.email,
+        },
+        ownerCreated: created.ownerCreated,
+        passwordSet: created.passwordSet,
+      };
     } catch (e) {
       if (e instanceof ProvisionError) {
         if (e.code === "conflict") throw new ConflictException(e.message);
@@ -813,12 +861,17 @@ export class PlatformService {
         .update(users)
         .set(patch)
         .where(eq(users.id, detail.owner.id))
-        .returning({ id: users.id, name: users.name, email: users.email });
+        .returning({
+          id: users.id,
+          userId: users.loginId,
+          name: users.name,
+          email: users.email,
+        });
       if (!row) throw new NotFoundException("Owner not found");
       return { owner: row, passwordSet: Boolean(input.password) };
     } catch (e: unknown) {
-      const code = e && typeof e === "object" && "code" in e ? String((e as { code: unknown }).code) : "";
-      if (code === "23505") {
+      const pg = postgresErrorInfo(e);
+      if (pg?.code === "23505") {
         throw new ConflictException("That email is already in use");
       }
       throw e;
@@ -997,7 +1050,7 @@ export class PlatformRolesController {
 }
 
 @Module({
-  imports: [AuthModule, StorageModule],
+  imports: [AuthModule, EmailModule, StorageModule],
   controllers: [PlatformAuthController, PlatformTenantsController, PlatformOperatorsController, PlatformRolesController],
   providers: [PlatformService, PlatformAuthGuard, PlatformPrivilegeGuard],
 })

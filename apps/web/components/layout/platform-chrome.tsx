@@ -1,5 +1,6 @@
 "use client";
 
+import { DocketMark } from "@/components/brand/docket-mark";
 import { BuildMarker } from "@/components/layout/build-marker";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
@@ -94,14 +95,8 @@ function PlatformSidebar() {
   return (
     <Sidebar className="border-sidebar-border">
       <SidebarHeader className="px-4 pb-2 pt-5">
-        <Link href="/admin" className="flex items-center gap-2.5 px-1 py-1">
-          <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-foreground text-[13px] font-semibold text-background">
-            D
-          </div>
-          <div className="grid min-w-0 leading-tight">
-            <span className="truncate text-[15px] font-semibold tracking-tight">Docket</span>
-            <span className="truncate text-xs text-muted-foreground">Platform</span>
-          </div>
+        <Link href="/admin" className="flex items-center px-1 py-1">
+          <DocketMark className="h-8 w-auto max-w-full" />
         </Link>
         {canWriteTenants ? (
           <Button

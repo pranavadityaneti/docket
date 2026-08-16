@@ -59,9 +59,10 @@ export function clearSession(): void {
 }
 
 export type LoginProfile = {
-  user: { id: string; name: string; email: string };
-  tenant: { id: string; name: string; slug: string; logoUpdatedAt?: string | null };
+  user: { id: string; userId?: string; name: string; email: string };
+  tenant: { id: string; publicId?: string; name: string; slug: string; logoUpdatedAt?: string | null };
   role: string;
+  privileges?: string[];
 };
 
 export function writeProfile(profile: LoginProfile): void {
@@ -70,15 +71,35 @@ export function writeProfile(profile: LoginProfile): void {
   }
 }
 
+let storedProfileRaw: string | null = null;
+let storedProfileSnapshot: LoginProfile | null = null;
+let storedProfileCached = false;
+
+/** SSR / hydration snapshot for useSyncExternalStore — always null. */
+export function getServerStoredProfile(): null {
+  return null;
+}
+
+/**
+ * Cached so useSyncExternalStore can compare snapshots by reference.
+ * JSON.parse on every read would allocate a new object and loop forever.
+ */
 export function getStoredProfile(): LoginProfile | null {
   if (typeof window === "undefined") return null;
   const raw = window.localStorage.getItem(PROFILE_KEY);
-  if (!raw) return null;
-  try {
-    return JSON.parse(raw) as LoginProfile;
-  } catch {
+  if (storedProfileCached && raw === storedProfileRaw) return storedProfileSnapshot;
+  storedProfileRaw = raw;
+  storedProfileCached = true;
+  if (!raw) {
+    storedProfileSnapshot = null;
     return null;
   }
+  try {
+    storedProfileSnapshot = JSON.parse(raw) as LoginProfile;
+  } catch {
+    storedProfileSnapshot = null;
+  }
+  return storedProfileSnapshot;
 }
 
 const CREDENTIALS: RequestCredentials = "include";
@@ -96,11 +117,20 @@ function emitAuthRequired(): void {
   }
 }
 
+const RATE_LIMIT_MESSAGE = "Too many attempts. Please wait a few minutes and try again.";
+
+function humanizeApiMessage(message: string): string {
+  if (message === "ThrottlerException: Too Many Requests" || message === "Too Many Requests") {
+    return RATE_LIMIT_MESSAGE;
+  }
+  return message;
+}
+
 export function friendlyErrorMessage(body: string, fallback: string): string {
   try {
     const parsed = JSON.parse(body) as { message?: unknown };
     if (typeof parsed.message === "string" && parsed.message.trim() !== "") {
-      return parsed.message;
+      return humanizeApiMessage(parsed.message);
     }
     if (Array.isArray(parsed.message) && parsed.message.length > 0) {
       return parsed.message.join(". ");
@@ -165,11 +195,9 @@ export async function publicJsonFetch<T>(
   });
   const parsed = await res.json().catch(() => null);
   if (!res.ok) {
-    const message =
-      parsed && typeof parsed === "object" && "message" in parsed && typeof parsed.message === "string"
-        ? parsed.message
-        : `${fallbackError} (${res.status})`;
-    throw new Error(message);
+    throw new Error(
+      friendlyErrorMessage(JSON.stringify(parsed ?? {}), `${fallbackError} (${res.status})`),
+    );
   }
   return parsed as T;
 }
@@ -183,10 +211,8 @@ export async function publicPost(path: string, body: unknown, fallbackError: str
   });
   if (!res.ok) {
     const parsed = await res.json().catch(() => null);
-    const message =
-      parsed && typeof parsed === "object" && "message" in parsed && typeof parsed.message === "string"
-        ? parsed.message
-        : `${fallbackError} (${res.status})`;
-    throw new Error(message);
+    throw new Error(
+      friendlyErrorMessage(JSON.stringify(parsed ?? {}), `${fallbackError} (${res.status})`),
+    );
   }
 }

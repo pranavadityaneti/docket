@@ -426,7 +426,7 @@ function NewWorkflowDialog({
 }
 
 export default function WorkflowsPage() {
-  const canEdit = canEditWorkflows(getStoredProfile()?.role);
+  const canEdit = canEditWorkflows(getStoredProfile()?.role, getStoredProfile()?.privileges);
   const router = useRouter();
   const [newOpen, setNewOpen] = React.useState(false);
   const [notice, setNotice] = React.useState<string | null>(null);

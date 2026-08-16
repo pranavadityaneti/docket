@@ -46,7 +46,7 @@ const MAX_CONVERSATION_CHARS = 8_000;
  *
  * Matching is deliberately conservative - a wrong match files a borrower's bank
  * statement onto someone else's loan, which is worse than not filing it. So:
- *   1. an explicit DKT-XXXXXX reference in the subject wins (we put it there);
+ *   1. an explicit DPC-XXXXXXX reference in the subject wins (we put it there);
  *   2. failing that, the sender's email mapped to their most recent case;
  *   3. failing that, the message is left for a human - never guessed.
  */
@@ -423,7 +423,7 @@ export class EmailPollerService {
     fromEmail: string | null,
   ): Promise<string | null> {
     // 1. explicit reference in the subject - the strongest signal, since we are
-    // the ones who put DKT-XXXXXX into the emails a subject replies to.
+    // the ones who put DPC-XXXXXXX into the emails a subject replies to.
     for (const token of subject.match(/DKT[-\s]?[0-9A-Za-z]{6}/gi) ?? []) {
       const ref = normaliseCaseReference(token.replace(/\s/g, ""));
       if (!ref) continue;

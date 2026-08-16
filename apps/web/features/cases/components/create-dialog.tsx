@@ -19,21 +19,46 @@ import {
 import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
 import type { CreateCaseInput } from "@/features/cases/api";
-import type { ApiWorkflow } from "@/features/workflows/api";
+import { listWorkflows, type ApiWorkflow } from "@/features/workflows/api";
+import { AuthRequiredError } from "@/lib/http";
+import {
+  EMAIL_MAX,
+  ORGANISATION_MAX,
+  PERSON_NAME_MAX,
+  PHONE_MAX,
+  sanitizeEmail,
+  sanitizePhone,
+  setKeyedError,
+  validateContactForm,
+  validateEmail,
+  validateOrganisation,
+  validatePersonName,
+  validatePhone,
+} from "@/lib/validators";
 import * as React from "react";
+
+/** Create is only blocked while a submit or workflow load is in flight. */
+export function createCaseSubmitDisabled(opts: {
+  submitting: boolean;
+  loading: boolean;
+}): boolean {
+  return opts.submitting || opts.loading;
+}
 
 export function CreateLeadDialog({
   open,
   onOpenChange,
   onCreate,
-  workflows,
+  workflows: workflowsProp,
   selectedSlug,
+  loading: parentLoading = false,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCreate: (input: CreateCaseInput) => Promise<void>;
   workflows: ApiWorkflow[];
   selectedSlug: string | null;
+  loading?: boolean;
 }) {
   const [slug, setSlug] = React.useState<string>("");
   const [name, setName] = React.useState("");
@@ -44,7 +69,12 @@ export function CreateLeadDialog({
   const [errors, setErrors] = React.useState<Record<string, string>>({});
   const [submitting, setSubmitting] = React.useState(false);
   const [submitError, setSubmitError] = React.useState<string | null>(null);
+  const [fetched, setFetched] = React.useState<ApiWorkflow[] | null>(null);
+  const [fetchError, setFetchError] = React.useState<string | null>(null);
+  const [fetching, setFetching] = React.useState(false);
 
+  const workflows = workflowsProp.length > 0 ? workflowsProp : (fetched ?? []);
+  const loading = fetching || (parentLoading && workflows.length === 0);
   const workflow = workflows.find((item) => item.slug === (slug || selectedSlug))
     ?? workflows[0]
     ?? null;
@@ -54,6 +84,31 @@ export function CreateLeadDialog({
     () => [...(workflow?.fields ?? [])].sort((a, b) => a.order - b.order),
     [workflow],
   );
+
+  React.useEffect(() => {
+    if (!open || workflowsProp.length > 0) return;
+    let cancelled = false;
+    // Syncing with GET /workflows when the parent list has not arrived yet.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setFetching(true);
+    setFetchError(null);
+    void listWorkflows()
+      .then((all) => {
+        if (!cancelled) setFetched(all);
+      })
+      .catch((error) => {
+        if (cancelled || error instanceof AuthRequiredError) return;
+        setFetchError(
+          error instanceof Error ? error.message : "Couldn't load the workflow.",
+        );
+      })
+      .finally(() => {
+        if (!cancelled) setFetching(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, workflowsProp.length]);
 
   function reset() {
     setSlug("");
@@ -65,6 +120,9 @@ export function CreateLeadDialog({
     setErrors({});
     setSubmitError(null);
     setSubmitting(false);
+    setFetched(null);
+    setFetchError(null);
+    setFetching(false);
   }
 
   function handleOpenChange(next: boolean) {
@@ -78,12 +136,20 @@ export function CreateLeadDialog({
     setErrors({});
   }
 
+  function patchError(key: string, message: string | null) {
+    setErrors((prev) => setKeyedError(prev, key, message));
+  }
+
+  const nameLabel = `${subjectLabel} name`;
+
   async function submit() {
-    const nextErrors: Record<string, string> = {};
-    if (!name.trim()) nextErrors.__name = `${subjectLabel} name is required.`;
-    if (email.trim() && !email.includes("@")) {
-      nextErrors.__email = "That does not look like an email.";
-    }
+    const nextErrors = validateContactForm({
+      name,
+      organisation,
+      email,
+      phone,
+      nameLabel,
+    });
     for (const field of fields) {
       const error = validateField(field, values[field.field_key] ?? "");
       if (error) nextErrors[field.field_key] = error;
@@ -158,14 +224,28 @@ export function CreateLeadDialog({
               <Field label="Full name" error={errors.__name} required>
                 <Input
                   value={name}
-                  onChange={(event) => setName(event.target.value)}
+                  maxLength={PERSON_NAME_MAX}
+                  aria-invalid={errors.__name ? true : undefined}
+                  onChange={(event) => {
+                    const next = event.target.value;
+                    setName(next);
+                    if (errors.__name) patchError("__name", validatePersonName(next, { label: nameLabel }));
+                  }}
+                  onBlur={() => patchError("__name", validatePersonName(name, { label: nameLabel }))}
                   placeholder="e.g. Ramesh Kumar"
                 />
               </Field>
-              <Field label="Organisation">
+              <Field label="Organisation" error={errors.__organisation}>
                 <Input
                   value={organisation}
-                  onChange={(event) => setOrganisation(event.target.value)}
+                  maxLength={ORGANISATION_MAX}
+                  aria-invalid={errors.__organisation ? true : undefined}
+                  onChange={(event) => {
+                    const next = event.target.value;
+                    setOrganisation(next);
+                    if (errors.__organisation) patchError("__organisation", validateOrganisation(next));
+                  }}
+                  onBlur={() => patchError("__organisation", validateOrganisation(organisation))}
                   placeholder="Business, college or firm (optional)"
                 />
               </Field>
@@ -173,14 +253,30 @@ export function CreateLeadDialog({
                 <Input
                   type="email"
                   value={email}
-                  onChange={(event) => setEmail(event.target.value)}
+                  maxLength={EMAIL_MAX}
+                  aria-invalid={errors.__email ? true : undefined}
+                  onChange={(event) => {
+                    const next = sanitizeEmail(event.target.value);
+                    setEmail(next);
+                    if (errors.__email) patchError("__email", validateEmail(next));
+                  }}
+                  onBlur={() => patchError("__email", validateEmail(email))}
                   placeholder="name@example.com"
                 />
               </Field>
-              <Field label="Phone">
+              <Field label="Phone" error={errors.__phone}>
                 <Input
                   value={phone}
-                  onChange={(event) => setPhone(event.target.value)}
+                  maxLength={PHONE_MAX}
+                  inputMode="tel"
+                  autoComplete="tel"
+                  aria-invalid={errors.__phone ? true : undefined}
+                  onChange={(event) => {
+                    const next = sanitizePhone(event.target.value);
+                    setPhone(next);
+                    if (errors.__phone) patchError("__phone", validatePhone(next));
+                  }}
+                  onBlur={() => patchError("__phone", validatePhone(phone))}
                   placeholder="9876543210"
                 />
               </Field>
@@ -221,11 +317,17 @@ export function CreateLeadDialog({
                       field={field}
                       value={values[field.field_key] ?? ""}
                       error={errors[field.field_key]}
-                      onChange={(value) =>
+                      onChange={(value) => {
                         setValues((previous) => ({
                           ...previous,
                           [field.field_key]: value,
-                        }))
+                        }));
+                        if (errors[field.field_key]) {
+                          patchError(field.field_key, validateField(field, value));
+                        }
+                      }}
+                      onBlur={(value) =>
+                        patchError(field.field_key, validateField(field, value))
                       }
                     />
                   </div>
@@ -239,6 +341,15 @@ export function CreateLeadDialog({
           <div className="flex items-center gap-1.5 border-t bg-danger-muted px-4 py-2 text-sm text-danger">
             <Icon name="error" size={15} /> {submitError}
           </div>
+        ) : fetchError && !workflow ? (
+          <div className="flex items-center gap-1.5 border-t bg-danger-muted px-4 py-2 text-sm text-danger">
+            <Icon name="error" size={15} /> {fetchError}
+          </div>
+        ) : loading ? (
+          <div className="flex items-center gap-1.5 border-t px-4 py-2 text-sm text-muted-foreground">
+            <Icon name="progress_activity" size={15} className="animate-spin" />
+            Loading the workflow…
+          </div>
         ) : null}
 
         <DialogFooter className="flex-row justify-end gap-2 border-t">
@@ -251,7 +362,7 @@ export function CreateLeadDialog({
           </Button>
           <Button
             onClick={submit}
-            disabled={submitting || !workflow}
+            disabled={createCaseSubmitDisabled({ submitting, loading })}
             className="gap-1.5"
           >
             {submitting ? (

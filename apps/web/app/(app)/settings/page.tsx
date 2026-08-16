@@ -32,13 +32,13 @@ import { AuthRequiredError, getStoredProfile } from "@/lib/http";
 import { matchTenantHost, originForSlug } from "@/lib/tenant-host";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import * as React from "react";
 
 function workspaceUrl(slug: string): string {
   if (typeof window === "undefined") return originForSlug(slug);
   const kind = matchTenantHost(window.location.host)?.kind ?? "prod";
   return originForSlug(slug, undefined, kind);
 }
-import * as React from "react";
 
 function roleLabel(role: string) {
   if (!role) return "Member";
@@ -59,7 +59,7 @@ function SettingsLinkRow({
   return (
     <Link
       href={href}
-      className="flex h-[58px] items-center gap-3 border-b px-4 transition-colors last:border-b-0 hover:bg-muted/50"
+      className="flex h-14.5 items-center gap-3 border-b px-4 transition-colors last:border-b-0 hover:bg-muted/50"
     >
       <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
         <Icon name={icon} size={16} />
@@ -172,7 +172,7 @@ export default function SettingsPage() {
     }
   }
 
-  const canEdit = canEditWorkspace(profile?.role);
+  const canEdit = canEditWorkspace(profile?.role, profile?.privileges);
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-5">
@@ -213,7 +213,13 @@ export default function SettingsPage() {
             </div>
             <div className="min-w-0 flex-1">
               <div className="truncate text-base font-medium">{profile.user.name}</div>
-              <div className="truncate text-sm text-muted-foreground">{profile.user.email}</div>
+              <div className="truncate text-sm text-muted-foreground">
+                {profile.user.userId ? (
+                  <span className="font-mono">{profile.user.userId}</span>
+                ) : null}
+                {profile.user.userId ? " · " : ""}
+                {profile.user.email}
+              </div>
             </div>
             <Badge variant="outline" className="shrink-0 font-normal capitalize">
               {roleLabel(profile.role)}
@@ -233,7 +239,7 @@ export default function SettingsPage() {
           <p className="text-sm text-muted-foreground">This tenant&rsquo;s brand and setup surfaces.</p>
         </div>
         {profile ? (
-          <div className="flex h-[58px] items-center gap-3 border-b px-4">
+          <div className="flex h-14.5 items-center gap-3 border-b px-4">
             {workspaceLogoUrl(profile.tenant) ? (
               <img
                 src={workspaceLogoUrl(profile.tenant) ?? ""}
@@ -248,6 +254,12 @@ export default function SettingsPage() {
             <div className="min-w-0 flex-1">
               <div className="truncate text-sm font-medium">{profile.tenant.name}</div>
               <div className="truncate text-xs text-muted-foreground">
+                {profile.tenant.publicId ? (
+                  <>
+                    <span className="font-mono">{profile.tenant.publicId}</span>
+                    {" · "}
+                  </>
+                ) : null}
                 {workspaceUrl(profile.tenant.slug)}
               </div>
             </div>
@@ -296,7 +308,7 @@ export default function SettingsPage() {
         ).map(([key, label]) => (
           <label
             key={key}
-            className="flex h-[58px] cursor-pointer items-center justify-between gap-3 border-b px-4 last:border-b-0"
+            className="flex h-14.5 cursor-pointer items-center justify-between gap-3 border-b px-4 last:border-b-0"
           >
             <span className="text-sm font-medium">{label}</span>
             <input
@@ -315,7 +327,7 @@ export default function SettingsPage() {
           <div className="font-medium">Security</div>
           <p className="text-sm text-muted-foreground">Password and session.</p>
         </div>
-        <div className="flex h-[58px] items-center justify-between gap-3 border-b px-4">
+        <div className="flex h-14.5 items-center justify-between gap-3 border-b px-4">
           <div className="min-w-0">
             <div className="truncate text-sm font-medium">Password</div>
             <div className="truncate text-xs text-muted-foreground">
@@ -326,7 +338,7 @@ export default function SettingsPage() {
             Change password
           </Button>
         </div>
-        <div className="flex h-[58px] items-center justify-between gap-3 px-4">
+        <div className="flex h-14.5 items-center justify-between gap-3 px-4">
           <div className="min-w-0">
             <div className="truncate text-sm font-medium">Sign out</div>
             <div className="truncate text-xs text-muted-foreground">

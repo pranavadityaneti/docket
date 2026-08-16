@@ -47,6 +47,7 @@ import { usePlatformPrivilege, usePlatformSession } from "@/features/platform/se
 import { useAsyncResource } from "@/hooks/use-async-resource";
 import { formatDate } from "@/lib/format";
 import { AuthRequiredError } from "@/lib/http";
+import { sanitizeEmail } from "@/lib/validators";
 import * as React from "react";
 
 function RoleSelect({
@@ -140,7 +141,7 @@ function CreateOperatorDialog({
                 type="email"
                 required
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => setEmail(sanitizeEmail(e.target.value))}
                 placeholder="ops@finlot.ai"
               />
             </div>

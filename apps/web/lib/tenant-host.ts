@@ -22,7 +22,7 @@ const SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
 export type TenantHostMatch = {
   slug: string;
   origin: string;
-  kind: "uat" | "prod" | "docket-in";
+  kind: "uat" | "prod" | "docket-in" | "local";
 };
 
 function hostnameOf(hostOrOrigin: string): string | null {
@@ -63,6 +63,11 @@ export function matchTenantHost(hostOrOrigin: string): TenantHostMatch | null {
     return { slug: prod[1], origin: `https://${prod[1]}.finlot.ai`, kind: "prod" };
   }
 
+  const local = /^([a-z0-9-]+)\.(localhost|lvh\.me)$/.exec(host);
+  if (local && isSlug(local[1])) {
+    return { slug: local[1], origin: `http://${local[1]}.${local[2]}`, kind: "local" };
+  }
+
   return null;
 }
 
@@ -71,6 +76,22 @@ export function tenantSlugFromLocation(
   hostname = typeof window !== "undefined" ? window.location.hostname : "",
 ): string | null {
   return matchTenantHost(hostname)?.slug ?? null;
+}
+
+/** `?workspace=` / `?slug=` for local hosts that have no tenant subdomain. */
+export function workspaceSlugFromSearch(search: string): string | null {
+  const raw = search.startsWith("?") ? search.slice(1) : search;
+  const value = (new URLSearchParams(raw).get("workspace") ?? new URLSearchParams(raw).get("slug") ?? "")
+    .trim()
+    .toLowerCase();
+  return isSlug(value) ? value : null;
+}
+
+/** Host first, then query string. */
+export function resolveWorkspaceSlug(opts?: { hostname?: string; search?: string }): string | null {
+  const hostname = opts?.hostname ?? (typeof window !== "undefined" ? window.location.hostname : "");
+  const search = opts?.search ?? (typeof window !== "undefined" ? window.location.search : "");
+  return tenantSlugFromLocation(hostname) ?? workspaceSlugFromSearch(search);
 }
 
 /** Build the public origin for a slug. */

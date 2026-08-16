@@ -27,7 +27,7 @@ export function canManageWorkspaceMembers(role: string): boolean {
 export function assignableRoles(actorRole: string): WorkspaceRole[] {
   if (actorRole === "owner") return [...WORKSPACE_ROLES];
   if (actorRole === "admin") return ["admin", "agent", "reviewer"];
-  return [];
+  return ["agent", "reviewer"];
 }
 
 export type MemberMutationKind = "add" | "role" | "password" | "remove";
@@ -44,8 +44,10 @@ export function memberMutationError(opts: {
   nextRole?: string;
   kind: MemberMutationKind;
   ownerCount: number;
+  canManageTeam?: boolean;
 }): string | null {
-  if (!canManageWorkspaceMembers(opts.actorRole)) {
+  const allowed = opts.canManageTeam ?? canManageWorkspaceMembers(opts.actorRole);
+  if (!allowed) {
     return "Only workspace owners and admins can change this.";
   }
 

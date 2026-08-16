@@ -19,6 +19,8 @@ import {
 } from "./business-loan-config";
 import { createDb } from "./client";
 import { hashPassword } from "./password";
+import { generatePublicId, withUniquePublicId } from "./public-id";
+import { postgresErrorInfo } from "./pg-error";
 import * as schema from "./schema";
 
 function required(name: string): string {
@@ -45,11 +47,21 @@ async function main() {
   const db = createDb(url);
   const report = await db.transaction(async (tx) => {
     /* ---- tenant ---- */
-    const [insertedTenant] = await tx
-      .insert(schema.tenants)
-      .values({ name: tenantName, slug: tenantSlug, plan: tenantPlan })
-      .onConflictDoNothing({ target: schema.tenants.slug })
-      .returning();
+    const insertedTenant = await withUniquePublicId(
+      "tenant",
+      async (publicId) => {
+        const [row] = await tx
+          .insert(schema.tenants)
+          .values({ name: tenantName, slug: tenantSlug, plan: tenantPlan, publicId })
+          .onConflictDoNothing({ target: schema.tenants.slug })
+          .returning();
+        return row;
+      },
+      (error) => {
+        const pg = postgresErrorInfo(error);
+        return Boolean(pg?.code === "23505" && pg.constraint.includes("public_id"));
+      },
+    );
     const tenant =
       insertedTenant ??
       (
@@ -61,11 +73,21 @@ async function main() {
       )[0];
 
     /* ---- admin user ---- */
-    const [insertedUser] = await tx
-      .insert(schema.users)
-      .values({ email: adminEmail, name: adminName, passwordHash })
-      .onConflictDoNothing({ target: schema.users.email })
-      .returning();
+    const insertedUser = await withUniquePublicId(
+      "user",
+      async (loginId) => {
+        const [row] = await tx
+          .insert(schema.users)
+          .values({ loginId, email: adminEmail, name: adminName, passwordHash })
+          .onConflictDoNothing({ target: schema.users.email })
+          .returning();
+        return row;
+      },
+      (error) => {
+        const pg = postgresErrorInfo(error);
+        return Boolean(pg?.code === "23505" && pg.constraint.includes("login_id"));
+      },
+    );
     const user =
       insertedUser ??
       (
@@ -216,7 +238,9 @@ async function main() {
 
     return {
       tenant: insertedTenant ? "created" : "existed",
+      tenantPublicId: tenant.publicId,
       user: insertedUser ? "created" : "existed",
+      userLoginId: user.loginId,
       passwordSet,
       workflow: priorWorkflow ? "existed" : "created",
       stagesInserted,
@@ -226,9 +250,11 @@ async function main() {
   });
 
   // Nothing here is sensitive: no password, no hash.
-  console.log(`Tenant "${tenantSlug}" ${report.tenant}, plan "${tenantPlan}".`);
   console.log(
-    `Admin ${adminEmail} ${report.user}; password ${report.passwordSet ? "set" : "left unchanged"}.`,
+    `Tenant "${tenantSlug}" ${report.tenant} (${report.tenantPublicId}), plan "${tenantPlan}".`,
+  );
+  console.log(
+    `Admin ${report.userLoginId} / ${adminEmail} ${report.user}; password ${report.passwordSet ? "set" : "left unchanged"}.`,
   );
   console.log(
     `Workflow "${workflowSlug}" ${report.workflow}; ${report.stagesInserted} stages inserted; field config ${report.configInserted ? "inserted" : "already present"}; ${report.requirementsInserted} document requirements inserted.`,

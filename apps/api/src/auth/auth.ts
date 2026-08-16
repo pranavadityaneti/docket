@@ -1,12 +1,26 @@
 import {
+  CONFIGURABLE_WORKSPACE_ROLES,
   generateResetToken,
   hashPassword,
   hashResetToken,
+  isConfigurableWorkspaceRole,
+  isTenantSlug,
+  LOGIN_ID_MAX,
   memberships,
+  normalizeLoginId,
+  normalizeTenantSlug,
   passwordResetTokens,
+  postgresErrorInfo,
+  rolesAdminMayConfigure,
+  sanitizeWorkspacePrivileges,
   tenants,
   users,
   verifyPassword,
+  withUniquePublicId,
+  WORKSPACE_PRIVILEGES,
+  workspacePrivilegesFor,
+  workspaceRolePrivileges,
+  type WorkspacePrivilege,
 } from "@docket/db";
 import {
   BadRequestException,
@@ -29,6 +43,7 @@ import {
   Patch,
   Post,
   Put,
+  Query,
   Req,
   Res,
   SetMetadata,
@@ -39,8 +54,8 @@ import {
 import { Reflector } from "@nestjs/core";
 import { JwtService } from "@nestjs/jwt";
 import { Throttle, ThrottlerGuard } from "@nestjs/throttler";
-import { IsEmail, IsIn, IsOptional, IsString, MaxLength, MinLength } from "class-validator";
-import { and, asc, count, eq, gt, isNull } from "drizzle-orm";
+import { IsArray, IsEmail, IsIn, IsOptional, IsString, Matches, MaxLength, MinLength } from "class-validator";
+import { and, asc, count, eq, gt, isNull, sql } from "drizzle-orm";
 import type { Request, Response } from "express";
 import { env } from "../config/env";
 import { isAllowedWebOrigin, matchTenantHost, originForSlug } from "../config/tenant-host";
@@ -60,6 +75,7 @@ import {
   WORKSPACE_ROLES,
   type WorkspaceRole,
 } from "./team";
+import { loadWorkspacePrivileges } from "./workspace-privileges";
 
 export type AuthUser = { userId: string; tenantId: string; role: string };
 
@@ -92,7 +108,50 @@ export class RolesGuard implements CanActivate {
   }
 }
 
+const PRIVILEGE_KEY = "workspace_privilege";
+
+/** Restrict a route to members whose role currently has this privilege. */
+export const RequirePrivilege = (privilege: WorkspacePrivilege) =>
+  SetMetadata(PRIVILEGE_KEY, privilege);
+
+/**
+ * Enforces `@RequirePrivilege(...)`. Owner always passes. Other roles use
+ * the tenant's stored template, or the built-in default when none is saved.
+ */
+@Injectable()
+export class PrivilegeGuard implements CanActivate {
+  constructor(
+    private readonly reflector: Reflector,
+    private readonly db: DbService,
+  ) {}
+
+  async canActivate(ctx: ExecutionContext): Promise<boolean> {
+    const needed = this.reflector.getAllAndOverride<WorkspacePrivilege>(PRIVILEGE_KEY, [
+      ctx.getHandler(),
+      ctx.getClass(),
+    ]);
+    if (!needed) return true;
+    const user = ctx.switchToHttp().getRequest().user as AuthUser | undefined;
+    if (!user) {
+      throw new ForbiddenException("You do not have permission to do that");
+    }
+    const privileges = await loadWorkspacePrivileges(this.db, user.tenantId, user.role);
+    if (!privileges.includes(needed)) {
+      throw new ForbiddenException("You do not have permission to do that");
+    }
+    return true;
+  }
+}
+
+const LOGIN_ID_PATTERN = /^\s*DPU-[0-9A-Za-z]{7}\s*$/i;
+
 export class LoginDto {
+  @IsString()
+  @MinLength(1)
+  @MaxLength(LOGIN_ID_MAX)
+  @Matches(LOGIN_ID_PATTERN)
+  userId!: string;
+
   @IsEmail()
   @MaxLength(320)
   email!: string;
@@ -127,7 +186,7 @@ export class ResetPasswordDto {
   token!: string;
 
   @IsString()
-  @MinLength(12)
+  @MinLength(6)
   @MaxLength(200)
   password!: string;
 }
@@ -137,6 +196,12 @@ export class UpdateWorkspaceDto {
   @MinLength(1)
   @MaxLength(80)
   name!: string;
+}
+
+export class UpdateWorkspaceRolePrivilegesDto {
+  @IsArray()
+  @IsString({ each: true })
+  privileges!: string[];
 }
 
 const WORKSPACE_ROLE_VALUES = [...WORKSPACE_ROLES];
@@ -155,7 +220,7 @@ export class AddMemberDto {
   role!: WorkspaceRole;
 
   @IsString()
-  @MinLength(12)
+  @MinLength(6)
   @MaxLength(200)
   password!: string;
 
@@ -178,7 +243,7 @@ export class UpdateMemberDto {
 
   @IsOptional()
   @IsString()
-  @MinLength(12)
+  @MinLength(6)
   @MaxLength(200)
   password?: string;
 
@@ -205,12 +270,14 @@ function logoMimeOf(branding: TenantBranding | null | undefined): string | null 
 
 function shapeTenant(row: {
   id: string;
+  publicId?: string;
   name: string;
   slug: string;
   branding?: TenantBranding | null;
 }) {
   return {
     id: row.id,
+    publicId: row.publicId,
     name: row.name,
     slug: row.slug,
     logoUpdatedAt: logoUpdatedAtOf(row.branding),
@@ -238,9 +305,11 @@ const DUMMY_HASH =
 @Injectable()
 export class LoginThrottlerGuard extends ThrottlerGuard {
   protected async getTracker(req: Record<string, any>): Promise<string> {
-    const raw = req?.body?.email;
-    const email = typeof raw === "string" ? raw.trim().toLowerCase() : "unknown";
-    return `${req.ip}:${email}`;
+    const rawEmail = req?.body?.email;
+    const rawLogin = req?.body?.userId;
+    const email = typeof rawEmail === "string" ? rawEmail.trim().toLowerCase() : "unknown";
+    const loginId = typeof rawLogin === "string" ? rawLogin.trim().toLowerCase() : "";
+    return `${req.ip}:${loginId}:${email}`;
   }
 }
 
@@ -284,19 +353,31 @@ export class AuthService {
     @Inject(STORAGE) private readonly storage: StorageDriver,
   ) { }
 
-  async login(email: string, password: string, tenantSlug?: string) {
-    const clean = email.trim().toLowerCase();
-    const [user] = await this.db.admin.select().from(users).where(eq(users.email, clean)).limit(1);
+  async login(loginId: string, email: string, password: string, tenantSlug?: string) {
+    const cleanLoginId = normalizeLoginId(loginId);
+    const cleanEmail = email.trim().toLowerCase();
+    const [user] = await this.db.admin
+      .select()
+      .from(users)
+      .where(
+        and(
+          sql`upper(${users.loginId}) = upper(${cleanLoginId})`,
+          eq(users.email, cleanEmail),
+        ),
+      )
+      .limit(1);
     const passwordOk = await verifyPassword(user?.passwordHash ?? DUMMY_HASH, password);
     if (!user || !user.passwordHash || !passwordOk) {
-      throw new UnauthorizedException("Invalid email or password");
+      throw new UnauthorizedException("Invalid user ID, email, or password");
     }
 
     const slug = tenantSlug?.trim().toLowerCase() || undefined;
     let membership:
       | { tenantId: string; role: string }
       | undefined;
-    let tenant: { id: string; name: string; slug: string; logoUpdatedAt: string | null } | undefined;
+    let tenant:
+      | { id: string; publicId?: string; name: string; slug: string; logoUpdatedAt: string | null }
+      | undefined;
 
     if (slug) {
       const [row] = await this.db.admin
@@ -304,6 +385,7 @@ export class AuthService {
           tenantId: memberships.tenantId,
           role: memberships.role,
           id: tenants.id,
+          publicId: tenants.publicId,
           name: tenants.name,
           slug: tenants.slug,
           branding: tenants.branding,
@@ -316,7 +398,7 @@ export class AuthService {
         throw new UnauthorizedException("No access to this workspace");
       }
       membership = { tenantId: row.tenantId, role: row.role };
-      tenant = shapeTenant({ id: row.id, name: row.name, slug: row.slug, branding: row.branding });
+      tenant = shapeTenant(row);
     } else {
       // Legacy single-host login: first membership wins.
       const [m] = await this.db.admin
@@ -340,17 +422,19 @@ export class AuthService {
       tenantId: membership.tenantId,
       role: membership.role,
     });
+    const privileges = await loadWorkspacePrivileges(this.db, membership.tenantId, membership.role);
     return {
       token,
-      user: { id: user.id, name: user.name, email: user.email },
+      user: { id: user.id, userId: user.loginId, name: user.name, email: user.email },
       tenant,
       role: membership.role,
+      privileges,
     };
   }
 
   async me(userId: string, tenantId: string) {
     const [user] = await this.db.admin
-      .select({ id: users.id, name: users.name, email: users.email })
+      .select({ id: users.id, userId: users.loginId, name: users.name, email: users.email })
       .from(users)
       .where(eq(users.id, userId))
       .limit(1);
@@ -358,6 +442,7 @@ export class AuthService {
     const [tenant] = await this.db.admin
       .select({
         id: tenants.id,
+        publicId: tenants.publicId,
         name: tenants.name,
         slug: tenants.slug,
         branding: tenants.branding,
@@ -372,7 +457,68 @@ export class AuthService {
       .where(and(eq(memberships.userId, userId), eq(memberships.tenantId, tenantId)))
       .limit(1);
     if (!m) throw new UnauthorizedException("Not a member of this workspace");
-    return { user, tenant: shapeTenant(tenant), role: m.role };
+    const privileges = await loadWorkspacePrivileges(this.db, tenantId, m.role);
+    return { user, tenant: shapeTenant(tenant), role: m.role, privileges };
+  }
+
+  async listRolePrivileges(tenantId: string) {
+    const rows = await this.db.withTenant(tenantId, (tx) =>
+      tx
+        .select({
+          role: workspaceRolePrivileges.role,
+          privileges: workspaceRolePrivileges.privileges,
+        })
+        .from(workspaceRolePrivileges),
+    );
+    const stored = new Map(rows.map((r) => [r.role, r.privileges]));
+    return {
+      roles: [
+        {
+          role: "owner" as const,
+          locked: true,
+          privileges: [...WORKSPACE_PRIVILEGES],
+        },
+        ...CONFIGURABLE_WORKSPACE_ROLES.map((role) => ({
+          role,
+          locked: false,
+          privileges: workspacePrivilegesFor(role, stored.get(role)),
+        })),
+      ],
+    };
+  }
+
+  async updateRolePrivileges(actor: AuthUser, role: string, privileges: string[]) {
+    if (!isConfigurableWorkspaceRole(role)) {
+      throw new BadRequestException("Only Admin, Agent, and Reviewer permissions can be changed");
+    }
+    if (!rolesAdminMayConfigure(actor.role).includes(role)) {
+      throw new ForbiddenException("You cannot change permissions for that role");
+    }
+    const clean = sanitizeWorkspacePrivileges(privileges);
+    const [row] = await this.db.withTenant(actor.tenantId, (tx) =>
+      tx
+        .insert(workspaceRolePrivileges)
+        .values({
+          tenantId: actor.tenantId,
+          role,
+          privileges: clean,
+          updatedAt: new Date(),
+        })
+        .onConflictDoUpdate({
+          target: [workspaceRolePrivileges.tenantId, workspaceRolePrivileges.role],
+          set: { privileges: clean, updatedAt: new Date() },
+        })
+        .returning({
+          role: workspaceRolePrivileges.role,
+          privileges: workspaceRolePrivileges.privileges,
+        }),
+    );
+    if (!row) throw new ConflictException("Could not save those permissions");
+    return {
+      role: row.role,
+      locked: false,
+      privileges: workspacePrivilegesFor(row.role, row.privileges),
+    };
   }
 
   /** Workspace members - for case owner assignment and the Team screen. */
@@ -380,6 +526,7 @@ export class AuthService {
     const rows = await this.db.admin
       .select({
         id: users.id,
+        loginId: users.loginId,
         name: users.name,
         email: users.email,
         role: memberships.role,
@@ -413,6 +560,7 @@ export class AuthService {
 
   private shapeMember(row: {
     id: string;
+    loginId: string;
     name: string;
     email: string;
     role: string;
@@ -421,6 +569,7 @@ export class AuthService {
   }) {
     return {
       id: row.id,
+      userId: row.loginId,
       name: row.name,
       email: row.email,
       role: row.role,
@@ -429,10 +578,39 @@ export class AuthService {
     };
   }
 
+  private signInUrlForSlug(slug: string): string {
+    const kind = env.tenantOriginTemplate?.includes("-uat") ? "uat" : "prod";
+    const built = originForSlug(slug, env.tenantOriginTemplate, kind);
+    if (isAllowedWebOrigin(built, env.webOrigins)) return `${built}/login`;
+    return `${env.appOrigin}/login`;
+  }
+
+  private sendWelcome(
+    to: string,
+    input: { userId: string; email: string; password: string; workspaceName: string; slug: string },
+  ) {
+    void this.email
+      .sendWelcomeEmail(to, {
+        userId: input.userId,
+        email: input.email,
+        password: input.password,
+        workspaceName: input.workspaceName,
+        signInUrl: this.signInUrlForSlug(input.slug),
+      })
+      .catch(() => {});
+  }
+
   async addMember(
     actor: AuthUser,
-    input: { email: string; name: string; role: WorkspaceRole; password: string; title?: string },
+    input: {
+      email: string;
+      name: string;
+      role: WorkspaceRole;
+      password: string;
+      title?: string;
+    },
   ) {
+    const privileges = await loadWorkspacePrivileges(this.db, actor.tenantId, actor.role);
     this.denyMemberMutation(
       memberMutationError({
         actorRole: actor.role,
@@ -440,6 +618,7 @@ export class AuthService {
         nextRole: input.role,
         kind: "add",
         ownerCount: 0,
+        canManageTeam: privileges.includes("team.manage"),
       }),
     );
 
@@ -448,46 +627,69 @@ export class AuthService {
     if (!name) throw new BadRequestException("Name is required");
     const passwordHash = await hashPassword(input.password);
 
-    const [existing] = await this.db.admin
-      .select({
-        id: users.id,
-        name: users.name,
-        email: users.email,
-        passwordHash: users.passwordHash,
-      })
+    const identitySelect = {
+      id: users.id,
+      loginId: users.loginId,
+      name: users.name,
+      email: users.email,
+      passwordHash: users.passwordHash,
+    };
+    const [byEmail] = await this.db.admin
+      .select(identitySelect)
       .from(users)
       .where(eq(users.email, email))
       .limit(1);
 
     let userId: string;
+    let loginId: string;
     let displayName = name;
-    if (existing) {
+    let createdNew = false;
+    let passwordSet = false;
+
+    if (byEmail) {
       const [already] = await this.db.admin
         .select({ id: memberships.id })
         .from(memberships)
-        .where(and(eq(memberships.userId, existing.id), eq(memberships.tenantId, actor.tenantId)))
+        .where(and(eq(memberships.userId, byEmail.id), eq(memberships.tenantId, actor.tenantId)))
         .limit(1);
       if (already) throw new ConflictException("That person is already in this workspace");
-      userId = existing.id;
-      displayName = existing.name;
-      if (existing.passwordHash === null) {
+      userId = byEmail.id;
+      loginId = byEmail.loginId;
+      displayName = byEmail.name;
+      if (byEmail.passwordHash === null) {
         await this.db.admin
           .update(users)
-          .set({ passwordHash, name: existing.name || name })
-          .where(eq(users.id, existing.id));
+          .set({ passwordHash, name: byEmail.name || name })
+          .where(eq(users.id, byEmail.id));
+        passwordSet = true;
       }
     } else {
       try {
-        const [created] = await this.db.admin
-          .insert(users)
-          .values({ email, name, passwordHash })
-          .returning({ id: users.id, name: users.name });
-        if (!created) throw new ConflictException("Could not create that user");
+        const created = await withUniquePublicId(
+          "user",
+          async (generated) => {
+            const [row] = await this.db.admin
+              .insert(users)
+              .values({ loginId: generated, email, name, passwordHash })
+              .returning({ id: users.id, loginId: users.loginId, name: users.name });
+            if (!row) throw new ConflictException("Could not create that user");
+            return row;
+          },
+          (error) => {
+            const pg = postgresErrorInfo(error);
+            return Boolean(pg?.code === "23505" && pg.constraint.includes("login_id"));
+          },
+        );
         userId = created.id;
+        loginId = created.loginId;
         displayName = created.name;
+        createdNew = true;
+        passwordSet = true;
       } catch (e: unknown) {
-        const code = e && typeof e === "object" && "code" in e ? String((e as { code: unknown }).code) : "";
-        if (code === "23505") throw new ConflictException("That email is already in use");
+        const pg = postgresErrorInfo(e);
+        if (pg?.code === "23505") {
+          throw new ConflictException("That email is already in use");
+        }
         throw e;
       }
     }
@@ -508,8 +710,20 @@ export class AuthService {
         });
       if (!membership) throw new ConflictException("Could not add that member");
 
+      if (createdNew || passwordSet) {
+        const workspace = await this.loadTenant(actor.tenantId);
+        this.sendWelcome(email, {
+          userId: loginId,
+          email,
+          password: input.password,
+          workspaceName: workspace.name,
+          slug: workspace.slug,
+        });
+      }
+
       return this.shapeMember({
         id: userId,
+        loginId,
         name: displayName,
         email,
         role: membership.role,
@@ -533,10 +747,13 @@ export class AuthService {
     if (!name && !input.role && !input.password && !titleProvided) {
       throw new BadRequestException("Nothing to update");
     }
+    const privileges = await loadWorkspacePrivileges(this.db, actor.tenantId, actor.role);
+    const canManageTeam = privileges.includes("team.manage");
 
     const [target] = await this.db.admin
       .select({
         id: users.id,
+        loginId: users.loginId,
         name: users.name,
         email: users.email,
         role: memberships.role,
@@ -561,6 +778,7 @@ export class AuthService {
           nextRole: input.role,
           kind: "role",
           ownerCount: owners,
+          canManageTeam,
         }),
       );
     }
@@ -573,6 +791,7 @@ export class AuthService {
           targetRole: target.role,
           kind: "password",
           ownerCount: owners,
+          canManageTeam,
         }),
       );
     }
@@ -602,6 +821,7 @@ export class AuthService {
     const [row] = await this.db.admin
       .select({
         id: users.id,
+        loginId: users.loginId,
         name: users.name,
         email: users.email,
         role: memberships.role,
@@ -637,6 +857,9 @@ export class AuthService {
         targetRole: target.role,
         kind: "remove",
         ownerCount: await this.ownerCount(actor.tenantId),
+        canManageTeam: (await loadWorkspacePrivileges(this.db, actor.tenantId, actor.role)).includes(
+          "team.manage",
+        ),
       }),
     );
 
@@ -663,12 +886,45 @@ export class AuthService {
       .where(eq(tenants.id, tenantId))
       .returning({
         id: tenants.id,
+        publicId: tenants.publicId,
         name: tenants.name,
         slug: tenants.slug,
         branding: tenants.branding,
       });
     if (!row) throw new NotFoundException("Workspace not found");
     return shapeTenant(row);
+  }
+
+  private async loadTenantBySlug(slug: string) {
+    const clean = normalizeTenantSlug(slug);
+    if (!isTenantSlug(clean)) throw new BadRequestException("Workspace is required");
+    const [row] = await this.db.admin
+      .select({
+        id: tenants.id,
+        name: tenants.name,
+        slug: tenants.slug,
+        branding: tenants.branding,
+      })
+      .from(tenants)
+      .where(eq(tenants.slug, clean))
+      .limit(1);
+    if (!row) throw new NotFoundException("Workspace not found");
+    return row;
+  }
+
+  /** Public login chrome — name, slug, and whether a logo exists. No secrets. */
+  async getPublicWorkspace(slug: string) {
+    const row = await this.loadTenantBySlug(slug);
+    return {
+      name: row.name,
+      slug: row.slug,
+      logoUpdatedAt: logoUpdatedAtOf(row.branding),
+    };
+  }
+
+  async getPublicWorkspaceLogo(slug: string): Promise<{ body: Buffer; mimeType: string }> {
+    const row = await this.loadTenantBySlug(slug);
+    return this.getWorkspaceLogo(row.id);
   }
 
   private async loadTenant(tenantId: string) {
@@ -705,6 +961,7 @@ export class AuthService {
       .where(eq(tenants.id, tenantId))
       .returning({
         id: tenants.id,
+        publicId: tenants.publicId,
         name: tenants.name,
         slug: tenants.slug,
         branding: tenants.branding,
@@ -739,6 +996,7 @@ export class AuthService {
       .where(eq(tenants.id, tenantId))
       .returning({
         id: tenants.id,
+        publicId: tenants.publicId,
         name: tenants.name,
         slug: tenants.slug,
         branding: tenants.branding,
@@ -815,6 +1073,39 @@ export class AuthService {
 export class AuthController {
   constructor(private readonly auth: AuthService) { }
 
+  @Get("public/workspace")
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  publicWorkspace(@Query("slug") slug: string, @Req() req: Request) {
+    const resolved =
+      slug?.trim() ||
+      matchTenantHost(String(req.headers.origin ?? ""))?.slug ||
+      matchTenantHost(String(req.headers["x-forwarded-host"] ?? ""))?.slug ||
+      matchTenantHost(String(req.headers.host ?? ""))?.slug;
+    if (!resolved) throw new BadRequestException("Workspace is required");
+    return this.auth.getPublicWorkspace(resolved);
+  }
+
+  @Get("public/workspace/logo")
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  async publicWorkspaceLogo(
+    @Query("slug") slug: string,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const resolved =
+      slug?.trim() ||
+      matchTenantHost(String(req.headers.origin ?? ""))?.slug ||
+      matchTenantHost(String(req.headers["x-forwarded-host"] ?? ""))?.slug ||
+      matchTenantHost(String(req.headers.host ?? ""))?.slug;
+    if (!resolved) throw new BadRequestException("Workspace is required");
+    const { body, mimeType } = await this.auth.getPublicWorkspaceLogo(resolved);
+    res.setHeader("content-type", mimeType);
+    res.setHeader("cache-control", "public, max-age=3600");
+    return new StreamableFile(body);
+  }
+
   @Get("me")
   @UseGuards(JwtAuthGuard)
   me(@CurrentUser() u: AuthUser) {
@@ -827,16 +1118,33 @@ export class AuthController {
     return this.auth.listMembers(u.tenantId);
   }
 
+  @Get("roles")
+  @UseGuards(JwtAuthGuard)
+  listRoles(@CurrentUser() u: AuthUser) {
+    return this.auth.listRolePrivileges(u.tenantId);
+  }
+
+  @Put("roles/:role")
+  @UseGuards(JwtAuthGuard, PrivilegeGuard)
+  @RequirePrivilege("roles.manage")
+  updateRole(
+    @CurrentUser() u: AuthUser,
+    @Param("role") role: string,
+    @Body() body: UpdateWorkspaceRolePrivilegesDto,
+  ) {
+    return this.auth.updateRolePrivileges(u, role, body.privileges);
+  }
+
   @Post("members")
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles("owner", "admin")
+  @UseGuards(JwtAuthGuard, PrivilegeGuard)
+  @RequirePrivilege("team.manage")
   addMember(@CurrentUser() u: AuthUser, @Body() body: AddMemberDto) {
     return this.auth.addMember(u, body);
   }
 
   @Patch("members/:userId")
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles("owner", "admin")
+  @UseGuards(JwtAuthGuard, PrivilegeGuard)
+  @RequirePrivilege("team.manage")
   updateMember(
     @CurrentUser() u: AuthUser,
     @Param("userId", ParseUUIDPipe) userId: string,
@@ -847,8 +1155,8 @@ export class AuthController {
 
   @Delete("members/:userId")
   @HttpCode(200)
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles("owner", "admin")
+  @UseGuards(JwtAuthGuard, PrivilegeGuard)
+  @RequirePrivilege("team.manage")
   removeMember(
     @CurrentUser() u: AuthUser,
     @Param("userId", ParseUUIDPipe) userId: string,
@@ -857,8 +1165,8 @@ export class AuthController {
   }
 
   @Patch("workspace")
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles("owner", "admin")
+  @UseGuards(JwtAuthGuard, PrivilegeGuard)
+  @RequirePrivilege("workspace.edit")
   updateWorkspace(@CurrentUser() u: AuthUser, @Body() body: UpdateWorkspaceDto) {
     return this.auth.updateWorkspace(u.tenantId, body.name);
   }
@@ -876,8 +1184,8 @@ export class AuthController {
   }
 
   @Put("workspace/logo")
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles("owner", "admin")
+  @UseGuards(JwtAuthGuard, PrivilegeGuard)
+  @RequirePrivilege("workspace.edit")
   async putWorkspaceLogo(@CurrentUser() u: AuthUser, @Req() req: Request) {
     const contentType = String(req.headers["content-type"] ?? "");
     const body = await readLimitedBody(req, LOGO_MAX_BYTES);
@@ -885,8 +1193,8 @@ export class AuthController {
   }
 
   @Delete("workspace/logo")
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles("owner", "admin")
+  @UseGuards(JwtAuthGuard, PrivilegeGuard)
+  @RequirePrivilege("workspace.edit")
   deleteWorkspaceLogo(@CurrentUser() u: AuthUser) {
     return this.auth.deleteWorkspaceLogo(u.tenantId);
   }
@@ -904,7 +1212,7 @@ export class AuthController {
       matchTenantHost(String(req.headers.origin ?? ""))?.slug ||
       matchTenantHost(String(req.headers["x-forwarded-host"] ?? ""))?.slug ||
       matchTenantHost(String(req.headers.host ?? ""))?.slug;
-    const result = await this.auth.login(body.email, body.password, fromHost);
+    const result = await this.auth.login(body.userId, body.email, body.password, fromHost);
     setAuthCookies(res, result.token);
     const { token: _token, ...profile } = result;
     return profile;
@@ -941,7 +1249,7 @@ export class AuthController {
 @Module({
   imports: [EmailModule, StorageModule],
   controllers: [AuthController],
-  providers: [AuthService, JwtAuthGuard, RolesGuard, LoginThrottlerGuard],
-  exports: [JwtAuthGuard, RolesGuard, LoginThrottlerGuard],
+  providers: [AuthService, JwtAuthGuard, RolesGuard, PrivilegeGuard, LoginThrottlerGuard],
+  exports: [JwtAuthGuard, RolesGuard, PrivilegeGuard, LoginThrottlerGuard],
 })
 export class AuthModule { }
