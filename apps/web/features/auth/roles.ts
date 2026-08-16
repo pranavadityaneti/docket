@@ -98,7 +98,9 @@ export function hasWorkspacePrivilege(
 ): boolean {
   if (role === "owner") return true;
   if (privileges) return privileges.includes(privilege);
-  return isWorkspaceRole(role) ? WORKSPACE_ROLE_META[role].privileges.includes(privilege) : false;
+  return typeof role === "string" && isWorkspaceRole(role)
+    ? WORKSPACE_ROLE_META[role].privileges.includes(privilege)
+    : false;
 }
 
 export function canManageTeam(

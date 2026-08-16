@@ -100,7 +100,8 @@ export function getStoredPlatformProfile(): PlatformProfile | null {
   try {
     const parsed = JSON.parse(raw) as Partial<PlatformProfile>;
     if (!parsed?.user?.id || !parsed.user.email) return null;
-    const role: PlatformRole = isPlatformRole(String(parsed.role)) ? parsed.role : "super_admin";
+    const rawRole = String(parsed.role ?? "");
+    const role: PlatformRole = isPlatformRole(rawRole) ? rawRole : "super_admin";
     const privileges = Array.isArray(parsed.privileges)
       ? (parsed.privileges as PlatformPrivilege[])
       : PLATFORM_ROLE_META[role].privileges;

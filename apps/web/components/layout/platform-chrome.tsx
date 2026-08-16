@@ -89,7 +89,7 @@ function PlatformSidebar() {
   const { profile } = usePlatformSession();
 
   const nav = NAV.filter((item) =>
-    "privilege" in item ? hasPrivilege(profile?.privileges, item.privilege) : true,
+    item.privilege ? hasPrivilege(profile?.privileges, item.privilege) : true,
   );
 
   return (
