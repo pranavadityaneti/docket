@@ -45,6 +45,7 @@ import {
 import { DbService } from "../db/db";
 import { CurrentUser, JwtAuthGuard, type AuthUser } from "../auth/auth";
 import { NudgesModule, NudgeService } from "../nudges/nudges";
+import { DocumentsModule, DocumentsService } from "../documents/documents";
 
 /**
  * A case is one run of a workflow: a loan application, a college admission, an
@@ -190,6 +191,7 @@ export class CasesService {
   constructor(
     private readonly db: DbService,
     private readonly nudges: NudgeService,
+    private readonly documents: DocumentsService,
   ) {}
 
   /**
@@ -282,6 +284,119 @@ export class CasesService {
     });
   }
 
+  /**
+   * Find the subject's existing record, or create one.
+   *
+   * This used to be an unconditional INSERT, which meant a returning subject
+   * became a NEW person on every case. That was wrong on its own terms — the
+   * Contacts list showed one exporter once per shipment, and caseCount was
+   * always 1 — but it also made document carry-forward impossible, since
+   * "the subject's other cases" is a question asked through contact_id and the
+   * answer was permanently empty.
+   *
+   * IDENTITY. Email first: it is the strongest identifier held, and it is
+   * already what the email poller routes inbound documents by. Phone is the
+   * fallback, compared on its LAST TEN DIGITS — the same rule the WhatsApp
+   * webhook matches senders with, so "+91 98765 43210", "09876543210" and
+   * "9876543210" are one person here exactly as they are there. Inventing a
+   * second phone rule would mean Docket could recognise a sender on WhatsApp
+   * and fail to recognise the same person opening a case.
+   *
+   * The OLDEST match wins, so repeated creates converge on one canonical
+   * record instead of drifting onto whichever duplicate was made last.
+   *
+   * Deleted contacts are excluded: someone who removed a contact deliberately
+   * must not have it silently resurrected by the next case.
+   */
+  private async resolveContact(
+    tx: Parameters<Parameters<DbService["withTenant"]>[1]>[0],
+    tenantId: string,
+    input: CreateCaseDto,
+  ) {
+    const email = input.email?.trim() || null;
+    const phone = input.phone?.trim() || null;
+    const columns = {
+      id: contacts.id,
+      email: contacts.email,
+      phone: contacts.phone,
+      organisation: contacts.organisation,
+    };
+
+    let existing: { id: string; email: string | null; phone: string | null; organisation: string | null } | undefined;
+
+    if (email) {
+      // Case- and whitespace-insensitive: stored values are whatever the
+      // caller typed, so "Acme@X.com" and "acme@x.com" must not become two
+      // people. Comparison is normalised; what was typed is still what is
+      // stored.
+      [existing] = await tx
+        .select(columns)
+        .from(contacts)
+        .where(
+          and(
+            sql`lower(trim(${contacts.email})) = ${email.toLowerCase()}`,
+            isNull(contacts.deletedAt),
+          ),
+        )
+        .orderBy(asc(contacts.createdAt))
+        .limit(1);
+    }
+
+    if (!existing && phone) {
+      const last10 = phone.replace(/\D/g, "").slice(-10);
+      // Fewer than ten digits is not enough to identify anybody; a short or
+      // malformed number must create a fresh contact rather than collide with
+      // an unrelated one.
+      if (last10.length === 10) {
+        [existing] = await tx
+          .select(columns)
+          .from(contacts)
+          .where(
+            and(
+              sql`right(regexp_replace(${contacts.phone}, '\\D', '', 'g'), 10) = ${last10}`,
+              isNull(contacts.deletedAt),
+            ),
+          )
+          .orderBy(asc(contacts.createdAt))
+          .limit(1);
+      }
+    }
+
+    if (existing) {
+      // Fill BLANKS only, never overwrite. A subject first reached by email
+      // who now supplies a phone should become reachable on WhatsApp — but
+      // whichever name, organisation or number is already recorded is the one
+      // staff have seen and possibly corrected, and this must not silently
+      // replace it. Nothing here can lose data: every branch writes into a
+      // column that is currently null.
+      const fill: { email?: string; phone?: string; organisation?: string } = {};
+      if (!existing.email && email) fill.email = email;
+      if (!existing.phone && phone) fill.phone = phone;
+      if (!existing.organisation && input.organisation) fill.organisation = input.organisation;
+      if (Object.keys(fill).length > 0) {
+        await tx.update(contacts).set(fill).where(eq(contacts.id, existing.id));
+      }
+      return existing;
+    }
+
+    const [created] = await tx
+      .insert(contacts)
+      .values({
+        tenantId,
+        // The caller declares this. It cannot be inferred from `organisation`
+        // being set — a person very often has one (a borrower's business, a
+        // candidate's employer) — and `name` is required, so there is no
+        // "name is absent so it must be a company" signal either.
+        kind: input.kind ?? "person",
+        name: input.name,
+        organisation: input.organisation ?? null,
+        email,
+        phone,
+      })
+      .returning();
+    return created;
+  }
+
   create(tenantId: string, input: CreateCaseDto) {
     const data = input.data ?? {};
     // Byte length, not string length: JSON.stringify(...).length counts UTF-16
@@ -304,21 +419,7 @@ export class CasesService {
         .orderBy(asc(workflowStages.position))
         .limit(1);
 
-      const [contact] = await tx
-        .insert(contacts)
-        .values({
-          tenantId,
-          // The caller declares this. It cannot be inferred from `organisation`
-          // being set — a person very often has one (a borrower's business, a
-          // candidate's employer) — and `name` is required, so there is no
-          // "name is absent so it must be a company" signal either.
-          kind: input.kind ?? "person",
-          name: input.name,
-          organisation: input.organisation ?? null,
-          email: input.email ?? null,
-          phone: input.phone ?? null,
-        })
-        .returning();
+      const contact = await this.resolveContact(tx, tenantId, input);
 
       // References are random, so a collision is possible but vanishingly rare.
       // The unique index is the authority; we retry rather than trust luck.
@@ -355,12 +456,30 @@ export class CasesService {
       throw new BadRequestException("Could not allocate a case reference; please retry");
       })
       .then((created) => {
-        // The borrower's first document request. Fire-and-forget AFTER the case
-        // is committed: a send problem (or no email on file) is recorded on
-        // case_messages and must never fail or delay case creation itself.
-        void this.nudges
-          .sendNudge(tenantId, created.id, "initial")
-          .catch((e) => this.log.error(`initial nudge for case ${created.id} failed: ${e}`));
+        // Two follow-on steps, both AFTER the case is committed and neither
+        // able to fail or delay creation itself.
+        //
+        // THE ORDER IS THE POINT. The initial request lists what the case is
+        // still missing, and carry-forward is what decides some of it is not
+        // missing at all. Firing them concurrently would race, and the race
+        // this feature exists to prevent is precisely the one it would lose:
+        // an exporter asked to send the IEC that Docket had already filed
+        // seconds earlier. So the nudge waits for the carry to finish —
+        // including when the carry FAILS, because a nudge that over-asks is
+        // recoverable while one that has already been sent is not.
+        void (async () => {
+          try {
+            await this.documents.carryForward(tenantId, created.id);
+          } catch (e) {
+            // Never fatal: the case exists and simply has fewer documents on
+            // it. carryForward() is idempotent, so a later run recovers this.
+            this.log.error(`carry-forward for case ${created.id} failed: ${e}`);
+          }
+          // A send problem (or no email on file) is recorded on case_messages.
+          await this.nudges
+            .sendNudge(tenantId, created.id, "initial")
+            .catch((e) => this.log.error(`initial nudge for case ${created.id} failed: ${e}`));
+        })();
         return created;
       });
   }
@@ -811,7 +930,9 @@ export class CasesController {
 }
 
 @Module({
-  imports: [NudgesModule],
+  // DocumentsModule for carry-forward on creation. It exports DocumentsService
+  // and does not import CasesModule, so this is not a cycle.
+  imports: [NudgesModule, DocumentsModule],
   controllers: [CasesController],
   providers: [CasesService],
   // Exported for the intake endpoint: a case born from the website must be

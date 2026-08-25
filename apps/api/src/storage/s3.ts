@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { Injectable } from "@nestjs/common";
 import {
+  CopyObjectCommand,
   DeleteObjectCommand,
   GetObjectCommand,
   HeadObjectCommand,
@@ -112,6 +113,56 @@ export class S3StorageDriver implements StorageDriver {
   async delete(key: string): Promise<void> {
     await this.s3.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: key }));
   }
+
+  /**
+   * Server-side copy — S3 duplicates the object itself, so the bytes are never
+   * uploaded through this process a second time.
+   *
+   * The verification below does read the copy back to hash it, so this is not
+   * free: it costs one GET of an object bounded by MAX_UPLOAD_BYTES (25MB).
+   * That is the same price head() already pays on every upload confirmation,
+   * and it buys the same thing — knowing what we hold instead of believing a
+   * successful-looking response.
+   *
+   * The encryption headers are repeated rather than inherited: CopyObject
+   * writes a NEW object, and the bucket policy denies any write that does not
+   * declare aws:kms. Omitting them here would fail exactly like a PUT does.
+   * MetadataDirective is left at its default (COPY), which carries the source
+   * object's content type across — losing it would make the copy download as
+   * an unnamed binary.
+   *
+   * The result is read back rather than inferred from a successful response.
+   * `aws s3 cp` has twice reported success here while writing nothing
+   * (ERRORS.md), and a carried-forward document that appears accepted with no
+   * bytes behind it is precisely the failure this feature must not introduce.
+   */
+  async copy(from: string, to: string): Promise<StoredObject> {
+    await this.s3.send(
+      new CopyObjectCommand({
+        Bucket: this.bucket,
+        Key: to,
+        CopySource: encodeCopySource(this.bucket, from),
+        ServerSideEncryption: "aws:kms",
+        ...(this.kmsKeyId ? { SSEKMSKeyId: this.kmsKeyId } : {}),
+      }),
+    );
+    const stored = await this.head(to);
+    if (!stored) {
+      throw new Error(`Copy of ${from} to ${to} reported success but nothing is stored there`);
+    }
+    return stored;
+  }
+}
+
+/**
+ * CopySource is a URL path, not a plain string: S3 decodes it once. Segments
+ * are encoded individually so the slashes that separate bucket from key stay
+ * slashes. Today's keys are UUIDs and would survive naive concatenation, but a
+ * key that ever carries a space or a '+' would silently resolve to a different
+ * object — and "silently the wrong document" is the worst outcome available.
+ */
+function encodeCopySource(bucket: string, key: string): string {
+  return [bucket, ...key.split("/")].map(encodeURIComponent).join("/");
 }
 
 function sha256(buf: Buffer): string {

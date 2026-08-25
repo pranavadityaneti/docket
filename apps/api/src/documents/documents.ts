@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import {
   BadRequestException,
   Body,
@@ -6,6 +7,7 @@ import {
   Get,
   Inject,
   Injectable,
+  Logger,
   Module,
   NotFoundException,
   Param,
@@ -17,7 +19,7 @@ import {
   UseGuards,
 } from "@nestjs/common";
 import { IsIn, IsOptional, IsString, IsUUID, MaxLength, MinLength } from "class-validator";
-import { and, asc, eq, isNull } from "drizzle-orm";
+import { and, asc, desc, eq, gt, isNotNull, isNull, ne, or } from "drizzle-orm";
 import type { Request } from "express";
 import {
   caseEvents,
@@ -197,8 +199,57 @@ export class RemoveDocumentDto {
   reason?: string;
 }
 
+/** What one carry-forward run did. Returned so callers can log it honestly. */
+export type CarryForwardResult = {
+  /** Documents actually written onto the case. */
+  carried: number;
+  /** Eligible documents whose bytes could not be copied. Not fatal; re-runnable. */
+  failed: number;
+};
+
+/**
+ * The document a candidate ultimately descends from.
+ *
+ * A carried copy is itself eligible to be carried onward — deliberately, so a
+ * subject does not lose a document when the case it was first supplied on is
+ * removed. That makes identity a question about the ORIGIN rather than the row:
+ * three copies of one IEC sitting on three earlier cases are one document, and
+ * must occupy one slot, not three.
+ */
+function originOf(doc: { id: string; reusedFromId: string | null }): string {
+  return doc.reusedFromId ?? doc.id;
+}
+
+/** One planned placement, decided under a consistent read before any copying. */
+type CarryJob = {
+  requirementId: string;
+  /** Minted before the copy so it can name the destination storage key. */
+  newId: string;
+  source: {
+    id: string;
+    reusedFromId: string | null;
+    key: string;
+    fileName: string;
+    mimeType: string | null;
+    sizeBytes: number | null;
+    checksum: string | null;
+    storageKey: string | null;
+    expiresAt: Date | null;
+    sourceChannel: (typeof documents.$inferSelect)["sourceChannel"];
+    sourceIdentifier: string | null;
+    classifiedType: string | null;
+    classificationConfidence: (typeof documents.$inferSelect)["classificationConfidence"];
+    classifiedAt: Date | null;
+    reviewedBy: string | null;
+    reviewedAt: Date | null;
+    receivedAt: Date;
+  };
+};
+
 @Injectable()
 export class DocumentsService {
+  private readonly log = new Logger(DocumentsService.name);
+
   constructor(
     private readonly db: DbService,
     @Inject(STORAGE) private readonly storage: StorageDriver,
@@ -484,6 +535,256 @@ export class DocumentsService {
         .returning();
       return updated;
     });
+  }
+
+  /**
+   * Carry a subject's reusable documents onto a case.
+   *
+   * WHY THIS EXISTS
+   * `reusable` was a column, a badge and a comment — and nothing else. No code
+   * anywhere carried a document from one case to the next, so a subject with
+   * five cases was asked for the same identity proof five times. For lending
+   * that was an irritation; for Export/Import it is disqualifying, because an
+   * exporter's IEC and AD Code are collected once and their shipments recur.
+   *
+   * WHAT IS ELIGIBLE — deliberately narrow, because filing a document onto a
+   * case nobody chose to file it on is a strong action:
+   *   - ACCEPTED only. `received` and `needs_review` have not been judged yet,
+   *     and expires_at is only stamped on acceptance — carrying an unjudged
+   *     document would spread an unresolved question across cases.
+   *   - NOT EXPIRED. The LUT an exporter files expires every financial year;
+   *     carrying a stale one forward would assert something false.
+   *   - BYTES PRESENT. A row whose upload was abandoned is not a document.
+   *   - REUSABLE ON BOTH SIDES. The source requirement and the destination
+   *     requirement must each be marked reusable, so both workflow authors
+   *     opted in. Matching is on requirement KEY, not id, which is what lets a
+   *     document collected on "Exporter Registration" satisfy the same slot on
+   *     "Export Shipment" — different workflows, same key.
+   *
+   * WHAT IT REFUSES TO DO
+   *   - Overflow an item. Capacity is counted with occupiesSlot(), the same
+   *     predicate uploads are checked against, so carrying can never push an
+   *     item past maxFiles.
+   *   - Re-carry something already here. A source that has already been placed
+   *     on this case is skipped even if staff REJECTED it — otherwise every
+   *     rejection would be undone by the next run, and staff would be fighting
+   *     the system.
+   *   - Apply a requirement the case's own answers exclude, via
+   *     requirementApplies() — the same gate the checklist uses.
+   *
+   * ORDERING. Storage copies happen BETWEEN two transactions, never inside
+   * one: an S3 round-trip per document while holding row locks is how a case
+   * creation turns into a timeout. A failure here is therefore never fatal —
+   * the case exists, it simply has fewer documents on it, and the operation is
+   * safe to run again.
+   */
+  async carryForward(tenantId: string, caseId: string): Promise<CarryForwardResult> {
+    const empty: CarryForwardResult = { carried: 0, failed: 0 };
+
+    /* ---- 1. Decide, in one consistent read, what should be carried. ---- */
+    const jobs = await this.db.withTenant(tenantId, async (tx) => {
+      const [target] = await tx
+        .select({
+          contactId: cases.contactId,
+          workflowId: cases.workflowId,
+          data: cases.data,
+        })
+        .from(cases)
+        .where(and(eq(cases.id, caseId), isNull(cases.deletedAt)))
+        .limit(1);
+      // A missing case, or one with no subject, has nothing to inherit.
+      // Neither is an error: this runs alongside case creation and must not be
+      // able to fail it.
+      if (!target?.contactId) return [];
+
+      const targetReqs = (
+        await tx
+          .select()
+          .from(documentRequirements)
+          .where(
+            and(
+              eq(documentRequirements.workflowId, target.workflowId),
+              eq(documentRequirements.reusable, true),
+            ),
+          )
+      ).filter((r) => requirementApplies(r.condition, target.data));
+      if (targetReqs.length === 0) return [];
+
+      const existing = await tx
+        .select({
+          requirementId: documents.requirementId,
+          reusedFromId: documents.reusedFromId,
+          status: documents.status,
+          storageKey: documents.storageKey,
+        })
+        .from(documents)
+        .where(and(eq(documents.caseId, caseId), isNull(documents.deletedAt)));
+
+      const candidates = await tx
+        .select({
+          id: documents.id,
+          // A candidate may itself be a carried copy. Its ORIGIN is what
+          // identifies the underlying document — see originOf().
+          reusedFromId: documents.reusedFromId,
+          key: documentRequirements.key,
+          fileName: documents.fileName,
+          mimeType: documents.mimeType,
+          sizeBytes: documents.sizeBytes,
+          checksum: documents.checksum,
+          storageKey: documents.storageKey,
+          expiresAt: documents.expiresAt,
+          sourceChannel: documents.sourceChannel,
+          sourceIdentifier: documents.sourceIdentifier,
+          classifiedType: documents.classifiedType,
+          classificationConfidence: documents.classificationConfidence,
+          classifiedAt: documents.classifiedAt,
+          reviewedBy: documents.reviewedBy,
+          reviewedAt: documents.reviewedAt,
+          receivedAt: documents.receivedAt,
+        })
+        .from(documents)
+        .innerJoin(cases, eq(documents.caseId, cases.id))
+        .innerJoin(documentRequirements, eq(documents.requirementId, documentRequirements.id))
+        .where(
+          and(
+            eq(cases.contactId, target.contactId),
+            ne(cases.id, caseId),
+            isNull(cases.deletedAt),
+            isNull(documents.deletedAt),
+            eq(documents.status, "accepted"),
+            isNotNull(documents.storageKey),
+            eq(documentRequirements.reusable, true),
+            // Evaluated against the DB's clock via the driver's parameter, so
+            // "still valid" cannot drift with the API process's timezone.
+            or(isNull(documents.expiresAt), gt(documents.expiresAt, new Date())),
+          ),
+        )
+        // Freshest first: where a subject has supplied the same document more
+        // than once over the years, the newest copy is the one to carry.
+        .orderBy(desc(documents.receivedAt));
+
+      // Origins already placed here — INCLUDING ones staff rejected, so a
+      // rejection is not silently reversed on the next run.
+      const placed = new Set(
+        existing.map((e) => e.reusedFromId).filter((id): id is string => id !== null),
+      );
+
+      const planned: CarryJob[] = [];
+      for (const req of targetReqs) {
+        const mine = existing.filter((d) => d.requirementId === req.id);
+        let free = req.maxFiles - mine.filter(occupiesSlot).length;
+        if (free <= 0) continue;
+        for (const source of candidates) {
+          if (free <= 0) break;
+          // Identity is the ORIGIN, never the row. After a few cases a subject
+          // accumulates one carried copy of the same document per case, and
+          // treating those as distinct would fill a maxFiles:3 item with three
+          // copies of ONE AD Code — locking staff out of the two other ports
+          // they still have to supply.
+          const origin = originOf(source);
+          if (source.key !== req.key || placed.has(origin)) continue;
+          // The destination id is minted HERE so it can name the storage key
+          // before the row exists. It is also what guarantees the copy's
+          // destination key can never equal its source's — S3 rejects a copy
+          // onto itself, and a fresh uuid makes that unreachable.
+          planned.push({ requirementId: req.id, newId: randomUUID(), source });
+          placed.add(origin);
+          free--;
+        }
+      }
+      return planned;
+    });
+
+    if (jobs.length === 0) return empty;
+
+    /* ---- 2. Duplicate the bytes, outside any transaction. ---- */
+    const copied: Array<CarryJob & { destKey: string }> = [];
+    let failed = 0;
+    for (const job of jobs) {
+      const destKey = documentKey(tenantId, caseId, job.newId);
+      try {
+        await this.storage.copy(job.source.storageKey!, destKey);
+        copied.push({ ...job, destKey });
+      } catch (err) {
+        // One unreadable object must not cost the case its other documents.
+        failed++;
+        this.log.error(
+          `carry-forward: could not copy ${job.source.fileName} (${job.source.id}) onto case ${caseId}: ${String(err)}`,
+        );
+      }
+    }
+
+    /* ---- 3. Insert, re-checking the guard against a fresh read. ---- */
+    let carried = 0;
+    const orphaned: string[] = [];
+    await this.db.withTenant(tenantId, async (tx) => {
+      const placedNow = new Set(
+        (
+          await tx
+            .select({ reusedFromId: documents.reusedFromId })
+            .from(documents)
+            .where(and(eq(documents.caseId, caseId), isNull(documents.deletedAt)))
+        )
+          .map((r) => r.reusedFromId)
+          .filter((id): id is string => id !== null),
+      );
+
+      for (const job of copied) {
+        // Re-read rather than trusting step 1: minutes of storage copies may
+        // have passed, and staff may have filed the same document by hand in
+        // the meantime.
+        const origin = originOf(job.source);
+        if (placedNow.has(origin)) {
+          orphaned.push(job.destKey);
+          continue;
+        }
+        await tx.insert(documents).values({
+          id: job.newId,
+          tenantId,
+          caseId,
+          requirementId: job.requirementId,
+          fileName: job.source.fileName,
+          mimeType: job.source.mimeType,
+          sizeBytes: job.source.sizeBytes,
+          checksum: job.source.checksum,
+          storageKey: job.destKey,
+          // Carried forward AS ACCEPTED. Re-reviewing a document a colleague
+          // already accepted is the very work this feature removes; the
+          // original reviewer and timestamp travel with it so the audit answers
+          // "who actually checked this?" with a person, not with this process.
+          status: "accepted",
+          expiresAt: job.source.expiresAt,
+          reviewedBy: job.source.reviewedBy,
+          reviewedAt: job.source.reviewedAt,
+          sourceChannel: job.source.sourceChannel,
+          sourceIdentifier: job.source.sourceIdentifier,
+          classifiedType: job.source.classifiedType,
+          classificationConfidence: job.source.classificationConfidence,
+          classifiedAt: job.source.classifiedAt,
+          // The date the SUBJECT supplied it, not today. Staff judge freshness
+          // by this column, and a document supplied in March must not claim to
+          // have arrived this morning.
+          receivedAt: job.source.receivedAt,
+          // The ORIGINAL, not the copy this was taken from. Chaining
+          // copy-of-a-copy would make "where did this come from?" a multi-hop
+          // walk that breaks the moment one link is removed.
+          reusedFromId: origin,
+        });
+        placedNow.add(origin);
+        carried++;
+      }
+    });
+
+    // Bytes copied for a row that was not written afterwards are litter. Purge
+    // them rather than leaving objects no row will ever name.
+    for (const key of orphaned) {
+      await this.storage.delete(key).catch(() => undefined);
+    }
+
+    if (carried > 0) {
+      this.log.log(`carry-forward: placed ${carried} reusable document(s) on case ${caseId}`);
+    }
+    return { carried, failed };
   }
 
   /**

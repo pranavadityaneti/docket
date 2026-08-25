@@ -49,6 +49,23 @@ export interface StorageDriver {
   /** Read it back — for download and, later, for OCR. */
   get(key: string): Promise<Buffer>;
   delete(key: string): Promise<void>;
+  /**
+   * Duplicate a stored object under a new key.
+   *
+   * Exists so a document carried forward onto another case owns its OWN
+   * object rather than sharing the original's. Sharing would be cheaper and
+   * is the obvious first instinct, but remove() HARD-DELETES the object and
+   * clears storage_key: one case removing a shared file would leave the other
+   * case's row pointing at bytes that no longer exist, and nothing would
+   * report it — the checklist would still show the document as accepted.
+   * Separate objects make the two lifecycles genuinely independent.
+   *
+   * Returns what is actually stored at `to`, verified by reading it back.
+   * A copy that silently writes nothing is a real failure mode we have been
+   * bitten by before (see ERRORS.md), so the caller is handed evidence rather
+   * than the absence of an exception.
+   */
+  copy(from: string, to: string): Promise<StoredObject>;
 }
 
 /**
@@ -166,6 +183,11 @@ export class LocalStorageDriver implements StorageDriver {
 
   async delete(key: string): Promise<void> {
     await rm(this.filePath(key), { force: true });
+  }
+
+  /** Read-then-write. No server-side copy exists for a filesystem. */
+  async copy(from: string, to: string): Promise<StoredObject> {
+    return this.put(to, await this.get(from));
   }
 }
 
