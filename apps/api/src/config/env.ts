@@ -119,7 +119,7 @@ export const env = {
    */
   whatsappVerifyToken: process.env.WHATSAPP_VERIFY_TOKEN?.trim() || undefined,
   /** Meta Graph API version used for media download. */
-  graphApiVersion: process.env.GRAPH_API_VERSION?.trim() || "v21.0",
+  graphApiVersion: process.env.GRAPH_API_VERSION?.trim() || "v25.0",
   /**
    * OpenAI credentials for document classification. Optional: when unset the
    * classifier no-ops and every arrival stays wherever it lands today — the
